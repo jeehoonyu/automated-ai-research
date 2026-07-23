@@ -1,6 +1,6 @@
 * text=auto eol=lf
 
-*.pdf -text
+*.pdf binary
 *.png -text
 *.sqlite3 -text
 benchmark/expected/**/originals/** -text

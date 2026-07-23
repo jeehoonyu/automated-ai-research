@@ -23,6 +23,8 @@ jobs:
       - run: ruff check .
       - run: ruff format --check .
       - run: mypy src/research
+      - run: python benchmark/generate_fixtures.py
+      - run: git diff --exit-code -- benchmark/fixtures
       - run: pytest --cov=research --cov-report=term-missing
       - run: python -m pip wheel . --no-deps --wheel-dir dist
       - run: python tests/packaging_smoke.py

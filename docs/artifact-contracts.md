@@ -1,7 +1,10 @@
 # Artifact contracts
 
 Schemas under `schemas/v1/` are authoritative. Every canonical artifact declares its schema name,
-semantic version, unique artifact ID, RFC 8785 content hash, UTC creation time, and actor metadata.
+semantic version, unique artifact ID, RFC 8785 content hash, RFC3339 creation time, and structured actor
+metadata. New candidate artifacts identify either a `host_agent` or `human`; `system` is reserved for
+artifacts created by deterministic CLI operations. The legacy `agent` label remains readable only for
+checked-in pre-contract conformance artifacts.
 
 Source documents use `DOC-sha256-<full hash>`. Document versions, chunks, and evidence use deterministic
 SHA-256-derived identifiers. Runs use UUIDv4. Claims, reviews, and amendments use UUIDv7; immutable

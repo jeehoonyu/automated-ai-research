@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0.0",
+  "fixtures": [
+    {
+      "path": "fixtures/synthetic-visual.pdf",
+      "source_sha256": "sha256:c6ef26c7a0816734bfd37d4e22c06d0bcfe964d5ae525b97e3a5d17627e377a3",
+      "page_count": 2,
+      "all_pages_rendered": true,
+      "ocr_required_pages": [2],
+      "visual_region": {
+        "page": 1,
+        "caption_contains": "Figure 1",
+        "coordinate_system": "normalized_top_left_0_to_1"
+      }
+    },
+    {
+      "path": "fixtures/synthetic-table.pdf",
+      "source_sha256": "sha256:255afef14abf764c72d61a56498cc3073dbd0222fee843d94aa8bf7bc31a5a9d",
+      "page_count": 1,
+      "all_pages_rendered": true,
+      "table_pages": [1]
+    }
+  ]
+}

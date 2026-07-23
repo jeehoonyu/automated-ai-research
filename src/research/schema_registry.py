@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import re
 import sysconfig
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +12,8 @@ from jsonschema.exceptions import SchemaError
 
 from research.constants import EXIT_SCHEMA, EXIT_UNSUPPORTED, SCHEMA_VERSION
 from research.errors import ResearchError
+
+_RFC3339 = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$")
 
 
 class SchemaRegistry:
@@ -78,6 +82,41 @@ class SchemaRegistry:
                 category="schema_validation_failure",
                 exit_code=EXIT_SCHEMA,
                 details={"validation_errors": details},
+            )
+        if schema_name != "Profile":
+            self._validate_common_metadata(artifact)
+
+    @staticmethod
+    def _validate_common_metadata(artifact: dict[str, Any]) -> None:
+        created_at = artifact.get("created_at")
+        try:
+            if not isinstance(created_at, str) or not _RFC3339.fullmatch(created_at):
+                raise ValueError
+            parsed = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+            if parsed.utcoffset() is None:
+                raise ValueError
+        except ValueError as exc:
+            raise ResearchError(
+                f"Artifact {artifact.get('artifact_id', '<unknown>')} has a non-RFC3339 created_at",
+                category="schema_validation_failure",
+                exit_code=EXIT_SCHEMA,
+            ) from exc
+        created_by = artifact.get("created_by")
+        if (
+            not isinstance(created_by, dict)
+            or created_by.get("actor_type") not in {"system", "host_agent", "human", "agent"}
+            or not isinstance(created_by.get("host"), str)
+            or not created_by["host"]
+            or (
+                "model_identifier" in created_by
+                and created_by["model_identifier"] is not None
+                and not isinstance(created_by["model_identifier"], str)
+            )
+        ):
+            raise ResearchError(
+                f"Artifact {artifact.get('artifact_id', '<unknown>')} has invalid created_by metadata",
+                category="schema_validation_failure",
+                exit_code=EXIT_SCHEMA,
             )
 
 

@@ -291,6 +291,7 @@ def promote_stage(workspace: Path, run_id: str, stage: str) -> dict[str, Any]:
                 f"Candidate belongs to another run: {path}", category="run_mismatch"
             )
         artifacts.append(candidate)
+    _validate_candidate_actors(artifacts)
     responses = [item for item in artifacts if item.get("schema_name") == "StageResponse"]
     if len(responses) != 1:
         raise ResearchError(
@@ -522,14 +523,13 @@ def _promote_supplemental(workspace: Path, run_id: str, stage: str) -> dict[str,
                 f"Candidate belongs to another run: {path}", category="run_mismatch"
             )
         artifacts.append(candidate)
+    _validate_candidate_actors(artifacts)
     responses = [item for item in artifacts if item.get("schema_name") == "StageResponse"]
     outputs = [item for item in artifacts if item.get("schema_name") != "StageResponse"]
     required_schema = SUPPLEMENTAL_REQUIREMENTS[stage]
-    if len(responses) != 1 or not any(
-        item.get("schema_name") == required_schema for item in outputs
-    ):
+    if len(responses) != 1:
         raise ResearchError(
-            f"Supplemental stage {stage} requires one StageResponse and {required_schema} output",
+            f"Supplemental stage {stage} requires exactly one StageResponse",
             category="stage_contract_failure",
         )
     response = responses[0]
@@ -537,6 +537,35 @@ def _promote_supplemental(workspace: Path, run_id: str, stage: str) -> dict[str,
         str(item["artifact_id"]) for item in outputs
     }:
         raise ResearchError("Supplemental StageResponse does not match outputs")
+    if response.get("outcome") in {"blocked", "failed"}:
+        if outputs:
+            raise ResearchError(
+                "Blocked or failed supplemental responses must not promote partial outputs",
+                category="stage_contract_failure",
+            )
+        accepted, path = store_artifact(run_dir, response, registry=registry)
+        updated = _transition(
+            run_dir,
+            manifest,
+            str(manifest["phase"]),
+            "blocked",
+            trigger=f"research validate {run_id} --stage {stage}",
+            artifact_hashes=[accepted["artifact_hash"]],
+            reason=f"{stage} reported {response['outcome']} without completing the supplemental stage",
+        )
+        return {
+            "run_id": run_id,
+            "stage": stage,
+            "phase": updated["phase"],
+            "disposition": updated["disposition"],
+            "promoted_artifacts": [str(path.relative_to(run_dir))],
+            "revalidation_required": False,
+        }
+    if not any(item.get("schema_name") == required_schema for item in outputs):
+        raise ResearchError(
+            f"Supplemental stage {stage} requires a {required_schema} output",
+            category="stage_contract_failure",
+        )
     if stage == "human_review" and any(
         item.get("schema_name") != "Review" or item.get("review_type") != "human_review"
         for item in outputs
@@ -886,6 +915,20 @@ def _validate_uuid7_artifacts(artifacts: list[dict[str, Any]]) -> None:
                 f"{artifact['schema_name']} identifier must use UUIDv7: {identifier}",
                 category="invalid_identifier",
             )
+
+
+def _validate_candidate_actors(artifacts: list[dict[str, Any]]) -> None:
+    invalid = [
+        str(item.get("artifact_id", "unknown"))
+        for item in artifacts
+        if item.get("created_by", {}).get("actor_type") not in {"host_agent", "human"}
+    ]
+    if invalid:
+        raise ResearchError(
+            "Candidate artifacts must identify a host_agent or human actor: "
+            + ", ".join(sorted(invalid)),
+            category="stage_contract_failure",
+        )
 
 
 def _validate_stage_references(

@@ -212,7 +212,11 @@ def test_human_review_requires_a_human_actor_attestation(workspace: Path) -> Non
     run = create_run(workspace, "Can an agent impersonate a human reviewer?", "default")
     run_dir = Path(run["run_path"])
     review_id = generated_identifier("REV")
-    review = artifact_base("Review", review_id)
+    review = artifact_base(
+        "Review",
+        review_id,
+        {"actor_type": "host_agent", "host": "codex", "model_identifier": "test"},
+    )
     review.update(
         {
             "run_id": run["run_id"],
@@ -237,6 +241,51 @@ def test_human_review_requires_a_human_actor_attestation(workspace: Path) -> Non
     assert error.value.category == "human_attestation_required"
 
 
+def test_blocked_supplemental_stage_cannot_promote_partial_outputs(workspace: Path) -> None:
+    blocked = create_run(workspace, "Why is human review blocked?", "default")
+    blocked_dir = Path(blocked["run_path"])
+    response = _stage_response(blocked["run_id"], "human_review", "blocked", [])
+    write_json_atomic(blocked_dir / "responses" / "human_review" / "response.json", response)
+    result = promote_stage(workspace, blocked["run_id"], "human_review")
+    assert result["phase"] == "initialized"
+    assert result["disposition"] == "blocked"
+    assert result["revalidation_required"] is False
+
+    partial = create_run(workspace, "Can blocked human output become canonical?", "default")
+    partial_dir = Path(partial["run_path"])
+    review_id = generated_identifier("REV")
+    review = artifact_base(
+        "Review",
+        review_id,
+        {"actor_type": "human", "host": "manual-review", "model_identifier": None},
+    )
+    review.update(
+        {
+            "run_id": partial["run_id"],
+            "review_id": review_id,
+            "review_type": "human_review",
+            "reviewed_artifact_ids": [partial["run_id"]],
+            "reviewer_identity": {"name": "Test reviewer"},
+            "reviewer_independence_status": "not_applicable",
+            "decision": "incomplete",
+            "claim_assessments": [],
+            "findings": [],
+            "blocking_issues": ["review could not be completed"],
+            "warnings": [],
+            "required_amendments": [],
+        }
+    )
+    partial_response = _stage_response(partial["run_id"], "human_review", "blocked", [review_id])
+    write_json_atomic(partial_dir / "responses" / "human_review" / "review.json", review)
+    write_json_atomic(
+        partial_dir / "responses" / "human_review" / "response.json", partial_response
+    )
+    with pytest.raises(ResearchError) as error:
+        promote_stage(workspace, partial["run_id"], "human_review")
+    assert error.value.category == "stage_contract_failure"
+    assert not any((partial_dir / "reviews").rglob("*.json"))
+
+
 def test_full_validation_detects_tampered_canonical_work_packet(workspace: Path) -> None:
     run = create_run(workspace, "Does canonical packet integrity hold?", "default")
     run_dir = Path(run["run_path"])
@@ -252,7 +301,11 @@ def test_full_validation_detects_tampered_canonical_work_packet(workspace: Path)
 def _stage_response(
     run_id: str, stage: str, outcome: str, artifact_ids: list[str]
 ) -> dict[str, object]:
-    response = artifact_base("StageResponse", generated_identifier("STG"))
+    response = artifact_base(
+        "StageResponse",
+        generated_identifier("STG"),
+        {"actor_type": "host_agent", "host": "codex", "model_identifier": "test"},
+    )
     response.update(
         {
             "run_id": run_id,

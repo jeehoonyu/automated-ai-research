@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from reportlab.pdfgen import canvas
 
 from research.artifacts import artifact_base, store_artifact
 from research.canonical import finalize_artifact, prefixed_sha256
@@ -207,8 +208,13 @@ def test_complete_agent_artifact_flow(workspace: Path, tmp_path: Path) -> None:
     report_text = Path(report["report_path"]).read_text(encoding="utf-8")
     assert "report-eligible" not in report_text
     assert "## Supporting evidence" in report_text
+    assert "## Contradictory evidence" in report_text
     assert "## Methodological limitations" in report_text
     assert "## References" in report_text
+    assert "Uncertainty factors:" in report_text
+    assert "evidence directness: `high`" in report_text
+    assert "<script>" not in report_text
+    assert "&lt;script&gt;" in report_text
     _, manifest = load_run(workspace, run_id)
     assert manifest["phase"] == "published"
 
@@ -289,6 +295,166 @@ def test_complete_agent_artifact_flow(workspace: Path, tmp_path: Path) -> None:
     )
 
 
+def test_human_visual_amendment_preserves_same_evidence_identity(
+    workspace: Path, tmp_path: Path
+) -> None:
+    pdf_path = tmp_path / "image-only.pdf"
+    pdf = canvas.Canvas(str(pdf_path))
+    pdf.showPage()
+    pdf.save()
+    imported = import_sources(workspace, [pdf_path])
+    assert imported["partial_count"] == 1
+    build_index(workspace)
+    run = create_run(workspace, "What appears on the scanned page?", "default", host="codex")
+    run_id = run["run_id"]
+    run_dir = Path(run["run_path"])
+
+    plan = _artifact(
+        "ResearchPlan",
+        generated_identifier("PLAN"),
+        run_id=run_id,
+        main_question="What appears on the scanned page?",
+        subquestions=["Can the visual be verified by a human?"],
+        definitions=[],
+        scope={"documents": "local corpus"},
+        inclusion_criteria=["human-verified visual regions"],
+        exclusion_criteria=["unverified OCR inference"],
+        search_terms=["scanned page"],
+        evidence_requirements=["page render hash and visual bounds"],
+        validation_criteria=["human verification amendment"],
+        expected_limitations=["image-only source"],
+        high_risk_classifications=[],
+        insufficient_evidence_conditions=["no human visual review"],
+    )
+    _submit(run_dir, "planning", run_id, [plan])
+    promote_stage(workspace, run_id, "planning")
+
+    search = search_index(workspace, "scanned", run_id=run_id)
+    retrieval = _artifact(
+        "RetrievalResult",
+        generated_identifier("RET"),
+        run_id=run_id,
+        queries=[
+            {
+                "query": "scanned",
+                "top_chunk_ids": [],
+                "search_event_id": search["search_event_id"],
+                "search_event_hash": search["search_event_hash"],
+            }
+        ],
+        ranked_chunk_ids=[],
+        coverage_notes=["Image-only page has no indexable extracted text"],
+    )
+    _submit(run_dir, "retrieval", run_id, [retrieval])
+    promote_stage(workspace, run_id, "retrieval")
+
+    version = next(iter_json(workspace / "documents" / "versions"))
+    render = version["pages"][0]["render"]
+    locator = {
+        "type": "visual_region",
+        "page": 1,
+        "render_sha256": render["sha256"],
+        "coordinate_system": "normalized_top_left_0_to_1",
+        "bounding_box": {"x": 0.0, "y": 0.0, "width": 1.0, "height": 1.0},
+        "render_width": render["width"],
+        "render_height": render["height"],
+    }
+    evidence_id = derived_identifier(
+        "EVD",
+        {
+            "document_version_id": version["document_version_id"],
+            "locator": locator,
+            "exact_evidence_content": None,
+            "extraction_type": "figure_observation",
+        },
+    )
+    evidence = _artifact(
+        "Evidence",
+        evidence_id,
+        evidence_id=evidence_id,
+        document_id=version["document_id"],
+        document_version_id=version["document_version_id"],
+        evidence_type="figure_observation",
+        locator=locator,
+        exact_text=None,
+        context_before=None,
+        context_after=None,
+        extraction_method="page_render_inspection",
+        extraction_status="human_review_required",
+        human_review_required=True,
+        region_type="full_page",
+        caption=None,
+        interpretation_status="human_review_required",
+    )
+    _submit(run_dir, "evidence_extraction", run_id, [evidence])
+    promote_stage(workspace, run_id, "evidence_extraction")
+    target = next(iter_json(run_dir / "evidence"))
+
+    replacement = dict(target)
+    replacement.pop("artifact_hash")
+    replacement["created_at"] = "9999-12-31T23:59:59.999999Z"
+    replacement["created_by"] = {
+        "actor_type": "human",
+        "host": "manual-review",
+        "model_identifier": None,
+    }
+    replacement["human_review_required"] = False
+    replacement["interpretation_status"] = "human_verified"
+    replacement = finalize_artifact(replacement)
+    assert replacement["artifact_id"] == target["artifact_id"]
+    assert replacement["artifact_hash"] != target["artifact_hash"]
+
+    amendment_id = generated_identifier("AMD")
+    amendment = _artifact(
+        "Amendment",
+        amendment_id,
+        amendment_id=amendment_id,
+        target_artifact_id=target["artifact_id"],
+        target_artifact_hash=target["artifact_hash"],
+        amendment_type="human_visual_verification",
+        changed_fields=["human_review_required", "interpretation_status"],
+        reason="A human inspected the complete immutable page render",
+        human_identity={"name": "Test visual reviewer"},
+        replacement_artifact_id=replacement["artifact_id"],
+        replacement_artifact_hash=replacement["artifact_hash"],
+        review_required=True,
+    )
+    amendment["created_by"] = {
+        "actor_type": "human",
+        "host": "manual-review",
+        "model_identifier": None,
+    }
+    _submit(run_dir, "amendment", run_id, [replacement, amendment])
+    promote_stage(workspace, run_id, "amendment")
+
+    human_review = _review(run_id, "unused", "human_review")
+    human_review["created_by"] = {
+        "actor_type": "human",
+        "host": "manual-review",
+        "model_identifier": None,
+    }
+    human_review["reviewer_identity"] = {"name": "Second test reviewer"}
+    human_review["reviewed_artifact_ids"] = [amendment_id]
+    human_review["claim_assessments"] = []
+    _submit(run_dir, "human_review", run_id, [human_review])
+    promote_stage(workspace, run_id, "human_review")
+
+    validation, exit_code = validate_run(workspace, run_id)
+    assert exit_code == 5
+    unresolved_codes = {item["code"] for item in validation["human_review_requirements"]}
+    assert unresolved_codes.isdisjoint(
+        {
+            "visual_or_ocr_review",
+            "visual_interpretation_review",
+            "human_visual_verification_provenance",
+            "ocr_page_evidence",
+        }
+    )
+    inspected = inspect_artifact(workspace, evidence_id)
+    assert inspected["artifact"]["interpretation_status"] == "human_verified"
+    assert len(list(iter_json(run_dir / "evidence"))) == 2
+
+
 def _artifact(schema_name: str, artifact_id: str, **values: Any) -> dict[str, Any]:
     result = artifact_base(
         schema_name,
@@ -322,7 +488,7 @@ def _claim(
         support_classification="moderately_supported",
         supporting_evidence_ids=[evidence_id],
         contradicting_evidence_ids=[],
-        assumptions=[],
+        assumptions=["<script>alert('untrusted')</script>"],
         scope={"source": "single study"},
         limitations=["single source"],
         citation_status=citation_status,

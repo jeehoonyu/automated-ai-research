@@ -12,6 +12,9 @@
   processing, and reject unrecorded canonical artifacts or dependent strong-support sources.
 - Expand integration coverage for Markdown/PDF tables, multi-column pages, visual captions,
   post-validation provenance tampering, and successful insufficient-evidence findings.
+- Add checked-in deterministic visual/table benchmark PDFs, same-ID human visual-verification
+  amendments, strict RFC3339/actor metadata, supplemental-stage blocking, explicit report uncertainty
+  factors and contradictory excerpts, atomic-failure recovery, and HTML-escaping coverage.
 - Add isolated wheel-install smoke testing to the cross-platform CI matrix.
 
 ## 0.1.0

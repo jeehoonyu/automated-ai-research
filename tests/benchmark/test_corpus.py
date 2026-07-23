@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import shutil
 from pathlib import Path
 
@@ -34,6 +35,46 @@ def test_redistributable_benchmark_invariants(workspace: Path) -> None:
     )
     assert hostile_chunk["index_eligible"] is True
     assert (workspace / "research.yaml").is_file()
+
+
+def test_checked_in_pdf_benchmark_contract(workspace: Path) -> None:
+    benchmark = Path(__file__).resolve().parents[2] / "benchmark"
+    contract = json.loads(
+        (benchmark / "expected" / "fixture-contract.json").read_text(encoding="utf-8")
+    )
+    imported = import_sources(workspace, [benchmark / "fixtures"])
+    assert imported["imported_count"] == 2
+    assert imported["failed_count"] == 0
+
+    documents = {
+        str(item["metadata"]["original_filename"]): item
+        for item in iter_json(workspace / "documents" / "manifests")
+    }
+    versions = {
+        str(item["document_id"]): item for item in iter_json(workspace / "documents" / "versions")
+    }
+    for expected in contract["fixtures"]:
+        filename = Path(expected["path"]).name
+        document = documents[filename]
+        assert document["source_sha256"] == expected["source_sha256"]
+        version = versions[document["document_id"]]
+        assert len(version["pages"]) == expected["page_count"]
+        assert all((workspace / page["render"]["path"]).is_file() for page in version["pages"])
+        assert all(page["render"]["sha256"].startswith("sha256:") for page in version["pages"])
+        if "ocr_required_pages" in expected:
+            assert version["metadata"]["ocr_required_pages"] == expected["ocr_required_pages"]
+            region_contract = expected["visual_region"]
+            page = version["pages"][region_contract["page"] - 1]
+            assert any(
+                region.get("coordinate_system") == region_contract["coordinate_system"]
+                and region_contract["caption_contains"] in str(region.get("caption"))
+                for region in page["visual_regions"]
+            )
+        if "table_pages" in expected:
+            for page_number in expected["table_pages"]:
+                page = version["pages"][page_number - 1]
+                assert page["table_detection_status"] == "extracted"
+                assert page["tables"]
 
 
 def test_checked_in_codex_conformance_run_is_validly_human_blocked(tmp_path: Path) -> None:

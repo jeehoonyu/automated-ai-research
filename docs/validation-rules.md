@@ -19,3 +19,7 @@ validation and immediately rechecks original bytes, renders, locators, packets, 
 Any later amendment, accepted artifact, or byte-level tampering makes validation stale.
 `unable_to_determine` is a successful research result when represented as an evidence-linked, reviewed
 claim.
+
+Reports render the categorical support classification together with every factor rating, including
+source independence, contradiction coverage, reviewer independence, visual certainty, and OCR
+dependency. No aggregate numeric confidence is calculated or displayed.

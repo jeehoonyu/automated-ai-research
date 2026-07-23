@@ -55,6 +55,16 @@ REPORT_TEMPLATE = """{% if draft %}
 
 - Type: `{{ claim.claim_type }}`
 - Status: `{{ claim.claim_status }}`
+- Citation status: `{{ claim.citation_status }}`
+- Contradiction status: `{{ claim.contradiction_status }}`
+- Methodology status: `{{ claim.methodology_status }}`
+- Independent-review status: `{{ claim.independent_review_status }}`
+- Human review required: `{{ claim.human_review_required }}`
+
+Uncertainty factors:
+
+{% for name, value in claim.factors | dictsort %}- {{ name | replace('_', ' ') }}: `{{ value }}`
+{% endfor %}
 
 Supporting evidence: {% for evidence_id in claim.supporting_evidence_ids %}`{{ evidence_id }}`{% if not loop.last %}, {% endif %}{% endfor %}
 
@@ -75,12 +85,22 @@ Supporting evidence: {% for evidence_id in claim.supporting_evidence_ids %}`{{ e
 
 ## Supporting evidence
 
-{% for item in citations %}### {{ item.evidence_id }}
+{% for item in supporting_citations %}### {{ item.evidence_id }}
 
 {% if item.exact_text %}> {{ item.exact_text | replace('\n', ' ') }}
 {% else %}Visual evidence region on page {{ item.page }}; inspect the evidence ID to resolve the render and bounding box.
 {% endif %}
 {% else %}No evidence records are available.
+{% endfor %}
+
+## Contradictory evidence
+
+{% for item in contradicting_citations %}### {{ item.evidence_id }}
+
+{% if item.exact_text %}> {{ item.exact_text | replace('\n', ' ') }}
+{% else %}Visual contradictory evidence region on page {{ item.page }}; inspect the evidence ID to resolve the render and bounding box.
+{% endif %}
+{% else %}No contradictory evidence records are linked to current claims.
 {% endfor %}
 
 ## Contradictions and limitations
@@ -191,6 +211,16 @@ def generate_report(workspace: Path, run_id: str, *, draft: bool = False) -> dic
         key=lambda item: (str(item["review_type"]), str(item["review_id"])),
     )
     citations = [_citation(item) for item in evidence]
+    supporting_ids = {
+        str(evidence_id)
+        for claim in claims
+        for evidence_id in claim.get("supporting_evidence_ids", [])
+    }
+    contradicting_ids = {
+        str(evidence_id)
+        for claim in claims
+        for evidence_id in claim.get("contradicting_evidence_ids", [])
+    }
     sources = _sources(workspace, evidence)
     independent_reviews = [
         item for item in reviews if item.get("review_type") == "independent_review"
@@ -220,6 +250,12 @@ def generate_report(workspace: Path, run_id: str, *, draft: bool = False) -> dic
                 item for item in reviews if item.get("review_type") == "methodology_review"
             ],
             citations=citations,
+            supporting_citations=[
+                item for item in citations if item["evidence_id"] in supporting_ids
+            ],
+            contradicting_citations=[
+                item for item in citations if item["evidence_id"] in contradicting_ids
+            ],
             conflicting_claims=[
                 item
                 for item in claims
