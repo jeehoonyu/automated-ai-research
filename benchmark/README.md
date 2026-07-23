@@ -18,3 +18,14 @@ python benchmark/prepare_conformance.py ./conformance-output
 The command imports and indexes one neutral base workspace, copies that immutable source/index state to
 both hosts, initializes separate runs, and refuses completion unless their semantic packet contracts
 match. It never invokes a model or claims that either host completed a stage.
+
+After both hosts and the required human reviewer have completed every packet, run:
+
+```bash
+python benchmark/check_conformance.py ./conformance-output
+```
+
+The checker applies the normal schema, reference, lifecycle, independence, human-review, and report
+gates to every run. It additionally requires the seeded contradiction to be linked as contradictory
+evidence and the insufficient-evidence run to contain `unable_to_determine`; it exits nonzero unless
+both hosts publish report-eligible results for both cases.

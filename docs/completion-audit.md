@@ -13,7 +13,7 @@ until every open gate below has direct evidence.
   hosts where symlink creation is permitted.
 - A clean wheel build installs in an isolated virtual environment, exposes `research --help`, and
   initializes a workspace from the packaged schema catalog. The verified wheel SHA-256 is
-  `8e5b9b9bfbe304829bf973afedd360bd0a9d768fc52d2fbee608abc9c2653e50`.
+  `5fb3f95057220f3e7103fae4a44bb8bdbd39f056f6075bb80af879e4358f13d7`.
 - Integration tests exercise duplicate Markdown imports, aliases, tables, fenced code, inert links,
   multi-column and table PDFs, raster and vector visual candidates, captions, full-page renders,
   OCR-required pages, malformed/encrypted PDFs, source/render/index/search-log tampering, deterministic
@@ -28,6 +28,9 @@ until every open gate below has direct evidence.
 - A tested conformance preparer clones one canonical source/index base for Codex and Claude Code,
   creates both conflicting-evidence and `unable_to_determine` runs, and hash-verifies normalized work
   packet parity including independent-review exclusions and validation commands.
+- A tested conformance checker refuses untouched prepared runs, applies the normal validation and
+  publication gates to all four host/case combinations, checks the seeded expected outcomes, and
+  records its result in a canonically hashed manifest.
 - Rule tests reject unsupported `verified` claims, related-but-non-supporting citations, dependent
   strong-support sources, missing source-relationship assessments, invalid human attestations, and
   unsafe paths. A reviewed `unable_to_determine` claim is accepted as a valid research outcome.

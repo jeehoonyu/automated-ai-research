@@ -18,6 +18,8 @@
 - Add a hashed two-question cross-host conformance preparer that clones one canonical source/index
   base and verifies normalized Codex/Claude packet parity, plus shorter sharded run-manifest history
   paths for Windows compatibility.
+- Add a hashed cross-host conformance checker that applies the normal validation and publication gates
+  to both benchmark cases and rejects incomplete or outcome-incompatible host runs.
 - Add isolated wheel-install smoke testing to the cross-platform CI matrix.
 
 ## 0.1.0

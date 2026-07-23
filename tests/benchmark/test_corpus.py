@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from benchmark.check_conformance import check_conformance_pair
 from benchmark.prepare_conformance import prepare_conformance_pair
 from research.canonical import canonical_sha256
 from research.errors import ResearchError
@@ -134,6 +135,21 @@ def test_cross_host_preparation_uses_one_source_index_and_packet_contract(
             }.issubset(independent_packet["excluded_inputs"])
     assert source_sets[0] == source_sets[1]
     assert index_hashes == [result["logical_index_hash"], result["logical_index_hash"]]
+
+    checked = check_conformance_pair(tmp_path / "conformance")
+    unhashed_check = dict(checked)
+    check_hash = unhashed_check.pop("check_hash")
+    assert check_hash == canonical_sha256(unhashed_check)
+    assert checked["passed"] is False
+    for host in ("codex", "claude-code"):
+        host_result = checked["hosts"][host]
+        assert host_result["passed"] is False
+        assert set(host_result["cases"]) == set(result["questions"])
+        for case_result in host_result["cases"].values():
+            assert case_result["passed"] is False
+            assert case_result["report_path"] is None
+            assert "workflow_incomplete" in case_result["blocking_error_codes"]
+    assert (tmp_path / "conformance" / "conformance-check.json").is_file()
 
 
 def test_checked_in_codex_conformance_run_is_validly_human_blocked(tmp_path: Path) -> None:

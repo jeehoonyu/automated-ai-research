@@ -15,3 +15,6 @@ Their prose may differ. Accepted conformance artifacts belong under `benchmark/e
 must pass the normal CLI validator; host execution is intentionally not embedded in automated tests.
 `python benchmark/prepare_conformance.py <output>` constructs both workspaces from one copied canonical
 source/index base and verifies a normalized packet-contract hash before any host reasoning begins.
+After host and human stages finish, `python benchmark/check_conformance.py <output>` runs the ordinary
+validator and report gate for all four runs, checks the seeded contradiction and insufficient-evidence
+outcomes, writes a hashed check manifest, and exits nonzero unless the entire pair passes.
