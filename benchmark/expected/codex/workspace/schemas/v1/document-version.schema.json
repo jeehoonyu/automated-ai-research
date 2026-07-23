@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DocumentVersion",
+  "type": "object",
+  "required": ["schema_name", "schema_version", "artifact_id", "artifact_hash", "created_at", "created_by", "document_version_id", "document_id", "source_sha256", "extraction_status", "toolchain", "normalization_version", "normalized_path", "pages", "warnings"],
+  "properties": {
+    "schema_name": {"const": "DocumentVersion"},
+    "schema_version": {"const": "1.0.0"},
+    "artifact_id": {"type": "string", "pattern": "^DVER-sha256-[0-9a-f]{64}$"},
+    "artifact_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "created_at": {"type": "string"},
+    "created_by": {"type": "object"},
+    "document_version_id": {"type": "string"},
+    "document_id": {"type": "string"},
+    "source_sha256": {"type": "string"},
+    "extraction_status": {"enum": ["extracted", "partially_extracted", "ambiguous", "unsupported_format", "ocr_required", "processing_failed", "human_review_required"]},
+    "toolchain": {"type": "object"},
+    "normalization_version": {"type": "string"},
+    "normalized_path": {"type": "string"},
+    "pages": {"type": "array", "items": {"type": "object"}},
+    "warnings": {"type": "array", "items": {"type": "object"}}
+  },
+  "additionalProperties": true
+}

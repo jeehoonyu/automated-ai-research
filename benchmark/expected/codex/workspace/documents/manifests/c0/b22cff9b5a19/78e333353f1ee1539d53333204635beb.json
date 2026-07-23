@@ -1,0 +1,23 @@
+{
+  "artifact_hash": "sha256:78e333353f1ee1539d53333204635beb5cb6a29b31b77b0f6bf8ae1294415b64",
+  "artifact_id": "DOC-sha256-6e05f41667a65fe79b20082e0d2dba3077e884d86d808a26b194a67d4b4dd6bc",
+  "created_at": "2026-07-23T03:47:41.942716Z",
+  "created_by": {
+    "actor_type": "system",
+    "host": "research-cli",
+    "model_identifier": null
+  },
+  "document_id": "DOC-sha256-6e05f41667a65fe79b20082e0d2dba3077e884d86d808a26b194a67d4b4dd6bc",
+  "file_size": 239,
+  "import_aliases": [
+    "C:\\Users\\jeehoon\\OneDrive\\문서\\Automated_research\\benchmark\\sources\\synthetic-summary.md"
+  ],
+  "media_type": "text/markdown",
+  "metadata": {
+    "original_filename": "synthetic-summary.md"
+  },
+  "original_storage_path": "originals/sha256/6e/05/6e05f41667a65fe79b20082e0d2dba3077e884d86d808a26b194a67d4b4dd6bc",
+  "schema_name": "Document",
+  "schema_version": "1.0.0",
+  "source_sha256": "sha256:6e05f41667a65fe79b20082e0d2dba3077e884d86d808a26b194a67d4b4dd6bc"
+}

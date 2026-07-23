@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LifecycleEvent",
+  "type": "object",
+  "required": ["schema_name", "schema_version", "artifact_id", "artifact_hash", "created_at", "created_by", "event_id", "run_id", "previous_phase", "new_phase", "previous_disposition", "new_disposition", "trigger", "validation_result", "actor_type", "artifact_hashes", "reason"],
+  "properties": {
+    "schema_name": {"const": "LifecycleEvent"},
+    "schema_version": {"const": "1.0.0"},
+    "artifact_id": {"type": "string"},
+    "artifact_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "created_at": {"type": "string"},
+    "created_by": {"type": "object"},
+    "event_id": {"type": "string"},
+    "run_id": {"type": "string"},
+    "previous_phase": {"type": ["string", "null"]},
+    "new_phase": {"type": "string"},
+    "previous_disposition": {"type": ["string", "null"]},
+    "new_disposition": {"type": "string"},
+    "trigger": {"type": "string"},
+    "validation_result": {"type": ["string", "null"]},
+    "actor_type": {"type": "string"},
+    "artifact_hashes": {"type": "array", "items": {"type": "string"}},
+    "reason": {"type": "string"}
+  },
+  "additionalProperties": true
+}

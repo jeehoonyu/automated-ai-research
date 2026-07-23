@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RetrievalResult",
+  "type": "object",
+  "required": ["schema_name", "schema_version", "artifact_id", "artifact_hash", "created_at", "created_by", "run_id", "queries", "ranked_chunk_ids", "coverage_notes"],
+  "properties": {
+    "schema_name": {"const": "RetrievalResult"},
+    "schema_version": {"const": "1.0.0"},
+    "artifact_id": {"type": "string"},
+    "artifact_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "created_at": {"type": "string"},
+    "created_by": {"type": "object"},
+    "run_id": {"type": "string"},
+    "queries": {"type": "array", "items": {"type": "object"}},
+    "ranked_chunk_ids": {"type": "array", "items": {"type": "string"}},
+    "coverage_notes": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": true
+}

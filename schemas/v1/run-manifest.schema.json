@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RunManifest",
+  "type": "object",
+  "required": ["schema_name", "schema_version", "artifact_id", "artifact_hash", "created_at", "created_by", "run_id", "question", "profile", "phase", "disposition", "workflow_version", "configuration_hash", "schema_versions", "source_document_ids", "source_snapshot", "source_collection_state", "index_snapshot", "host", "event_log"],
+  "properties": {
+    "schema_name": {"const": "RunManifest"},
+    "schema_version": {"const": "1.0.0"},
+    "artifact_id": {"type": "string"},
+    "artifact_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "created_at": {"type": "string"},
+    "created_by": {"type": "object"},
+    "run_id": {"type": "string", "pattern": "^RUN-[0-9a-fA-F-]{36}$"},
+    "question": {"type": "string", "minLength": 1},
+    "profile": {"type": "string"},
+    "phase": {"type": "string"},
+    "disposition": {"type": "string"},
+    "workflow_version": {"type": "string"},
+    "configuration_hash": {"type": "string"},
+    "schema_versions": {"type": "object"},
+    "source_document_ids": {"type": "array", "items": {"type": "string"}},
+    "source_snapshot": {"type": "array", "items": {"type": "object"}},
+    "source_collection_state": {"enum": ["frozen_at_initialization", "amended"]},
+    "index_snapshot": {"type": ["object", "null"]},
+    "host": {"type": "object"},
+    "event_log": {"type": "string"}
+  },
+  "additionalProperties": true
+}

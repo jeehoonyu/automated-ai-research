@@ -1,0 +1,58 @@
+{
+  "artifact_hash": "sha256:d7e0d6796d1910eb7666b7454c747de1a8d290920f7c16486bcf27bb3c715060",
+  "artifact_id": "REV-a39ad578-3ba3-4273-abec-d555eab5f661",
+  "blocking_issues": [],
+  "claim_assessments": [
+    {
+      "assessment": "A local contradiction search confirmed a material unresolved conflict between the synthetic-study reduction and the production-trace null replication.",
+      "claim_id": "CLM-a3d4cd26-92c8-47d7-9620-a1ac8fe6e415",
+      "contradiction_search_performed": true,
+      "material_contradictions": [
+        "EVD-sha256-00eb57532f3c7d2d38a8118a091bd27795dc5df4a9ce2da27f8d9a80b815eab3"
+      ],
+      "support_assessment": "conflicting"
+    }
+  ],
+  "created_at": "2026-07-23T04:09:32.647982Z",
+  "created_by": {
+    "actor_type": "agent",
+    "host": "codex",
+    "model_identifier": "gpt-5"
+  },
+  "decision": "passed_with_warnings",
+  "findings": [
+    {
+      "evidence_ids": [
+        "EVD-sha256-00eb57532f3c7d2d38a8118a091bd27795dc5df4a9ce2da27f8d9a80b815eab3",
+        "EVD-sha256-b093d75f8b57d3a5ba4b9ab18a03b6d77119f211ac087600b2a766620a41a6ee"
+      ],
+      "finding_type": "workload_difference",
+      "summary": "The contradictory replication explicitly uses production traces, while the supporting study states its workloads were synthetic and not directly generalizable to production systems."
+    },
+    {
+      "evidence_ids": [
+        "EVD-sha256-cc7d05d378474d4f313bda00ec4c5cc588feeb6a233c385e7c03fd38cc0af00a"
+      ],
+      "finding_type": "source_dependency",
+      "summary": "The derivative summary is source-dependent because it reuses the primary study's 18 percent result and states that it is not an independent experiment."
+    }
+  ],
+  "required_amendments": [],
+  "review_id": "REV-a39ad578-3ba3-4273-abec-d555eab5f661",
+  "review_type": "contradiction_review",
+  "reviewed_artifact_ids": [
+    "CLM-a3d4cd26-92c8-47d7-9620-a1ac8fe6e415"
+  ],
+  "reviewer_identity": {
+    "agent_model": "gpt-5",
+    "process": "local_workspace_search",
+    "reviewer_type": "agent"
+  },
+  "reviewer_independence_status": "not_applicable",
+  "schema_name": "Review",
+  "schema_version": "1.0.0",
+  "warnings": [
+    "The contradiction remains unresolved and cannot be treated as settled support for production settings.",
+    "Source dependency prevents the derivative summary from serving as independent confirmation."
+  ]
+}

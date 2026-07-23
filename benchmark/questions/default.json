@@ -1,0 +1,6 @@
+{
+  "question": "What evidence supports a reduction in data movement, and what contradicts it?",
+  "expected_supported_passage": "reduced mean simulated data movement by 18 percent",
+  "expected_contradiction": "no statistically reliable reduction",
+  "expected_outcome": "conflicting_evidence"
+}

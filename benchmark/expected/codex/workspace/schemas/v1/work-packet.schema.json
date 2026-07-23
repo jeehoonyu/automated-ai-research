@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WorkPacket",
+  "type": "object",
+  "required": ["schema_name", "schema_version", "artifact_id", "artifact_hash", "created_at", "created_by", "packet_id", "run_id", "stage", "workflow_version", "schema_versions", "relevant_schemas", "research_question", "allowed_inputs", "excluded_inputs", "required_outputs", "completion_criteria", "validation_command", "failure_conditions", "human_review_triggers", "trusted_instructions", "untrusted_content_notice"],
+  "properties": {
+    "schema_name": {"const": "WorkPacket"},
+    "schema_version": {"const": "1.0.0"},
+    "artifact_id": {"type": "string"},
+    "artifact_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "created_at": {"type": "string"},
+    "created_by": {"type": "object"},
+    "packet_id": {"type": "string"},
+    "run_id": {"type": "string"},
+    "stage": {"type": "string"},
+    "workflow_version": {"type": "string"},
+    "schema_versions": {"type": "object"},
+    "relevant_schemas": {"type": "array", "items": {"type": "string"}},
+    "research_question": {"type": "string"},
+    "allowed_inputs": {"type": "array", "items": {"type": "string"}},
+    "excluded_inputs": {"type": "array", "items": {"type": "string"}},
+    "required_outputs": {"type": "array", "items": {"type": "string"}},
+    "completion_criteria": {"type": "array", "items": {"type": "string"}},
+    "validation_command": {"type": "string"},
+    "failure_conditions": {"type": "array", "items": {"type": "string"}},
+    "human_review_triggers": {"type": "array", "items": {"type": "string"}},
+    "trusted_instructions": {"type": "string"},
+    "untrusted_content_notice": {"type": "string"}
+  },
+  "additionalProperties": true
+}

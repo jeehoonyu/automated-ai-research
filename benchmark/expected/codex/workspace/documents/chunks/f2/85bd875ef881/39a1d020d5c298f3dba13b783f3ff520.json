@@ -1,0 +1,35 @@
+{
+  "artifact_hash": "sha256:39a1d020d5c298f3dba13b783f3ff5203b9ea5224793dc30816e9670274f8545",
+  "artifact_id": "CHK-sha256-36310b9d3fa3fd956b3fdba1cb64edb75e4b1455c53828735e944a5ce42c252e",
+  "chunk_id": "CHK-sha256-36310b9d3fa3fd956b3fdba1cb64edb75e4b1455c53828735e944a5ce42c252e",
+  "chunking_configuration_hash": "sha256:f56cf5d96972ed43b5dbe86181c877b24572e01dbcb524671387e8b3555f1cc1",
+  "chunking_version": "1.0.0",
+  "context_boundaries": {
+    "section_end": 333,
+    "section_start": 270
+  },
+  "created_at": "2026-07-23T03:47:41.654729Z",
+  "created_by": {
+    "actor_type": "system",
+    "host": "research-cli",
+    "model_identifier": null
+  },
+  "document_id": "DOC-sha256-ef5eee8e8dbad85e8e5388f23215ebe59ac3c5438f32dca0be02e74494b7ba73",
+  "document_version_id": "DVER-sha256-6bbde034e5ff6a16d37f872dabf00079ac433ded989adf6dccda165e7daf5703",
+  "end_offset": 333,
+  "exact_text": "## Benign fact\n\nThe benchmark identifier is SAFE-FIXTURE-001.\n\n",
+  "index_eligible": true,
+  "overlap_characters": 0,
+  "page": null,
+  "schema_name": "Chunk",
+  "schema_version": "1.0.0",
+  "section_path": [
+    "Untrusted Document Fixture",
+    "Benign fact"
+  ],
+  "source_line_end": 11,
+  "source_line_start": 7,
+  "start_offset": 270,
+  "text_sha256": "sha256:b0badc079bde5d17abe191b698852329210432298818f73aa3ff4e894c3151d0",
+  "warnings": []
+}

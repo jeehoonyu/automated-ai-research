@@ -1,0 +1,19 @@
+human_review_triggers:
+- material_unresolved_contradiction
+- citation_failure
+- uncertain_visual
+- ocr_dependency
+- unknown_methodology
+- missing_independence
+- ambiguous_extraction
+- unknown_source_independence
+minimum_independence: confirmed_independent
+profile_id: medicine
+required_review_types:
+- contradiction_review
+- citation_review
+- methodology_review
+- independent_review
+risk_level: high
+schema_name: Profile
+schema_version: 1.0.0

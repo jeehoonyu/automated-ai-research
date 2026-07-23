@@ -1,0 +1,5 @@
+{
+  "question": "Did the cache configuration reduce production-system energy use?",
+  "expected_outcome": "unable_to_determine",
+  "reason": "The corpus contains no production energy measurement."
+}

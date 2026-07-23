@@ -1,0 +1,22 @@
+{
+  "artifact_hash": "sha256:cde8f20c488529f9654ffb710f94f63c2def0a21670483b31048908e4793e45b",
+  "artifact_id": "STAGE-019f8d23-68be-7970-b4cd-5ae5b06f18b6",
+  "artifact_ids": [
+    "RET-019f8d23-68bd-74f6-9e7e-4d83973a6193"
+  ],
+  "created_at": "2026-07-23T04:02:14.175125Z",
+  "created_by": {
+    "actor_type": "agent",
+    "host": "codex",
+    "model_identifier": "gpt-5"
+  },
+  "notes": [
+    "Retrieval used run-linked local search queries against the frozen index snapshot.",
+    "Ranked chunks cover direct support, contradiction, scope limitation, derivative reuse, and related non-supporting material."
+  ],
+  "outcome": "completed",
+  "run_id": "RUN-563cd90e-af4d-46fa-9302-f48c030cb398",
+  "schema_name": "StageResponse",
+  "schema_version": "1.0.0",
+  "stage": "retrieval"
+}

@@ -1,0 +1,36 @@
+{
+  "artifact_hash": "sha256:ddbd576d1b3e792ea3e42dee52e5d4a87faac209ba145d084e28f7e7fd000b99",
+  "artifact_id": "EVD-sha256-b093d75f8b57d3a5ba4b9ab18a03b6d77119f211ac087600b2a766620a41a6ee",
+  "context_after": null,
+  "context_before": "## Limitations",
+  "created_at": "2026-07-23T04:03:48.168447Z",
+  "created_by": {
+    "actor_type": "agent",
+    "host": "codex",
+    "model_identifier": "gpt-5"
+  },
+  "document_id": "DOC-sha256-d61d88fe14346fe72e70d821ef4ba2f9f091fc748097c9df9c475c6764493e0b",
+  "document_version_id": "DVER-sha256-6902c6244fb798b58faa455bdd18f5d1dd59ce4124a8e1cba16ecad9c924688c",
+  "evidence_id": "EVD-sha256-b093d75f8b57d3a5ba4b9ab18a03b6d77119f211ac087600b2a766620a41a6ee",
+  "evidence_type": "limitation",
+  "exact_text": "The workloads were synthetic, so the result must not be generalized directly to production systems.",
+  "extraction_method": "Exact sentence span selected from retrieved chunk for the stated production-generalization limitation.",
+  "extraction_status": "extracted",
+  "human_review_required": false,
+  "locator": {
+    "chunk_id": "CHK-sha256-a4c06b5cbe346f11482f19023d96a42c882a35fca18a6def28717b08d566c8be",
+    "end_offset": 115,
+    "page": null,
+    "section_path": [
+      "Synthetic Cache Study",
+      "Limitations"
+    ],
+    "source_line_end": 17,
+    "source_line_start": 17,
+    "span_sha256": "sha256:837b89d30e20a38bdffc28d44118da4d80f0586a79f106a15bba88dfbb2b14bf",
+    "start_offset": 16,
+    "type": "text_span"
+  },
+  "schema_name": "Evidence",
+  "schema_version": "1.0.0"
+}

@@ -1,0 +1,28 @@
+{
+  "actor_type": "system",
+  "artifact_hash": "sha256:0f0ff3834084039797bfb221cb3156a6ebb4c63652187391b01888b0aa1bb596",
+  "artifact_hashes": [
+    "sha256:400314cc27288534a46c1b77c1e75b7bc5cb8c547387ad56f115ce276beb6e51",
+    "sha256:d7e0d6796d1910eb7666b7454c747de1a8d290920f7c16486bcf27bb3c715060",
+    "sha256:69953cd1d926ddcbd7c48aa59c42c958ba0a39b50b05e72c845f0af432255f80",
+    "sha256:92791a73b7c06f4b58335d2ddf43d96c85391d3b2ab9d13ace6ea3d987fffde7"
+  ],
+  "artifact_id": "EVT-019f8d2a-41dd-7e9a-8155-a92256000692",
+  "created_at": "2026-07-23T04:09:44.669883Z",
+  "created_by": {
+    "actor_type": "system",
+    "host": "research-cli",
+    "model_identifier": null
+  },
+  "event_id": "EVT-019f8d2a-41dd-7e9a-8155-a92256000692",
+  "new_disposition": "active",
+  "new_phase": "contradiction_reviewed",
+  "previous_disposition": "active",
+  "previous_phase": "synthesized",
+  "reason": "Validated and promoted contradiction_review stage outputs",
+  "run_id": "RUN-563cd90e-af4d-46fa-9302-f48c030cb398",
+  "schema_name": "LifecycleEvent",
+  "schema_version": "1.0.0",
+  "trigger": "research validate RUN-563cd90e-af4d-46fa-9302-f48c030cb398 --stage contradiction_review",
+  "validation_result": null
+}

@@ -1,0 +1,23 @@
+{
+  "artifact_hash": "sha256:c4bb8a12fcdce3b6197a4a1879db5082fde4590bc4dac8643212d291b055d0a4",
+  "artifact_id": "DOC-sha256-ef5eee8e8dbad85e8e5388f23215ebe59ac3c5438f32dca0be02e74494b7ba73",
+  "created_at": "2026-07-23T03:47:41.642222Z",
+  "created_by": {
+    "actor_type": "system",
+    "host": "research-cli",
+    "model_identifier": null
+  },
+  "document_id": "DOC-sha256-ef5eee8e8dbad85e8e5388f23215ebe59ac3c5438f32dca0be02e74494b7ba73",
+  "file_size": 333,
+  "import_aliases": [
+    "C:\\Users\\jeehoon\\OneDrive\\문서\\Automated_research\\benchmark\\sources\\prompt-injection.md"
+  ],
+  "media_type": "text/markdown",
+  "metadata": {
+    "original_filename": "prompt-injection.md"
+  },
+  "original_storage_path": "originals/sha256/ef/5e/ef5eee8e8dbad85e8e5388f23215ebe59ac3c5438f32dca0be02e74494b7ba73",
+  "schema_name": "Document",
+  "schema_version": "1.0.0",
+  "source_sha256": "sha256:ef5eee8e8dbad85e8e5388f23215ebe59ac3c5438f32dca0be02e74494b7ba73"
+}

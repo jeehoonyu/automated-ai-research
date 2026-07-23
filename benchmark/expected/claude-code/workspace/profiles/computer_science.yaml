@@ -1,0 +1,19 @@
+human_review_triggers:
+- material_unresolved_contradiction
+- citation_failure
+- uncertain_visual
+- ocr_dependency
+- unknown_methodology
+- missing_independence
+- ambiguous_extraction
+- unknown_source_independence
+minimum_independence: procedurally_isolated
+profile_id: computer_science
+required_review_types:
+- contradiction_review
+- citation_review
+- methodology_review
+- independent_review
+risk_level: standard
+schema_name: Profile
+schema_version: 1.0.0

@@ -1,0 +1,39 @@
+{
+  "artifact_hash": "sha256:a735cbd0acb73639d126f0cf12ef2c4811cbbe3634451092da11204ba607d4f2",
+  "artifact_id": "EVD-sha256-181da3f4d8e5b7017d27f9f9b809c0ee517e3d19844a3dff26fcbdb84b3f2f1e",
+  "context_after": "The reported 95 percent confidence interval ranged from 12 percent to 24 percent.",
+  "context_before": "## Results",
+  "created_at": "2026-07-23T04:03:48.168447Z",
+  "created_by": {
+    "actor_type": "agent",
+    "host": "codex",
+    "model_identifier": "gpt-5"
+  },
+  "document_id": "DOC-sha256-d61d88fe14346fe72e70d821ef4ba2f9f091fc748097c9df9c475c6764493e0b",
+  "document_version_id": "DVER-sha256-6902c6244fb798b58faa455bdd18f5d1dd59ce4124a8e1cba16ecad9c924688c",
+  "evidence_id": "EVD-sha256-181da3f4d8e5b7017d27f9f9b809c0ee517e3d19844a3dff26fcbdb84b3f2f1e",
+  "evidence_type": "experimental_result",
+  "exact_text": "The partitioned cache reduced mean simulated data movement by 18 percent relative to the baseline.",
+  "extraction_method": "Exact sentence span selected from retrieved chunk for the direct reported reduction result.",
+  "extraction_status": "extracted",
+  "human_review_required": false,
+  "locator": {
+    "chunk_id": "CHK-sha256-faa4a53a696d745fd37de6d911165fd0de7fc379353ad4fb345f2ba03d45737d",
+    "end_offset": 110,
+    "page": null,
+    "section_path": [
+      "Synthetic Cache Study",
+      "Results"
+    ],
+    "source_line_end": 12,
+    "source_line_start": 12,
+    "span_sha256": "sha256:234b3e0d761a29fc29d5acd7883b2e65256375d74315c52cb81550a406792d95",
+    "start_offset": 12,
+    "type": "text_span"
+  },
+  "notes": [
+    "Direct support is limited to the synthetic study document."
+  ],
+  "schema_name": "Evidence",
+  "schema_version": "1.0.0"
+}

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Review",
+  "type": "object",
+  "required": ["schema_name", "schema_version", "artifact_id", "artifact_hash", "created_at", "created_by", "review_id", "review_type", "reviewed_artifact_ids", "reviewer_identity", "reviewer_independence_status", "decision", "claim_assessments", "findings", "blocking_issues", "warnings", "required_amendments"],
+  "properties": {
+    "schema_name": {"const": "Review"},
+    "schema_version": {"const": "1.0.0"},
+    "artifact_id": {"type": "string", "pattern": "^REV-[0-9a-fA-F-]{36}$"},
+    "artifact_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "created_at": {"type": "string"},
+    "created_by": {"type": "object"},
+    "review_id": {"type": "string"},
+    "review_type": {"enum": ["citation_review", "methodology_review", "contradiction_review", "independent_review", "human_review"]},
+    "reviewed_artifact_ids": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "reviewer_identity": {"type": "object"},
+    "reviewer_independence_status": {"enum": ["confirmed_independent", "procedurally_isolated", "not_confirmed", "not_independent", "not_applicable"]},
+    "review_independence": {"type": "object"},
+    "decision": {"enum": ["passed", "passed_with_warnings", "failed", "incomplete", "human_review_required"]},
+    "claim_assessments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["claim_id", "assessment"],
+        "properties": {
+          "claim_id": {"type": "string"},
+          "assessment": {"type": "string"},
+          "citation_support": {"enum": ["supports", "partially_supports", "related_not_supporting", "contradicts", "not_applicable"]},
+          "contradiction_search_performed": {"type": "boolean"},
+          "material_contradictions": {"type": "array", "items": {"type": "string"}},
+          "methodology_quality": {"enum": ["high", "medium", "low", "unknown", "not_applicable"]},
+          "support_assessment": {"enum": ["supports", "partially_supports", "unsupported", "conflicting", "unable_to_determine", "not_applicable"]}
+        },
+        "additionalProperties": true
+      }
+    },
+    "findings": {"type": "array", "items": {"type": "object"}},
+    "blocking_issues": {"type": "array", "items": {"type": "string"}},
+    "warnings": {"type": "array", "items": {"type": "string"}},
+    "required_amendments": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": true
+}

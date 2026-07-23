@@ -1,0 +1,35 @@
+{
+  "artifact_hash": "sha256:bded798196935d954bfe83bfccadc32b014489dd7194dd1e48f5cdf9b4f3f686",
+  "artifact_id": "CHK-sha256-9bec180ff5156705035529523b4ecb3c97cbd241e480d20324bc44a77d326a15",
+  "chunk_id": "CHK-sha256-9bec180ff5156705035529523b4ecb3c97cbd241e480d20324bc44a77d326a15",
+  "chunking_configuration_hash": "sha256:f56cf5d96972ed43b5dbe86181c877b24572e01dbcb524671387e8b3555f1cc1",
+  "chunking_version": "1.0.0",
+  "context_boundaries": {
+    "section_end": 233,
+    "section_start": 30
+  },
+  "created_at": "2026-07-23T03:47:43.848198Z",
+  "created_by": {
+    "actor_type": "system",
+    "host": "research-cli",
+    "model_identifier": null
+  },
+  "document_id": "DOC-sha256-e97a9212b10b03d5504ae5c057780b303c06cc98ecdaacb7561b1590d88e4dc9",
+  "document_version_id": "DVER-sha256-c231d098ef014150d2e350ccb9926b8234f69358e32b6f806075f54596b34841",
+  "end_offset": 233,
+  "exact_text": "## Result\n\nA replication using 40 production traces found no statistically reliable reduction in data movement.\nThe authors reported that workload locality changed the direction of the measured effect.\n\n",
+  "index_eligible": true,
+  "overlap_characters": 0,
+  "page": null,
+  "schema_name": "Chunk",
+  "schema_version": "1.0.0",
+  "section_path": [
+    "Synthetic Replication Note",
+    "Result"
+  ],
+  "source_line_end": 8,
+  "source_line_start": 3,
+  "start_offset": 30,
+  "text_sha256": "sha256:6e6d7c7a60bfec37c70b26bcbacea041ec34856157ce699658edc689baf4ec7c",
+  "warnings": []
+}

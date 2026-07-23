@@ -1,0 +1,95 @@
+{
+  "artifact_hash": "sha256:a765016e5af2d76be70f2e46d596003426f8b775352574bd6d7cc498579fcd7d",
+  "artifact_id": "REV-cfd7858c-654d-48cd-a22f-55b0aabf90b3",
+  "blocking_issues": [],
+  "claim_assessments": [
+    {
+      "assessment": "Exact locator and span verification confirmed that the cited synthetic-study result and explicit generalization limit support the narrowly worded claim, while the production-trace replication remains a verified material contradiction that must be retained.",
+      "citation_support": "supports",
+      "claim_id": "CLM-a3d4cd26-92c8-47d7-9620-a1ac8fe6e415",
+      "material_contradictions": [
+        "EVD-sha256-00eb57532f3c7d2d38a8118a091bd27795dc5df4a9ce2da27f8d9a80b815eab3"
+      ],
+      "support_assessment": "conflicting"
+    },
+    {
+      "assessment": "The derivative summary explicitly states that it reuses the 18 percent measurement and is not an independent experiment, so it is excluded from claim support.",
+      "citation_support": "related_not_supporting",
+      "claim_id": "CLM-a3d4cd26-92c8-47d7-9620-a1ac8fe6e415",
+      "support_assessment": "not_applicable"
+    },
+    {
+      "assessment": "The processor note is only topically related and states that it does not support the benchmark claim, so it is excluded from claim support.",
+      "citation_support": "related_not_supporting",
+      "claim_id": "CLM-a3d4cd26-92c8-47d7-9620-a1ac8fe6e415",
+      "support_assessment": "not_applicable"
+    }
+  ],
+  "created_at": "2026-07-23T04:13:22.053111Z",
+  "created_by": {
+    "actor_type": "agent",
+    "host": "codex",
+    "model_identifier": "gpt-5"
+  },
+  "decision": "passed_with_warnings",
+  "findings": [
+    {
+      "evidence_ids": [
+        "EVD-sha256-181da3f4d8e5b7017d27f9f9b809c0ee517e3d19844a3dff26fcbdb84b3f2f1e",
+        "EVD-sha256-b093d75f8b57d3a5ba4b9ab18a03b6d77119f211ac087600b2a766620a41a6ee",
+        "EVD-sha256-00eb57532f3c7d2d38a8118a091bd27795dc5df4a9ce2da27f8d9a80b815eab3"
+      ],
+      "finding_type": "locator_verification",
+      "summary": "All supporting and contradicting evidence locators resolved to the cited canonical chunks, and the exact text matched the recorded span hashes for the 18 percent result, the production-generalization limit, and the production-trace contradiction.",
+      "verified_locators": [
+        {
+          "chunk_id": "CHK-sha256-faa4a53a696d745fd37de6d911165fd0de7fc379353ad4fb345f2ba03d45737d",
+          "evidence_id": "EVD-sha256-181da3f4d8e5b7017d27f9f9b809c0ee517e3d19844a3dff26fcbdb84b3f2f1e",
+          "span_sha256": "sha256:234b3e0d761a29fc29d5acd7883b2e65256375d74315c52cb81550a406792d95"
+        },
+        {
+          "chunk_id": "CHK-sha256-a4c06b5cbe346f11482f19023d96a42c882a35fca18a6def28717b08d566c8be",
+          "evidence_id": "EVD-sha256-b093d75f8b57d3a5ba4b9ab18a03b6d77119f211ac087600b2a766620a41a6ee",
+          "span_sha256": "sha256:837b89d30e20a38bdffc28d44118da4d80f0586a79f106a15bba88dfbb2b14bf"
+        },
+        {
+          "chunk_id": "CHK-sha256-9bec180ff5156705035529523b4ecb3c97cbd241e480d20324bc44a77d326a15",
+          "evidence_id": "EVD-sha256-00eb57532f3c7d2d38a8118a091bd27795dc5df4a9ce2da27f8d9a80b815eab3",
+          "span_sha256": "sha256:1d601ec6c6e9963ac162736ab9838825d8a7a059621fa07c9d0bf446a46b67b0"
+        }
+      ]
+    },
+    {
+      "evidence_ids": [
+        "EVD-sha256-cc7d05d378474d4f313bda00ec4c5cc588feeb6a233c385e7c03fd38cc0af00a"
+      ],
+      "finding_type": "derivative_exclusion",
+      "summary": "The derivative summary is not independent confirmation; its own text says it reuses the primary study measurement and must not be counted as independent confirmation."
+    },
+    {
+      "evidence_ids": [
+        "EVD-sha256-46e1d09ee82171602aa8cc98fc5ca129e1c16ef4fade89547aac0ebf0f2f2ba7"
+      ],
+      "finding_type": "related_but_not_supporting",
+      "summary": "The processor note is related_not_supporting and excluded from claim support because it contains no cache data-movement measurement and explicitly disclaims support for the central claim."
+    }
+  ],
+  "required_amendments": [],
+  "review_id": "REV-cfd7858c-654d-48cd-a22f-55b0aabf90b3",
+  "review_type": "citation_review",
+  "reviewed_artifact_ids": [
+    "CLM-a3d4cd26-92c8-47d7-9620-a1ac8fe6e415"
+  ],
+  "reviewer_identity": {
+    "agent_model": "gpt-5",
+    "process": "locator_and_span_verification",
+    "reviewer_type": "agent"
+  },
+  "reviewer_independence_status": "not_applicable",
+  "schema_name": "Review",
+  "schema_version": "1.0.0",
+  "warnings": [
+    "Citation validity passed for the cited claim wording, but the production-trace contradiction remains unresolved.",
+    "Human review remains required because the claim still contains material unresolved contradictory evidence."
+  ]
+}

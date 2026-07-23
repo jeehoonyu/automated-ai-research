@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Amendment",
+  "type": "object",
+  "required": ["schema_name", "schema_version", "artifact_id", "artifact_hash", "created_at", "created_by", "amendment_id", "target_artifact_id", "target_artifact_hash", "amendment_type", "changed_fields", "reason", "human_identity", "replacement_artifact_id", "replacement_artifact_hash", "review_required"],
+  "properties": {
+    "schema_name": {"const": "Amendment"},
+    "schema_version": {"const": "1.0.0"},
+    "artifact_id": {"type": "string", "pattern": "^AMD-[0-9a-fA-F-]{36}$"},
+    "artifact_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "created_at": {"type": "string"},
+    "created_by": {"type": "object"},
+    "amendment_id": {"type": "string"},
+    "target_artifact_id": {"type": "string"},
+    "target_artifact_hash": {"type": "string"},
+    "amendment_type": {"enum": ["metadata_correction", "locator_correction", "claim_rewording", "evidence_reclassification", "human_visual_verification", "human_ocr_verification", "review_override", "withdrawal"]},
+    "changed_fields": {"type": "array", "items": {"type": "string"}},
+    "reason": {"type": "string", "minLength": 1},
+    "human_identity": {"type": "object"},
+    "replacement_artifact_id": {"type": "string"},
+    "replacement_artifact_hash": {"type": "string"},
+    "review_required": {"type": "boolean"}
+  },
+  "additionalProperties": true
+}

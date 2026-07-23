@@ -1,0 +1,31 @@
+{
+  "actor_type": "system",
+  "artifact_hash": "sha256:c811293a20a6e9f6e82ff43f371030c636e33c62a2c5b18b8bfc971239fe076a",
+  "artifact_hashes": [
+    "sha256:aba32f8380b347a815579ad9500c94268e010f4125d115426b93ab6916cb0933",
+    "sha256:a735cbd0acb73639d126f0cf12ef2c4811cbbe3634451092da11204ba607d4f2",
+    "sha256:22684f2370b46b3861ba1a8e10fbf994d787e21adc71d08710ac95e65c35031f",
+    "sha256:ddbd576d1b3e792ea3e42dee52e5d4a87faac209ba145d084e28f7e7fd000b99",
+    "sha256:1ff10e9415f87f7905aee79e74eec62407b74d00cd5b5801959bece2f1ac1741",
+    "sha256:b9e32c40dc5f170a16f265c88a01d2c43b706500ae15f39d08b9438dde84682f",
+    "sha256:66c31462ce0fb53bbd1a84547e97bd10381c314c1d30874579ed7f0493dcf738"
+  ],
+  "artifact_id": "EVT-019f8d24-fd2b-737c-b895-1403fdfbb9ae",
+  "created_at": "2026-07-23T04:03:59.403130Z",
+  "created_by": {
+    "actor_type": "system",
+    "host": "research-cli",
+    "model_identifier": null
+  },
+  "event_id": "EVT-019f8d24-fd2b-737c-b895-1403fdfbb9ae",
+  "new_disposition": "active",
+  "new_phase": "evidence_extracted",
+  "previous_disposition": "active",
+  "previous_phase": "retrieved",
+  "reason": "Validated and promoted evidence_extraction stage outputs",
+  "run_id": "RUN-563cd90e-af4d-46fa-9302-f48c030cb398",
+  "schema_name": "LifecycleEvent",
+  "schema_version": "1.0.0",
+  "trigger": "research validate RUN-563cd90e-af4d-46fa-9302-f48c030cb398 --stage evidence_extraction",
+  "validation_result": null
+}

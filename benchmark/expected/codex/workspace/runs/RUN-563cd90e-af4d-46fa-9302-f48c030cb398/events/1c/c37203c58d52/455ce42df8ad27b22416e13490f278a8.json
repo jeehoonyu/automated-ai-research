@@ -1,0 +1,27 @@
+{
+  "actor_type": "system",
+  "artifact_hash": "sha256:455ce42df8ad27b22416e13490f278a8af7db85ef46132d31c4745c3e45c5bea",
+  "artifact_hashes": [
+    "sha256:0c4752a6d08c894bada9ad0299484c805e2fa82183ce303c5af87b399c04fa4b",
+    "sha256:cde8f20c488529f9654ffb710f94f63c2def0a21670483b31048908e4793e45b",
+    "sha256:8e5bb3d1c1d80e191df8b129a6a51c27de02b729331b3734b35053af66d39d9b"
+  ],
+  "artifact_id": "EVT-019f8d23-a3ec-73bb-9fe2-b21951e01f5b",
+  "created_at": "2026-07-23T04:02:31.020173Z",
+  "created_by": {
+    "actor_type": "system",
+    "host": "research-cli",
+    "model_identifier": null
+  },
+  "event_id": "EVT-019f8d23-a3ec-73bb-9fe2-b21951e01f5b",
+  "new_disposition": "active",
+  "new_phase": "retrieved",
+  "previous_disposition": "active",
+  "previous_phase": "planned",
+  "reason": "Validated and promoted retrieval stage outputs",
+  "run_id": "RUN-563cd90e-af4d-46fa-9302-f48c030cb398",
+  "schema_name": "LifecycleEvent",
+  "schema_version": "1.0.0",
+  "trigger": "research validate RUN-563cd90e-af4d-46fa-9302-f48c030cb398 --stage retrieval",
+  "validation_result": null
+}

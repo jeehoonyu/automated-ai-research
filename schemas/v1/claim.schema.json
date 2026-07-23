@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Claim",
+  "type": "object",
+  "required": ["schema_name", "schema_version", "artifact_id", "artifact_hash", "created_at", "created_by", "claim_id", "claim_version", "claim", "claim_type", "claim_status", "support_classification", "supporting_evidence_ids", "contradicting_evidence_ids", "assumptions", "limitations", "citation_status", "contradiction_status", "methodology_status", "independent_review_status", "human_review_required", "factors"],
+  "properties": {
+    "schema_name": {"const": "Claim"},
+    "schema_version": {"const": "1.0.0"},
+    "artifact_id": {"type": "string", "pattern": "^CLM-[0-9a-fA-F-]{36}-v[1-9][0-9]*$"},
+    "artifact_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "created_at": {"type": "string"},
+    "created_by": {"type": "object"},
+    "claim_id": {"type": "string", "pattern": "^CLM-[0-9a-fA-F-]{36}$"},
+    "claim_version": {"type": "integer", "minimum": 1},
+    "claim": {"type": "string", "minLength": 1},
+    "claim_type": {"enum": ["direct_fact", "definition", "descriptive_result", "comparative_result", "methodological_claim", "causal_claim", "correlational_claim", "interpretation", "hypothesis", "recommendation", "insufficient_evidence_finding"]},
+    "claim_status": {"enum": ["draft", "evidence_linked", "citation_checked", "methodology_reviewed", "independently_reviewed", "accepted", "rejected", "superseded"]},
+    "support_classification": {"enum": ["verified", "strongly_supported", "moderately_supported", "weakly_supported", "conflicting_evidence", "unsupported", "unable_to_determine"]},
+    "supporting_evidence_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "contradicting_evidence_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "assumptions": {"type": "array", "items": {"type": "string"}},
+    "limitations": {"type": "array", "items": {"type": "string"}},
+    "citation_status": {"type": "string"},
+    "contradiction_status": {"type": "string"},
+    "methodology_status": {"type": "string"},
+    "independent_review_status": {"type": "string"},
+    "human_review_required": {"type": "boolean"},
+    "factors": {"type": "object"},
+    "supersedes": {"type": ["string", "null"]}
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,22 @@
+{
+  "schema_name": "StageResponse",
+  "schema_version": "1.0.0",
+  "artifact_id": "STAGERESP-0cd66dd1-2855-41ff-88d2-a165e315456c",
+  "artifact_hash": "sha256:49f15046ee9caa5c75b46558f20b7100ab795df0fc52a3e884fb92b152d223f6",
+  "created_at": "2026-07-23T04:18:58Z",
+  "created_by": {
+    "actor_type": "agent",
+    "host": "codex",
+    "model_identifier": "gpt-5"
+  },
+  "run_id": "RUN-563cd90e-af4d-46fa-9302-f48c030cb398",
+  "stage": "independent_review",
+  "outcome": "completed",
+  "artifact_ids": [
+    "REV-c81501c3-56b2-4308-a822-053dabb03acc"
+  ],
+  "notes": [
+    "Independent review completed using only the allowed packet inputs and the five permitted evidence inspections.",
+    "The claim is supported as written, but human review is recommended because a material contradiction remains unresolved."
+  ]
+}

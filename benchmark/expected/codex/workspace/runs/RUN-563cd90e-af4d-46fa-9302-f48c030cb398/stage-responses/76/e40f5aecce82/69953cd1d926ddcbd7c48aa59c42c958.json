@@ -1,0 +1,23 @@
+{
+  "artifact_hash": "sha256:69953cd1d926ddcbd7c48aa59c42c958ba0a39b50b05e72c845f0af432255f80",
+  "artifact_id": "STAGE-019f8d2a-12e8-78ab-a338-a1f3fb139bc3",
+  "artifact_ids": [
+    "REV-a39ad578-3ba3-4273-abec-d555eab5f661",
+    "CLM-a3d4cd26-92c8-47d7-9620-a1ac8fe6e415-v2"
+  ],
+  "created_at": "2026-07-23T04:09:32.647982Z",
+  "created_by": {
+    "actor_type": "agent",
+    "host": "codex",
+    "model_identifier": "gpt-5"
+  },
+  "notes": [
+    "Local contradiction searches focused on workload differences, independence, and derivative-source dependency.",
+    "Claim v2 supersedes claim v1 only to mark contradiction_status unresolved while preserving the pending later-review statuses."
+  ],
+  "outcome": "completed",
+  "run_id": "RUN-563cd90e-af4d-46fa-9302-f48c030cb398",
+  "schema_name": "StageResponse",
+  "schema_version": "1.0.0",
+  "stage": "contradiction_review"
+}

@@ -1,0 +1,27 @@
+{
+  "artifact_hash": "sha256:27ad0aba175e62befb8844b6b54b71952771c34d36c653c78100e837aa248ac4",
+  "artifact_id": "DVER-sha256-c231d098ef014150d2e350ccb9926b8234f69358e32b6f806075f54596b34841",
+  "created_at": "2026-07-23T03:47:43.848198Z",
+  "created_by": {
+    "actor_type": "system",
+    "host": "research-cli",
+    "model_identifier": null
+  },
+  "document_id": "DOC-sha256-e97a9212b10b03d5504ae5c057780b303c06cc98ecdaacb7561b1590d88e4dc9",
+  "document_version_id": "DVER-sha256-c231d098ef014150d2e350ccb9926b8234f69358e32b6f806075f54596b34841",
+  "extraction_status": "extracted",
+  "metadata": {
+    "link_destinations": [],
+    "source_line_count": 11
+  },
+  "normalization_version": "1.0.0",
+  "normalized_path": "documents/normalized/DVER-sha256-c231d098ef014150d2e350ccb9926b8234f69358e32b6f806075f54596b34841/document.md",
+  "pages": [],
+  "schema_name": "DocumentVersion",
+  "schema_version": "1.0.0",
+  "source_sha256": "sha256:e97a9212b10b03d5504ae5c057780b303c06cc98ecdaacb7561b1590d88e4dc9",
+  "toolchain": {
+    "research": "0.1.0"
+  },
+  "warnings": []
+}

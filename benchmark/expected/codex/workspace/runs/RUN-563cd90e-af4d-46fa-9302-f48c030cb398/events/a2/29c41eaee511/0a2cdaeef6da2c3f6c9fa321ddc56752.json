@@ -1,0 +1,28 @@
+{
+  "actor_type": "system",
+  "artifact_hash": "sha256:0a2cdaeef6da2c3f6c9fa321ddc567528d8ad7706dd46b6aca5b940a1f48e8fe",
+  "artifact_hashes": [
+    "sha256:abb8db6ef423c751126fc8e165c0a7e5a65144cfe25a32a9ff921014d5384879",
+    "sha256:d26b41bcf10d197c074c0f9d76edeafb2a4dd20c24a66f96298774e6f79fab13",
+    "sha256:0b74ab514b6b89c3cd5c7882f2c37afbb2de1e6b6b03e96689ed2c293a3ee802",
+    "sha256:9159bb51b116a25d9243699822a47270e778afca4a43b22cd893fb4e4808d2b9"
+  ],
+  "artifact_id": "EVT-019f8d2e-7b04-7b05-a8ec-650afeb2c496",
+  "created_at": "2026-07-23T04:14:21.444067Z",
+  "created_by": {
+    "actor_type": "system",
+    "host": "research-cli",
+    "model_identifier": null
+  },
+  "event_id": "EVT-019f8d2e-7b04-7b05-a8ec-650afeb2c496",
+  "new_disposition": "active",
+  "new_phase": "methodology_reviewed",
+  "previous_disposition": "active",
+  "previous_phase": "citation_reviewed",
+  "reason": "Validated and promoted methodology_review stage outputs",
+  "run_id": "RUN-563cd90e-af4d-46fa-9302-f48c030cb398",
+  "schema_name": "LifecycleEvent",
+  "schema_version": "1.0.0",
+  "trigger": "research validate RUN-563cd90e-af4d-46fa-9302-f48c030cb398 --stage methodology_review",
+  "validation_result": null
+}

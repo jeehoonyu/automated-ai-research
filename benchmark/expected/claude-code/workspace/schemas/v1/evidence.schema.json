@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Evidence",
+  "type": "object",
+  "required": ["schema_name", "schema_version", "artifact_id", "artifact_hash", "created_at", "created_by", "evidence_id", "document_id", "document_version_id", "evidence_type", "locator", "extraction_method", "extraction_status", "human_review_required"],
+  "properties": {
+    "schema_name": {"const": "Evidence"},
+    "schema_version": {"const": "1.0.0"},
+    "artifact_id": {"type": "string", "pattern": "^EVD-(sha256-[0-9a-f]{64}|[0-9a-fA-F-]{36})$"},
+    "artifact_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "created_at": {"type": "string"},
+    "created_by": {"type": "object"},
+    "evidence_id": {"type": "string"},
+    "document_id": {"type": "string"},
+    "document_version_id": {"type": "string"},
+    "evidence_type": {"enum": ["direct_statement", "definition", "experimental_result", "statistical_result", "method_description", "limitation", "table_value", "figure_observation", "metadata_fact", "citation_relationship", "expert_opinion", "derived_calculation"]},
+    "locator": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {"enum": ["text_span", "visual_region"]},
+        "page": {"type": ["integer", "null"], "minimum": 1},
+        "chunk_id": {"type": "string"},
+        "start_offset": {"type": "integer", "minimum": 0},
+        "end_offset": {"type": "integer", "minimum": 1},
+        "span_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "render_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "coordinate_system": {"const": "normalized_top_left_0_to_1"},
+        "bounding_box": {
+          "type": "object",
+          "required": ["x", "y", "width", "height"],
+          "properties": {
+            "x": {"type": "number", "minimum": 0, "maximum": 1},
+            "y": {"type": "number", "minimum": 0, "maximum": 1},
+            "width": {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
+            "height": {"type": "number", "exclusiveMinimum": 0, "maximum": 1}
+          },
+          "additionalProperties": false
+        },
+        "render_width": {"type": "integer", "minimum": 1},
+        "render_height": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": true
+    },
+    "exact_text": {"type": ["string", "null"]},
+    "context_before": {"type": ["string", "null"]},
+    "context_after": {"type": ["string", "null"]},
+    "extraction_method": {"type": "string"},
+    "extraction_status": {"enum": ["extracted", "partially_extracted", "not_detected", "ambiguous", "unsupported", "ocr_required", "human_review_required"]},
+    "human_review_required": {"type": "boolean"},
+    "region_type": {"type": "string"},
+    "caption": {"type": ["string", "null"]},
+    "interpretation_status": {"enum": ["agent_interpreted", "independently_verified", "human_verified", "uncertain", "human_review_required"]}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"locator": {"properties": {"type": {"const": "text_span"}}}}},
+      "then": {
+        "required": ["exact_text"],
+        "properties": {"locator": {"required": ["chunk_id", "start_offset", "end_offset", "span_sha256"]}}
+      }
+    },
+    {
+      "if": {"properties": {"locator": {"properties": {"type": {"const": "visual_region"}}}}},
+      "then": {
+        "required": ["region_type", "interpretation_status"],
+        "properties": {"locator": {"required": ["page", "render_sha256", "coordinate_system", "bounding_box", "render_width", "render_height"]}}
+      }
+    }
+  ],
+  "additionalProperties": true
+}

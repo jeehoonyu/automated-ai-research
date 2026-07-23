@@ -1,0 +1,50 @@
+{
+  "artifact_hash": "sha256:9acb53e23169c98c9940ccc83c66571c302fb9b4839a630da01fed1799004fcc",
+  "artifact_id": "CLM-a3d4cd26-92c8-47d7-9620-a1ac8fe6e415-v5",
+  "assumptions": [],
+  "citation_status": "passed",
+  "claim": "In the synthetic cache study, the authors reported an 18 percent reduction in simulated data movement relative to baseline, but an independent replication using production traces found no statistically reliable reduction, so this result should not be generalized directly to production systems.",
+  "claim_id": "CLM-a3d4cd26-92c8-47d7-9620-a1ac8fe6e415",
+  "claim_status": "independently_reviewed",
+  "claim_type": "descriptive_result",
+  "claim_version": 5,
+  "contradicting_evidence_ids": [
+    "EVD-sha256-00eb57532f3c7d2d38a8118a091bd27795dc5df4a9ce2da27f8d9a80b815eab3"
+  ],
+  "contradiction_status": "unresolved",
+  "created_at": "2026-07-23T04:20:19.106184Z",
+  "created_by": {
+    "actor_type": "system",
+    "host": "research-cli",
+    "model_identifier": null
+  },
+  "factors": {
+    "citation_validity": "high",
+    "contradictory_evidence": "high",
+    "evidence_coverage": "medium",
+    "evidence_directness": "high",
+    "methodology_quality": "medium",
+    "ocr_dependency": "not_applicable",
+    "reviewer_agreement": "high",
+    "reviewer_independence": "high",
+    "source_independence": "medium",
+    "source_quality": "medium",
+    "visual_certainty": "not_applicable"
+  },
+  "human_review_required": true,
+  "independent_review_status": "confirmed_independent",
+  "limitations": [
+    "The positive result comes from 120 generated workloads run on one simulator without production latency measurement.",
+    "The study states that its synthetic workloads must not be generalized directly to production systems.",
+    "The production-trace replication reports no statistically reliable overall reduction and workload-locality sensitivity, leaving the contradiction unresolved."
+  ],
+  "methodology_status": "limitations_detected",
+  "schema_name": "Claim",
+  "schema_version": "1.0.0",
+  "supersedes": "CLM-a3d4cd26-92c8-47d7-9620-a1ac8fe6e415-v4",
+  "support_classification": "conflicting_evidence",
+  "supporting_evidence_ids": [
+    "EVD-sha256-181da3f4d8e5b7017d27f9f9b809c0ee517e3d19844a3dff26fcbdb84b3f2f1e",
+    "EVD-sha256-b093d75f8b57d3a5ba4b9ab18a03b6d77119f211ac087600b2a766620a41a6ee"
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "artifact_hash": "sha256:d13017f35552620e3f23666bc6e494c805d600151b27e05b32b5234132e56849",
+  "artifact_id": "STAGE-019f8d29-9233-7db0-aeee-d9d8bfbfb830",
+  "artifact_ids": [
+    "CLM-a3d4cd26-92c8-47d7-9620-a1ac8fe6e415-v1",
+    "REL-bf0f628b-0264-4383-886f-2639d859f3a1"
+  ],
+  "created_at": "2026-07-23T04:08:59.698614Z",
+  "created_by": {
+    "actor_type": "agent",
+    "host": "codex",
+    "model_identifier": "gpt-5"
+  },
+  "notes": [
+    "Claim v1 records the synthetic-study support, the explicit production-generalization limit, and the independent null replication as a material contradiction.",
+    "Derivative-summary and related-non-supporting evidence were excluded from claim support and only the derivative passage was used for the source relationship."
+  ],
+  "outcome": "completed",
+  "run_id": "RUN-563cd90e-af4d-46fa-9302-f48c030cb398",
+  "schema_name": "StageResponse",
+  "schema_version": "1.0.0",
+  "stage": "synthesis"
+}

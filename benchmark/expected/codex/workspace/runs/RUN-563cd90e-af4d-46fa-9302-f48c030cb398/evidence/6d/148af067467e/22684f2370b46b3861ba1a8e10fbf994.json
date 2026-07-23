@@ -1,0 +1,35 @@
+{
+  "artifact_hash": "sha256:22684f2370b46b3861ba1a8e10fbf994d787e21adc71d08710ac95e65c35031f",
+  "artifact_id": "EVD-sha256-46e1d09ee82171602aa8cc98fc5ca129e1c16ef4fade89547aac0ebf0f2f2ba7",
+  "context_after": null,
+  "context_before": "# Related Processor Note",
+  "created_at": "2026-07-23T04:03:48.168447Z",
+  "created_by": {
+    "actor_type": "agent",
+    "host": "codex",
+    "model_identifier": "gpt-5"
+  },
+  "document_id": "DOC-sha256-bd4a5ef906b27e6aabd803497f1bb6f1a78251ebc4a7d05c66d2f166a3dc92e3",
+  "document_version_id": "DVER-sha256-45f5a5566f8d0f36ec7dcd472c3dc3d8a89d507f9787d0708174ec445c261405",
+  "evidence_id": "EVD-sha256-46e1d09ee82171602aa8cc98fc5ca129e1c16ef4fade89547aac0ebf0f2f2ba7",
+  "evidence_type": "direct_statement",
+  "exact_text": "This note discusses processor energy consumption but contains no measurement of cache data movement.\nIt is topically related to computer architecture and does not support the benchmark's central claim.",
+  "extraction_method": "Exact multi-sentence span selected from retrieved chunk for the related-but-non-supporting source statement.",
+  "extraction_status": "extracted",
+  "human_review_required": false,
+  "locator": {
+    "chunk_id": "CHK-sha256-4b15933034c6a97c3e87b82acaebd6b26bb545562031ce020af8daf6b8fa943d",
+    "end_offset": 227,
+    "page": null,
+    "section_path": [
+      "Related Processor Note"
+    ],
+    "source_line_end": 4,
+    "source_line_start": 3,
+    "span_sha256": "sha256:a51ac9c1e1482f28cfeb675239dd50cb47cc21265558430a704340990008aaed",
+    "start_offset": 26,
+    "type": "text_span"
+  },
+  "schema_name": "Evidence",
+  "schema_version": "1.0.0"
+}

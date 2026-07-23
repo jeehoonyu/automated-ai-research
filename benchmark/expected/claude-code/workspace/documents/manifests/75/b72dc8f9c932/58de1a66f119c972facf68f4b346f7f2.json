@@ -1,0 +1,23 @@
+{
+  "artifact_hash": "sha256:58de1a66f119c972facf68f4b346f7f2e5cde80b949057865a4a9f7aab230355",
+  "artifact_id": "DOC-sha256-e97a9212b10b03d5504ae5c057780b303c06cc98ecdaacb7561b1590d88e4dc9",
+  "created_at": "2026-07-23T03:47:43.837198Z",
+  "created_by": {
+    "actor_type": "system",
+    "host": "research-cli",
+    "model_identifier": null
+  },
+  "document_id": "DOC-sha256-e97a9212b10b03d5504ae5c057780b303c06cc98ecdaacb7561b1590d88e4dc9",
+  "file_size": 356,
+  "import_aliases": [
+    "C:\\Users\\jeehoon\\OneDrive\\문서\\Automated_research\\benchmark\\sources\\synthetic-contradiction.md"
+  ],
+  "media_type": "text/markdown",
+  "metadata": {
+    "original_filename": "synthetic-contradiction.md"
+  },
+  "original_storage_path": "originals/sha256/e9/7a/e97a9212b10b03d5504ae5c057780b303c06cc98ecdaacb7561b1590d88e4dc9",
+  "schema_name": "Document",
+  "schema_version": "1.0.0",
+  "source_sha256": "sha256:e97a9212b10b03d5504ae5c057780b303c06cc98ecdaacb7561b1590d88e4dc9"
+}

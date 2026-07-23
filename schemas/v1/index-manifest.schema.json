@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "IndexManifest",
+  "type": "object",
+  "required": ["schema_name", "schema_version", "artifact_id", "artifact_hash", "created_at", "created_by", "index_id", "sqlite_version", "tokenizer", "ranking", "input_artifact_hashes", "input_ordering", "database_schema_version", "chunking_configuration", "extraction_versions", "logical_index_hash", "database_file_hash", "chunk_count"],
+  "properties": {
+    "schema_name": {"const": "IndexManifest"},
+    "schema_version": {"const": "1.0.0"},
+    "artifact_id": {"type": "string"},
+    "artifact_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "created_at": {"type": "string"},
+    "created_by": {"type": "object"},
+    "index_id": {"type": "string"},
+    "sqlite_version": {"type": "string"},
+    "tokenizer": {"type": "string"},
+    "ranking": {"type": "string"},
+    "input_artifact_hashes": {"type": "array", "items": {"type": "string"}},
+    "input_ordering": {"type": "string"},
+    "database_schema_version": {"type": "string"},
+    "chunking_configuration": {"type": "object"},
+    "extraction_versions": {"type": "array", "items": {"type": "string"}},
+    "logical_index_hash": {"type": "string"},
+    "database_file_hash": {"type": "string"},
+    "chunk_count": {"type": "integer", "minimum": 0}
+  },
+  "additionalProperties": true
+}

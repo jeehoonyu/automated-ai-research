@@ -1,0 +1,35 @@
+{
+  "artifact_hash": "sha256:3dd0328bb58062f9e48ec3be1e253d403ba29bad9c342fb7e77bac0d40529acb",
+  "artifact_id": "CHK-sha256-4ed70eb51a67fea97eceab2999e02521a09943ae03454a1e5a8a6d365dce4489",
+  "chunk_id": "CHK-sha256-4ed70eb51a67fea97eceab2999e02521a09943ae03454a1e5a8a6d365dce4489",
+  "chunking_configuration_hash": "sha256:f56cf5d96972ed43b5dbe86181c877b24572e01dbcb524671387e8b3555f1cc1",
+  "chunking_version": "1.0.0",
+  "context_boundaries": {
+    "section_end": 258,
+    "section_start": 64
+  },
+  "created_at": "2026-07-23T03:47:43.950266Z",
+  "created_by": {
+    "actor_type": "system",
+    "host": "research-cli",
+    "model_identifier": null
+  },
+  "document_id": "DOC-sha256-d61d88fe14346fe72e70d821ef4ba2f9f091fc748097c9df9c475c6764493e0b",
+  "document_version_id": "DVER-sha256-6902c6244fb798b58faa455bdd18f5d1dd59ce4124a8e1cba16ecad9c924688c",
+  "end_offset": 258,
+  "exact_text": "## Method\n\nThe synthetic experiment compared a baseline cache with a partitioned cache over 120 generated\nworkloads. The experiment reused one simulator and did not measure production latency.\n\n",
+  "index_eligible": true,
+  "overlap_characters": 0,
+  "page": null,
+  "schema_name": "Chunk",
+  "schema_version": "1.0.0",
+  "section_path": [
+    "Synthetic Cache Study",
+    "Method"
+  ],
+  "source_line_end": 10,
+  "source_line_start": 5,
+  "start_offset": 64,
+  "text_sha256": "sha256:56de7a13f33430e1ce4f87515dd19d5559f75f7b4b4e20e7c2b238528d1aa660",
+  "warnings": []
+}

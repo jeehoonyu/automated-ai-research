@@ -1,0 +1,26 @@
+{
+  "actor_type": "system",
+  "artifact_hash": "sha256:79a7b840551cbf7d77a4f26f7e2434d32f12fe801ad046b8828ee476bcce3f01",
+  "artifact_hashes": [
+    "sha256:81aec04cc456f6b6334316888c779789b48fdf3e5bd478c0790a9a5606138f6b",
+    "sha256:7c32b82f989e7f0299fa14563435b66d0991214c6c4122b5d747a661d6d2368a"
+  ],
+  "artifact_id": "EVT-019f8d35-2dfe-72fb-b83e-429a2cc20f7f",
+  "created_at": "2026-07-23T04:21:40.478749Z",
+  "created_by": {
+    "actor_type": "system",
+    "host": "research-cli",
+    "model_identifier": null
+  },
+  "event_id": "EVT-019f8d35-2dfe-72fb-b83e-429a2cc20f7f",
+  "new_disposition": "human_review_required",
+  "new_phase": "independently_reviewed",
+  "previous_disposition": "active",
+  "previous_phase": "independently_reviewed",
+  "reason": "Full run validation completed",
+  "run_id": "RUN-563cd90e-af4d-46fa-9302-f48c030cb398",
+  "schema_name": "LifecycleEvent",
+  "schema_version": "1.0.0",
+  "trigger": "research validate",
+  "validation_result": "VAL-019f8d35-2deb-708e-9ac0-40890af6eb58"
+}

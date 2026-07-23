@@ -1,0 +1,21 @@
+{
+  "artifact_hash": "sha256:d476f5b7ec1558d86545f868f9b871e916752b6ab37f66a466e84eb6eff4620f",
+  "artifact_id": "REL-bf0f628b-0264-4383-886f-2639d859f3a1",
+  "confidence": "high",
+  "created_at": "2026-07-23T04:08:59.698614Z",
+  "created_by": {
+    "actor_type": "agent",
+    "host": "codex",
+    "model_identifier": "gpt-5"
+  },
+  "human_review_status": "pending",
+  "related_document_id": "DOC-sha256-d61d88fe14346fe72e70d821ef4ba2f9f091fc748097c9df9c475c6764493e0b",
+  "relationship_evidence": [
+    "EVD-sha256-cc7d05d378474d4f313bda00ec4c5cc588feeb6a233c385e7c03fd38cc0af00a"
+  ],
+  "relationship_id": "REL-bf0f628b-0264-4383-886f-2639d859f3a1",
+  "relationship_type": "summarizes",
+  "schema_name": "SourceRelationship",
+  "schema_version": "1.0.0",
+  "source_document_id": "DOC-sha256-6e05f41667a65fe79b20082e0d2dba3077e884d86d808a26b194a67d4b4dd6bc"
+}

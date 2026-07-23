@@ -1,0 +1,28 @@
+{
+  "actor_type": "system",
+  "artifact_hash": "sha256:a04e988c8b7e2a0a1a021c9d2fcbc7e0d1c93fdd005ec7e9418c89216f24d4c1",
+  "artifact_hashes": [
+    "sha256:11a2b94078805a47dd0ff78b7452f2b3771f6567af47dc12b0d5f880ce8b1f4b",
+    "sha256:d476f5b7ec1558d86545f868f9b871e916752b6ab37f66a466e84eb6eff4620f",
+    "sha256:d13017f35552620e3f23666bc6e494c805d600151b27e05b32b5234132e56849",
+    "sha256:2919b9166abc567f31851f012eff4dafbc3ca3dce7ca2e30eb21ad81145a2a5b"
+  ],
+  "artifact_id": "EVT-019f8d29-c3f2-74e4-96d7-bb4fdd5e1e9f",
+  "created_at": "2026-07-23T04:09:12.434058Z",
+  "created_by": {
+    "actor_type": "system",
+    "host": "research-cli",
+    "model_identifier": null
+  },
+  "event_id": "EVT-019f8d29-c3f2-74e4-96d7-bb4fdd5e1e9f",
+  "new_disposition": "active",
+  "new_phase": "synthesized",
+  "previous_disposition": "active",
+  "previous_phase": "evidence_extracted",
+  "reason": "Validated and promoted synthesis stage outputs",
+  "run_id": "RUN-563cd90e-af4d-46fa-9302-f48c030cb398",
+  "schema_name": "LifecycleEvent",
+  "schema_version": "1.0.0",
+  "trigger": "research validate RUN-563cd90e-af4d-46fa-9302-f48c030cb398 --stage synthesis",
+  "validation_result": null
+}

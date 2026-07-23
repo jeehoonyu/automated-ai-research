@@ -1,0 +1,35 @@
+{
+  "artifact_hash": "sha256:1ff10e9415f87f7905aee79e74eec62407b74d00cd5b5801959bece2f1ac1741",
+  "artifact_id": "EVD-sha256-cc7d05d378474d4f313bda00ec4c5cc588feeb6a233c385e7c03fd38cc0af00a",
+  "context_after": null,
+  "context_before": "# Secondary Summary of the Synthetic Cache Study",
+  "created_at": "2026-07-23T04:03:48.168447Z",
+  "created_by": {
+    "actor_type": "agent",
+    "host": "codex",
+    "model_identifier": "gpt-5"
+  },
+  "document_id": "DOC-sha256-6e05f41667a65fe79b20082e0d2dba3077e884d86d808a26b194a67d4b4dd6bc",
+  "document_version_id": "DVER-sha256-28a426ed9296b0309b13a7e861a7d1ee74160c63d3453fa02a4b820d81f66a7c",
+  "evidence_id": "EVD-sha256-cc7d05d378474d4f313bda00ec4c5cc588feeb6a233c385e7c03fd38cc0af00a",
+  "evidence_type": "citation_relationship",
+  "exact_text": "This document summarizes the Synthetic Cache Study and reuses its reported 18 percent measurement.\nIt is not an independent experiment and must not be counted as independent confirmation.",
+  "extraction_method": "Exact multi-sentence span selected from retrieved chunk for the derivative non-independent source statement.",
+  "extraction_status": "extracted",
+  "human_review_required": false,
+  "locator": {
+    "chunk_id": "CHK-sha256-d4666ef08018e38eb32d235f3baeadb7403c81fe05fdb0eec85df1f88bdb2c3c",
+    "end_offset": 237,
+    "page": null,
+    "section_path": [
+      "Secondary Summary of the Synthetic Cache Study"
+    ],
+    "source_line_end": 4,
+    "source_line_start": 3,
+    "span_sha256": "sha256:f6211400eff19f52d58d42434c02aa877eb0c4379c2242488544c58157a82ce7",
+    "start_offset": 50,
+    "type": "text_span"
+  },
+  "schema_name": "Evidence",
+  "schema_version": "1.0.0"
+}

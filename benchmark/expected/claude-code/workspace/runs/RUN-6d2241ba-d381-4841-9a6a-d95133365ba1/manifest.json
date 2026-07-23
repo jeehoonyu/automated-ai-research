@@ -1,0 +1,123 @@
+{
+  "artifact_hash": "sha256:78ef7333eb57c08c17cca48e89da7f6a1f60b427d5a2facf1509e08782e99898",
+  "artifact_id": "RUN-6d2241ba-d381-4841-9a6a-d95133365ba1",
+  "configuration_hash": "sha256:ddd4b3a9209b221ab25bf4b65b4c01ee819fe6aa1fa46303f314c0996afdce28",
+  "created_at": "2026-07-23T03:47:45.009325Z",
+  "created_by": {
+    "actor_type": "system",
+    "host": "research-cli",
+    "model_identifier": null
+  },
+  "disposition": "active",
+  "event_log": "events.jsonl",
+  "host": {
+    "environment": "claude-code",
+    "model_identifier": null
+  },
+  "index_snapshot": {
+    "artifact_hash": "sha256:ad6c4532c8613948d778a24f64106d08bbf9b405a24b8b8ff3aae3c938ca767e",
+    "index_id": "IDX-sha256-cf2175354e171f2005c0c60f3799b16094f87eea44a2c0ad3e6288583f916cbc",
+    "logical_index_hash": "sha256:cf2175354e171f2005c0c60f3799b16094f87eea44a2c0ad3e6288583f916cbc"
+  },
+  "latest_validation_result_id": null,
+  "phase": "initialized",
+  "profile": "default",
+  "profile_snapshot": {
+    "human_review_triggers": [
+      "material_unresolved_contradiction",
+      "citation_failure",
+      "uncertain_visual",
+      "ocr_dependency",
+      "unknown_methodology",
+      "missing_independence",
+      "ambiguous_extraction",
+      "unknown_source_independence"
+    ],
+    "minimum_independence": "procedurally_isolated",
+    "profile_id": "default",
+    "required_review_types": [
+      "contradiction_review",
+      "citation_review",
+      "methodology_review",
+      "independent_review"
+    ],
+    "risk_level": "standard",
+    "schema_name": "Profile",
+    "schema_version": "1.0.0"
+  },
+  "question": "What evidence supports a reduction in data movement, and what contradicts it?",
+  "report_eligible": false,
+  "run_id": "RUN-6d2241ba-d381-4841-9a6a-d95133365ba1",
+  "schema_name": "RunManifest",
+  "schema_version": "1.0.0",
+  "schema_versions": {
+    "Amendment": "1.0.0",
+    "Chunk": "1.0.0",
+    "Claim": "1.0.0",
+    "Document": "1.0.0",
+    "DocumentVersion": "1.0.0",
+    "Evidence": "1.0.0",
+    "IndexManifest": "1.0.0",
+    "LifecycleEvent": "1.0.0",
+    "ReportManifest": "1.0.0",
+    "ResearchPlan": "1.0.0",
+    "RetrievalResult": "1.0.0",
+    "Review": "1.0.0",
+    "RunManifest": "1.0.0",
+    "SourceRelationship": "1.0.0",
+    "StageResponse": "1.0.0",
+    "ValidationResult": "1.0.0",
+    "WorkPacket": "1.0.0"
+  },
+  "source_collection_state": "frozen_at_initialization",
+  "source_document_ids": [
+    "DOC-sha256-6e05f41667a65fe79b20082e0d2dba3077e884d86d808a26b194a67d4b4dd6bc",
+    "DOC-sha256-bd4a5ef906b27e6aabd803497f1bb6f1a78251ebc4a7d05c66d2f166a3dc92e3",
+    "DOC-sha256-d61d88fe14346fe72e70d821ef4ba2f9f091fc748097c9df9c475c6764493e0b",
+    "DOC-sha256-e97a9212b10b03d5504ae5c057780b303c06cc98ecdaacb7561b1590d88e4dc9",
+    "DOC-sha256-ef5eee8e8dbad85e8e5388f23215ebe59ac3c5438f32dca0be02e74494b7ba73"
+  ],
+  "source_snapshot": [
+    {
+      "document_artifact_hash": "sha256:1e3c080d773fc4f54b7ee7a63f0243cf8650f4961379b85765adafb8172e359b",
+      "document_id": "DOC-sha256-6e05f41667a65fe79b20082e0d2dba3077e884d86d808a26b194a67d4b4dd6bc",
+      "document_version_artifact_hash": "sha256:2689b2440fef07f7e87c130bf9ffb742667dba75f520770caac57dd403a51861",
+      "document_version_id": "DVER-sha256-28a426ed9296b0309b13a7e861a7d1ee74160c63d3453fa02a4b820d81f66a7c",
+      "extraction_status": "extracted",
+      "source_sha256": "sha256:6e05f41667a65fe79b20082e0d2dba3077e884d86d808a26b194a67d4b4dd6bc"
+    },
+    {
+      "document_artifact_hash": "sha256:40cd84208c1f40d2eac068639836b3ec7e0a6117f4c8715d1f67163fe949d05b",
+      "document_id": "DOC-sha256-bd4a5ef906b27e6aabd803497f1bb6f1a78251ebc4a7d05c66d2f166a3dc92e3",
+      "document_version_artifact_hash": "sha256:779799db1f10b445caa444c77984bb7f0faed5859c1dea6fc83e0992c341a7fa",
+      "document_version_id": "DVER-sha256-45f5a5566f8d0f36ec7dcd472c3dc3d8a89d507f9787d0708174ec445c261405",
+      "extraction_status": "extracted",
+      "source_sha256": "sha256:bd4a5ef906b27e6aabd803497f1bb6f1a78251ebc4a7d05c66d2f166a3dc92e3"
+    },
+    {
+      "document_artifact_hash": "sha256:13c0afd6816833c640fea2bddc12be62111906115fd6dcfcd22c2e9213bf9c76",
+      "document_id": "DOC-sha256-d61d88fe14346fe72e70d821ef4ba2f9f091fc748097c9df9c475c6764493e0b",
+      "document_version_artifact_hash": "sha256:b18585656b398037a69400f7378f258e2e4e15ebd4aa4cb9dc704f087e58dd32",
+      "document_version_id": "DVER-sha256-6902c6244fb798b58faa455bdd18f5d1dd59ce4124a8e1cba16ecad9c924688c",
+      "extraction_status": "extracted",
+      "source_sha256": "sha256:d61d88fe14346fe72e70d821ef4ba2f9f091fc748097c9df9c475c6764493e0b"
+    },
+    {
+      "document_artifact_hash": "sha256:58de1a66f119c972facf68f4b346f7f2e5cde80b949057865a4a9f7aab230355",
+      "document_id": "DOC-sha256-e97a9212b10b03d5504ae5c057780b303c06cc98ecdaacb7561b1590d88e4dc9",
+      "document_version_artifact_hash": "sha256:27ad0aba175e62befb8844b6b54b71952771c34d36c653c78100e837aa248ac4",
+      "document_version_id": "DVER-sha256-c231d098ef014150d2e350ccb9926b8234f69358e32b6f806075f54596b34841",
+      "extraction_status": "extracted",
+      "source_sha256": "sha256:e97a9212b10b03d5504ae5c057780b303c06cc98ecdaacb7561b1590d88e4dc9"
+    },
+    {
+      "document_artifact_hash": "sha256:23f982c6398cea798ea9aa0e6a12bc9e3c4c889a32e617e6870356d6574fea1b",
+      "document_id": "DOC-sha256-ef5eee8e8dbad85e8e5388f23215ebe59ac3c5438f32dca0be02e74494b7ba73",
+      "document_version_artifact_hash": "sha256:377ea3f33a724272d5852ed4a4740a2fa64783d929c4c7b18cce9c4540a564b3",
+      "document_version_id": "DVER-sha256-6bbde034e5ff6a16d37f872dabf00079ac433ded989adf6dccda165e7daf5703",
+      "extraction_status": "extracted",
+      "source_sha256": "sha256:ef5eee8e8dbad85e8e5388f23215ebe59ac3c5438f32dca0be02e74494b7ba73"
+    }
+  ],
+  "workflow_version": "1.0.0"
+}

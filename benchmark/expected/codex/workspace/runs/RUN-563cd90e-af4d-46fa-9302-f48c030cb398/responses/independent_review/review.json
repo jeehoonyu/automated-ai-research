@@ -1,0 +1,84 @@
+{
+  "schema_name": "Review",
+  "schema_version": "1.0.0",
+  "artifact_id": "REV-c81501c3-56b2-4308-a822-053dabb03acc",
+  "artifact_hash": "sha256:219a115a8a695399df933e23b9f2769a39c8b3aedbbf846fec77e86250d703ab",
+  "created_at": "2026-07-23T04:18:58Z",
+  "created_by": {
+    "actor_type": "agent",
+    "host": "codex",
+    "model_identifier": "gpt-5"
+  },
+  "review_id": "REV-c81501c3-56b2-4308-a822-053dabb03acc",
+  "review_type": "independent_review",
+  "reviewed_artifact_ids": [
+    "CLM-a3d4cd26-92c8-47d7-9620-a1ac8fe6e415"
+  ],
+  "reviewer_identity": {
+    "role": "independent_reviewer",
+    "agent": "codex",
+    "fresh_context": true
+  },
+  "reviewer_independence_status": "confirmed_independent",
+  "review_independence": {
+    "primary_rationale_excluded": true,
+    "primary_confidence_excluded": true,
+    "prior_review_conclusions_excluded": true,
+    "fresh_agent_context_requested": true,
+    "host_confirmed_fresh_context": true,
+    "status": "confirmed_independent"
+  },
+  "decision": "human_review_required",
+  "claim_assessments": [
+    {
+      "claim_id": "CLM-a3d4cd26-92c8-47d7-9620-a1ac8fe6e415",
+      "assessment": "Exact inspection confirms the reported 18 percent simulated reduction in the synthetic study, the paper's explicit no-direct-generalization limitation, and the independent production-trace replication finding no statistically reliable reduction.",
+      "citation_support": "supports",
+      "contradiction_search_performed": true,
+      "material_contradictions": [
+        "EVD-sha256-00eb57532f3c7d2d38a8118a091bd27795dc5df4a9ce2da27f8d9a80b815eab3"
+      ],
+      "methodology_quality": "medium",
+      "support_assessment": "supports"
+    }
+  ],
+  "findings": [
+    {
+      "severity": "info",
+      "claim_id": "CLM-a3d4cd26-92c8-47d7-9620-a1ac8fe6e415",
+      "summary": "Synthetic-study support is exact.",
+      "detail": "EVD-sha256-181da3f4d8e5b7017d27f9f9b809c0ee517e3d19844a3dff26fcbdb84b3f2f1e states that the partitioned cache reduced mean simulated data movement by 18 percent relative to baseline. EVD-sha256-b093d75f8b57d3a5ba4b9ab18a03b6d77119f211ac087600b2a766620a41a6ee states the workloads were synthetic and must not be generalized directly to production systems.",
+      "citations": [
+        "EVD-sha256-181da3f4d8e5b7017d27f9f9b809c0ee517e3d19844a3dff26fcbdb84b3f2f1e",
+        "EVD-sha256-b093d75f8b57d3a5ba4b9ab18a03b6d77119f211ac087600b2a766620a41a6ee"
+      ]
+    },
+    {
+      "severity": "warning",
+      "claim_id": "CLM-a3d4cd26-92c8-47d7-9620-a1ac8fe6e415",
+      "summary": "Independent contradiction is material and unresolved.",
+      "detail": "EVD-sha256-00eb57532f3c7d2d38a8118a091bd27795dc5df4a9ce2da27f8d9a80b815eab3 reports that a replication using 40 production traces found no statistically reliable reduction in data movement. That contradiction is directly relevant to whether the synthetic result should be generalized to production systems.",
+      "citations": [
+        "EVD-sha256-00eb57532f3c7d2d38a8118a091bd27795dc5df4a9ce2da27f8d9a80b815eab3"
+      ]
+    },
+    {
+      "severity": "info",
+      "claim_id": "CLM-a3d4cd26-92c8-47d7-9620-a1ac8fe6e415",
+      "summary": "Derivative and related records are non-supporting.",
+      "detail": "EVD-sha256-cc7d05d378474d4f313bda00ec4c5cc588feeb6a233c385e7c03fd38cc0af00a is explicitly a summary that reuses the 18 percent result and is not independent confirmation. EVD-sha256-46e1d09ee82171602aa8cc98fc5ca129e1c16ef4fade89547aac0ebf0f2f2ba7 contains no cache data-movement measurement and does not support the claim.",
+      "citations": [
+        "EVD-sha256-cc7d05d378474d4f313bda00ec4c5cc588feeb6a233c385e7c03fd38cc0af00a",
+        "EVD-sha256-46e1d09ee82171602aa8cc98fc5ca129e1c16ef4fade89547aac0ebf0f2f2ba7"
+      ]
+    }
+  ],
+  "blocking_issues": [
+    "Material unresolved contradiction remains between the synthetic-study result and the production-trace replication."
+  ],
+  "warnings": [
+    "Human review is recommended because the contradiction remains unresolved.",
+    "Do not count the derivative summary or the related processor note as support."
+  ],
+  "required_amendments": []
+}

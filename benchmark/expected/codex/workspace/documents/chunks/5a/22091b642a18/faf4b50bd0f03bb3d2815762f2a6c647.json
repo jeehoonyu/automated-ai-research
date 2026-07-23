@@ -1,0 +1,35 @@
+{
+  "artifact_hash": "sha256:faf4b50bd0f03bb3d2815762f2a6c64764559788475719c2dd32993731ccc2a6",
+  "artifact_id": "CHK-sha256-faa4a53a696d745fd37de6d911165fd0de7fc379353ad4fb345f2ba03d45737d",
+  "chunk_id": "CHK-sha256-faa4a53a696d745fd37de6d911165fd0de7fc379353ad4fb345f2ba03d45737d",
+  "chunking_configuration_hash": "sha256:f56cf5d96972ed43b5dbe86181c877b24572e01dbcb524671387e8b3555f1cc1",
+  "chunking_version": "1.0.0",
+  "context_boundaries": {
+    "section_end": 452,
+    "section_start": 258
+  },
+  "created_at": "2026-07-23T03:47:41.812786Z",
+  "created_by": {
+    "actor_type": "system",
+    "host": "research-cli",
+    "model_identifier": null
+  },
+  "document_id": "DOC-sha256-d61d88fe14346fe72e70d821ef4ba2f9f091fc748097c9df9c475c6764493e0b",
+  "document_version_id": "DVER-sha256-6902c6244fb798b58faa455bdd18f5d1dd59ce4124a8e1cba16ecad9c924688c",
+  "end_offset": 452,
+  "exact_text": "## Results\n\nThe partitioned cache reduced mean simulated data movement by 18 percent relative to the baseline.\nThe reported 95 percent confidence interval ranged from 12 percent to 24 percent.\n\n",
+  "index_eligible": true,
+  "overlap_characters": 0,
+  "page": null,
+  "schema_name": "Chunk",
+  "schema_version": "1.0.0",
+  "section_path": [
+    "Synthetic Cache Study",
+    "Results"
+  ],
+  "source_line_end": 15,
+  "source_line_start": 10,
+  "start_offset": 258,
+  "text_sha256": "sha256:12b3b2571e534087b9358711bf0d7e9c63750fe429033f1bb96100a57ac90a7d",
+  "warnings": []
+}

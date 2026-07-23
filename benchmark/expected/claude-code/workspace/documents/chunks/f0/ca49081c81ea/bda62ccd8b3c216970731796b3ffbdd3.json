@@ -1,0 +1,35 @@
+{
+  "artifact_hash": "sha256:bda62ccd8b3c216970731796b3ffbdd39cc9ef64ac891165db7c7b30b1a4a99d",
+  "artifact_id": "CHK-sha256-f7871563162b58837198b296a1e0d52976fcb623eb49f371526dfae0eea8ed69",
+  "chunk_id": "CHK-sha256-f7871563162b58837198b296a1e0d52976fcb623eb49f371526dfae0eea8ed69",
+  "chunking_configuration_hash": "sha256:f56cf5d96972ed43b5dbe86181c877b24572e01dbcb524671387e8b3555f1cc1",
+  "chunking_version": "1.0.0",
+  "context_boundaries": {
+    "section_end": 356,
+    "section_start": 233
+  },
+  "created_at": "2026-07-23T03:47:43.848198Z",
+  "created_by": {
+    "actor_type": "system",
+    "host": "research-cli",
+    "model_identifier": null
+  },
+  "document_id": "DOC-sha256-e97a9212b10b03d5504ae5c057780b303c06cc98ecdaacb7561b1590d88e4dc9",
+  "document_version_id": "DVER-sha256-c231d098ef014150d2e350ccb9926b8234f69358e32b6f806075f54596b34841",
+  "end_offset": 356,
+  "exact_text": "## Source relationship\n\nThis replication was conducted independently and did not reuse the original simulator or dataset.\n\n",
+  "index_eligible": true,
+  "overlap_characters": 0,
+  "page": null,
+  "schema_name": "Chunk",
+  "schema_version": "1.0.0",
+  "section_path": [
+    "Synthetic Replication Note",
+    "Source relationship"
+  ],
+  "source_line_end": 12,
+  "source_line_start": 8,
+  "start_offset": 233,
+  "text_sha256": "sha256:fad7aa4882f9ecf07fc9d94869c699da6c3d0005b3760e136e0df9a4ea5a6718",
+  "warnings": []
+}

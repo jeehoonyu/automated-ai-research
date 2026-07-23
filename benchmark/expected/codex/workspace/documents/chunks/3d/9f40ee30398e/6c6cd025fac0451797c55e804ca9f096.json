@@ -1,0 +1,34 @@
+{
+  "artifact_hash": "sha256:6c6cd025fac0451797c55e804ca9f0965fdeb036308f454e5042436ef1318a8c",
+  "artifact_id": "CHK-sha256-4b15933034c6a97c3e87b82acaebd6b26bb545562031ce020af8daf6b8fa943d",
+  "chunk_id": "CHK-sha256-4b15933034c6a97c3e87b82acaebd6b26bb545562031ce020af8daf6b8fa943d",
+  "chunking_configuration_hash": "sha256:f56cf5d96972ed43b5dbe86181c877b24572e01dbcb524671387e8b3555f1cc1",
+  "chunking_version": "1.0.0",
+  "context_boundaries": {
+    "section_end": 229,
+    "section_start": 0
+  },
+  "created_at": "2026-07-23T03:47:41.771990Z",
+  "created_by": {
+    "actor_type": "system",
+    "host": "research-cli",
+    "model_identifier": null
+  },
+  "document_id": "DOC-sha256-bd4a5ef906b27e6aabd803497f1bb6f1a78251ebc4a7d05c66d2f166a3dc92e3",
+  "document_version_id": "DVER-sha256-45f5a5566f8d0f36ec7dcd472c3dc3d8a89d507f9787d0708174ec445c261405",
+  "end_offset": 229,
+  "exact_text": "# Related Processor Note\n\nThis note discusses processor energy consumption but contains no measurement of cache data movement.\nIt is topically related to computer architecture and does not support the benchmark's central claim.\n\n",
+  "index_eligible": true,
+  "overlap_characters": 0,
+  "page": null,
+  "schema_name": "Chunk",
+  "schema_version": "1.0.0",
+  "section_path": [
+    "Related Processor Note"
+  ],
+  "source_line_end": 6,
+  "source_line_start": 1,
+  "start_offset": 0,
+  "text_sha256": "sha256:bd4a5ef906b27e6aabd803497f1bb6f1a78251ebc4a7d05c66d2f166a3dc92e3",
+  "warnings": []
+}

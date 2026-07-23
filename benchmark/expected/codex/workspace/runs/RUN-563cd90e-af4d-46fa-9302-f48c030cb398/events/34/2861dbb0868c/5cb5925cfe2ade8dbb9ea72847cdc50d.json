@@ -1,0 +1,28 @@
+{
+  "actor_type": "system",
+  "artifact_hash": "sha256:5cb5925cfe2ade8dbb9ea72847cdc50d86501d8f9d3107cc3d8fc8e8da5a3c5c",
+  "artifact_hashes": [
+    "sha256:9e593ac9678324060fb53ddee0c3ec6e9792c4ab30f6582011fbfe2ad89fa46e",
+    "sha256:a765016e5af2d76be70f2e46d596003426f8b775352574bd6d7cc498579fcd7d",
+    "sha256:2188eb1ada3c5d86148a01b8003d6f13ef55f56a8ec010cc9f4f7bd2816330d0",
+    "sha256:df611dd0a0b9e64f50ea50dad509009983b32d6db411841e0978b1fd8b361718"
+  ],
+  "artifact_id": "EVT-019f8d2d-b04d-7d45-81ac-6a38a0756ffa",
+  "created_at": "2026-07-23T04:13:29.550538Z",
+  "created_by": {
+    "actor_type": "system",
+    "host": "research-cli",
+    "model_identifier": null
+  },
+  "event_id": "EVT-019f8d2d-b04d-7d45-81ac-6a38a0756ffa",
+  "new_disposition": "active",
+  "new_phase": "citation_reviewed",
+  "previous_disposition": "active",
+  "previous_phase": "contradiction_reviewed",
+  "reason": "Validated and promoted citation_review stage outputs",
+  "run_id": "RUN-563cd90e-af4d-46fa-9302-f48c030cb398",
+  "schema_name": "LifecycleEvent",
+  "schema_version": "1.0.0",
+  "trigger": "research validate RUN-563cd90e-af4d-46fa-9302-f48c030cb398 --stage citation_review",
+  "validation_result": null
+}

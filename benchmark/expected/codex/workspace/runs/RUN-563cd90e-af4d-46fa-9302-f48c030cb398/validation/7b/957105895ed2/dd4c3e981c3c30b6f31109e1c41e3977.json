@@ -1,0 +1,117 @@
+{
+  "artifact_hash": "sha256:dd4c3e981c3c30b6f31109e1c41e3977f8010f48862bb9d664a71aefc29fea78",
+  "artifact_id": "VAL-019f8d36-2678-7525-87fa-5dee6a81c266",
+  "blocking_errors": [],
+  "checks": [
+    {
+      "check": "artifact_schema_and_hash",
+      "count": 21,
+      "passed": true
+    },
+    {
+      "check": "artifact_schema_and_hash",
+      "count": 21,
+      "passed": true
+    },
+    {
+      "check": "source_hashes",
+      "count": 5,
+      "passed": true
+    },
+    {
+      "check": "source_snapshot",
+      "count": 5,
+      "passed": true
+    },
+    {
+      "artifact_id": "EVD-sha256-b093d75f8b57d3a5ba4b9ab18a03b6d77119f211ac087600b2a766620a41a6ee",
+      "check": "evidence_locator",
+      "passed": true
+    },
+    {
+      "artifact_id": "EVD-sha256-cc7d05d378474d4f313bda00ec4c5cc588feeb6a233c385e7c03fd38cc0af00a",
+      "check": "evidence_locator",
+      "passed": true
+    },
+    {
+      "artifact_id": "EVD-sha256-181da3f4d8e5b7017d27f9f9b809c0ee517e3d19844a3dff26fcbdb84b3f2f1e",
+      "check": "evidence_locator",
+      "passed": true
+    },
+    {
+      "artifact_id": "EVD-sha256-46e1d09ee82171602aa8cc98fc5ca129e1c16ef4fade89547aac0ebf0f2f2ba7",
+      "check": "evidence_locator",
+      "passed": true
+    },
+    {
+      "artifact_id": "EVD-sha256-00eb57532f3c7d2d38a8118a091bd27795dc5df4a9ce2da27f8d9a80b815eab3",
+      "check": "evidence_locator",
+      "passed": true
+    },
+    {
+      "check": "source_relationships",
+      "count": 1,
+      "passed": true
+    }
+  ],
+  "created_at": "2026-07-23T04:22:44.088794Z",
+  "created_by": {
+    "actor_type": "system",
+    "host": "research-cli",
+    "model_identifier": null
+  },
+  "human_review_requirements": [
+    {
+      "artifact_id": "CLM-a3d4cd26-92c8-47d7-9620-a1ac8fe6e415",
+      "code": "claim_human_review",
+      "message": "Claim explicitly requires human review"
+    },
+    {
+      "artifact_id": "CLM-a3d4cd26-92c8-47d7-9620-a1ac8fe6e415",
+      "code": "material_unresolved_contradiction",
+      "message": "Claim has unresolved contradictions"
+    },
+    {
+      "artifact_id": "CLM-a3d4cd26-92c8-47d7-9620-a1ac8fe6e415",
+      "code": "review_requires_human",
+      "message": "independent_review requires human review"
+    }
+  ],
+  "passed": false,
+  "report_eligible": false,
+  "run_id": "RUN-563cd90e-af4d-46fa-9302-f48c030cb398",
+  "schema_name": "ValidationResult",
+  "schema_version": "1.0.0",
+  "semantic_validation_boundary": "The CLI validated review artifacts and gates; host reviewers supplied semantic judgments.",
+  "validated_artifact_hashes": [
+    "sha256:0174ca092a83fa8277d476f2ba9372fe55c5a57204577305e1a3009b60e1868b",
+    "sha256:0b74ab514b6b89c3cd5c7882f2c37afbb2de1e6b6b03e96689ed2c293a3ee802",
+    "sha256:0c4752a6d08c894bada9ad0299484c805e2fa82183ce303c5af87b399c04fa4b",
+    "sha256:0e921b76b68cee2b9178b5017ca4f982bf52f4c89e4cd993f36f68af846aa312",
+    "sha256:1ff10e9415f87f7905aee79e74eec62407b74d00cd5b5801959bece2f1ac1741",
+    "sha256:2188eb1ada3c5d86148a01b8003d6f13ef55f56a8ec010cc9f4f7bd2816330d0",
+    "sha256:219a115a8a695399df933e23b9f2769a39c8b3aedbbf846fec77e86250d703ab",
+    "sha256:22684f2370b46b3861ba1a8e10fbf994d787e21adc71d08710ac95e65c35031f",
+    "sha256:49f15046ee9caa5c75b46558f20b7100ab795df0fc52a3e884fb92b152d223f6",
+    "sha256:69953cd1d926ddcbd7c48aa59c42c958ba0a39b50b05e72c845f0af432255f80",
+    "sha256:9acb53e23169c98c9940ccc83c66571c302fb9b4839a630da01fed1799004fcc",
+    "sha256:a735cbd0acb73639d126f0cf12ef2c4811cbbe3634451092da11204ba607d4f2",
+    "sha256:a765016e5af2d76be70f2e46d596003426f8b775352574bd6d7cc498579fcd7d",
+    "sha256:aba32f8380b347a815579ad9500c94268e010f4125d115426b93ab6916cb0933",
+    "sha256:b9e32c40dc5f170a16f265c88a01d2c43b706500ae15f39d08b9438dde84682f",
+    "sha256:cde8f20c488529f9654ffb710f94f63c2def0a21670483b31048908e4793e45b",
+    "sha256:d13017f35552620e3f23666bc6e494c805d600151b27e05b32b5234132e56849",
+    "sha256:d26b41bcf10d197c074c0f9d76edeafb2a4dd20c24a66f96298774e6f79fab13",
+    "sha256:d476f5b7ec1558d86545f868f9b871e916752b6ab37f66a466e84eb6eff4620f",
+    "sha256:d7e0d6796d1910eb7666b7454c747de1a8d290920f7c16486bcf27bb3c715060",
+    "sha256:ddbd576d1b3e792ea3e42dee52e5d4a87faac209ba145d084e28f7e7fd000b99"
+  ],
+  "validation_result_id": "VAL-019f8d36-2678-7525-87fa-5dee6a81c266",
+  "warnings": [
+    {
+      "artifact_id": "CLM-a3d4cd26-92c8-47d7-9620-a1ac8fe6e415",
+      "code": "limited_conclusion",
+      "message": "Claim is classified conflicting_evidence"
+    }
+  ]
+}

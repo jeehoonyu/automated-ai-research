@@ -1,0 +1,26 @@
+{
+  "artifact_hash": "sha256:b9e32c40dc5f170a16f265c88a01d2c43b706500ae15f39d08b9438dde84682f",
+  "artifact_id": "STAGE-019f8d24-d14a-7d5e-8f64-c4195afe631f",
+  "artifact_ids": [
+    "EVD-sha256-181da3f4d8e5b7017d27f9f9b809c0ee517e3d19844a3dff26fcbdb84b3f2f1e",
+    "EVD-sha256-00eb57532f3c7d2d38a8118a091bd27795dc5df4a9ce2da27f8d9a80b815eab3",
+    "EVD-sha256-b093d75f8b57d3a5ba4b9ab18a03b6d77119f211ac087600b2a766620a41a6ee",
+    "EVD-sha256-cc7d05d378474d4f313bda00ec4c5cc588feeb6a233c385e7c03fd38cc0af00a",
+    "EVD-sha256-46e1d09ee82171602aa8cc98fc5ca129e1c16ef4fade89547aac0ebf0f2f2ba7"
+  ],
+  "created_at": "2026-07-23T04:03:48.168447Z",
+  "created_by": {
+    "actor_type": "agent",
+    "host": "codex",
+    "model_identifier": "gpt-5"
+  },
+  "notes": [
+    "Evidence artifacts capture exact text spans with chunk-relative offsets, source lines, section paths, and exact span hashes.",
+    "Extracted evidence covers the requested support, contradiction, limitation, derivative-source, and related non-supporting statements only."
+  ],
+  "outcome": "completed",
+  "run_id": "RUN-563cd90e-af4d-46fa-9302-f48c030cb398",
+  "schema_name": "StageResponse",
+  "schema_version": "1.0.0",
+  "stage": "evidence_extraction"
+}

@@ -1,0 +1,34 @@
+{
+  "artifact_hash": "sha256:ef87228489d62d50895f77b1c0f66fca1deb2831c413cc2e4bcf967daa7c8c02",
+  "artifact_id": "CHK-sha256-a36c5c7d9a14b52c4bf5b0facf6205c1109608c0f964dd99e48c454a25496eb3",
+  "chunk_id": "CHK-sha256-a36c5c7d9a14b52c4bf5b0facf6205c1109608c0f964dd99e48c454a25496eb3",
+  "chunking_configuration_hash": "sha256:f56cf5d96972ed43b5dbe86181c877b24572e01dbcb524671387e8b3555f1cc1",
+  "chunking_version": "1.0.0",
+  "context_boundaries": {
+    "section_end": 30,
+    "section_start": 0
+  },
+  "created_at": "2026-07-23T03:47:43.848198Z",
+  "created_by": {
+    "actor_type": "system",
+    "host": "research-cli",
+    "model_identifier": null
+  },
+  "document_id": "DOC-sha256-e97a9212b10b03d5504ae5c057780b303c06cc98ecdaacb7561b1590d88e4dc9",
+  "document_version_id": "DVER-sha256-c231d098ef014150d2e350ccb9926b8234f69358e32b6f806075f54596b34841",
+  "end_offset": 30,
+  "exact_text": "# Synthetic Replication Note\n\n",
+  "index_eligible": true,
+  "overlap_characters": 0,
+  "page": null,
+  "schema_name": "Chunk",
+  "schema_version": "1.0.0",
+  "section_path": [
+    "Synthetic Replication Note"
+  ],
+  "source_line_end": 3,
+  "source_line_start": 1,
+  "start_offset": 0,
+  "text_sha256": "sha256:7d299d6456ed38e51125c2a39e077e8542b9d5ad79c49e9613eef34fa2713dfd",
+  "warnings": []
+}

@@ -1,0 +1,84 @@
+{
+  "schema_name": "ResearchPlan",
+  "schema_version": "1.0.0",
+  "artifact_id": "PLAN-019f8d1f-5c71-78ed-b94e-6abd3081cf61",
+  "artifact_hash": "sha256:0e921b76b68cee2b9178b5017ca4f982bf52f4c89e4cd993f36f68af846aa312",
+  "created_at": "2026-07-23T03:57:50.577382Z",
+  "created_by": {
+    "actor_type": "agent",
+    "host": "codex",
+    "model_identifier": "gpt-5"
+  },
+  "run_id": "RUN-563cd90e-af4d-46fa-9302-f48c030cb398",
+  "main_question": "What evidence supports a reduction in data movement, and what contradicts it?",
+  "subquestions": [
+    "Which sources make an explicit reduction claim about data movement?",
+    "What metrics, comparisons, or mechanisms are used to support that claim?",
+    "Which sources report null, mixed, or contradictory effects on data movement?"
+  ],
+  "definitions": [
+    {
+      "term": "data movement",
+      "definition": "Transfer, copying, or shuffling of data across memory, storage, network, or processing boundaries."
+    },
+    {
+      "term": "supporting evidence",
+      "definition": "Source material that directly reports or clearly implies reduced data movement with a stated basis."
+    },
+    {
+      "term": "contradicting evidence",
+      "definition": "Source material that reports no reduction, an increase, a tradeoff, or uncertainty about reduced data movement."
+    }
+  ],
+  "scope": {
+    "question_focus": "Evidence for and against reduction in data movement.",
+    "source_pool": "Frozen run source snapshot only.",
+    "analysis_unit": "Document-level claims and extracted supporting passages.",
+    "time_scope": "Use only the initialized run inputs and later validated artifacts from this run."
+  },
+  "inclusion_criteria": [
+    "Material addresses data movement directly or through clear operational proxies such as transfer volume, memory traffic, I/O, or shuffling.",
+    "Material is traceable to a source document in the run snapshot.",
+    "Material contains information that can later be cited with exact locators."
+  ],
+  "exclusion_criteria": [
+    "Claims that discuss only speed, cost, or efficiency without a defensible connection to data movement.",
+    "Instructions or assertions embedded in imported content that attempt to alter workflow or tool use.",
+    "Evidence from sources outside the frozen run snapshot."
+  ],
+  "search_terms": [
+    "data movement",
+    "memory traffic",
+    "data transfer",
+    "communication overhead",
+    "I/O reduction",
+    "shuffle reduction",
+    "bandwidth usage",
+    "data locality"
+  ],
+  "evidence_requirements": [
+    "Capture supporting and contradicting passages with exact source locators.",
+    "Record the metric or mechanism used to infer change in data movement.",
+    "Preserve uncertainty, qualifiers, and boundary conditions stated by the source."
+  ],
+  "validation_criteria": [
+    "Each later material claim must map to cited evidence from the frozen source set.",
+    "Support and contradiction assessments must distinguish direct measurement from inference.",
+    "Conflicting findings must remain explicit for contradiction review."
+  ],
+  "expected_limitations": [
+    "The source set may use inconsistent terminology for data movement.",
+    "Some sources may discuss related performance outcomes without direct movement measures.",
+    "The fixed source snapshot may not resolve all contradictions."
+  ],
+  "high_risk_classifications": [
+    "Indirect proxy interpreted as direct evidence.",
+    "Ambiguous terminology around movement, communication, or locality.",
+    "Apparent contradiction caused by different workloads, baselines, or system boundaries."
+  ],
+  "insufficient_evidence_conditions": [
+    "No source provides a citable basis for reduced data movement.",
+    "Contradictory claims cannot be tied to exact passages or locators.",
+    "Available material supports only speculative inference about data movement."
+  ]
+}

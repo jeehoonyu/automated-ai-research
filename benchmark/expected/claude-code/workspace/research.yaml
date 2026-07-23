@@ -1,0 +1,21 @@
+chunking:
+  max_characters: 1200
+  overlap_characters: 150
+  version: 1.0.0
+default_profile: default
+imports:
+  follow_symlinks: false
+  max_file_bytes: 262144000
+index:
+  ranking: fts5_bm25_ascending
+  tokenizer: unicode61 remove_diacritics 2
+network_access: false
+pdf:
+  maximum_pages: 2000
+  maximum_render_pixels_per_page: 50000000
+  minimum_usable_characters: 40
+  render_dpi: 150
+  render_format: png
+schema_version: 1.0.0
+workflow_version: 1.0.0
+workspace_version: 1.0.0

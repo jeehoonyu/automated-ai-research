@@ -1,0 +1,49 @@
+{
+  "schema_name": "Claim",
+  "schema_version": "1.0.0",
+  "artifact_id": "CLM-a3d4cd26-92c8-47d7-9620-a1ac8fe6e415-v2",
+  "artifact_hash": "sha256:400314cc27288534a46c1b77c1e75b7bc5cb8c547387ad56f115ce276beb6e51",
+  "created_at": "2026-07-23T04:09:32.647982Z",
+  "created_by": {
+    "actor_type": "agent",
+    "host": "codex",
+    "model_identifier": "gpt-5"
+  },
+  "claim_id": "CLM-a3d4cd26-92c8-47d7-9620-a1ac8fe6e415",
+  "claim_version": 2,
+  "claim": "In the synthetic cache study, the authors reported an 18 percent reduction in simulated data movement relative to baseline, but an independent replication using production traces found no statistically reliable reduction, so this result should not be generalized directly to production systems.",
+  "claim_type": "descriptive_result",
+  "claim_status": "evidence_linked",
+  "support_classification": "conflicting_evidence",
+  "supporting_evidence_ids": [
+    "EVD-sha256-181da3f4d8e5b7017d27f9f9b809c0ee517e3d19844a3dff26fcbdb84b3f2f1e",
+    "EVD-sha256-b093d75f8b57d3a5ba4b9ab18a03b6d77119f211ac087600b2a766620a41a6ee"
+  ],
+  "contradicting_evidence_ids": [
+    "EVD-sha256-00eb57532f3c7d2d38a8118a091bd27795dc5df4a9ce2da27f8d9a80b815eab3"
+  ],
+  "assumptions": [],
+  "limitations": [
+    "Support is based on one synthetic-study result and one stated generalization limit.",
+    "The production-trace replication reports a null result that remains materially unresolved."
+  ],
+  "citation_status": "pending",
+  "contradiction_status": "unresolved",
+  "methodology_status": "pending",
+  "independent_review_status": "pending",
+  "human_review_required": true,
+  "factors": {
+    "evidence_directness": "high",
+    "source_quality": "medium",
+    "source_independence": "medium",
+    "methodology_quality": "unknown",
+    "contradictory_evidence": "high",
+    "evidence_coverage": "medium",
+    "citation_validity": "not_applicable",
+    "reviewer_agreement": "not_applicable",
+    "reviewer_independence": "not_applicable",
+    "visual_certainty": "not_applicable",
+    "ocr_dependency": "not_applicable"
+  },
+  "supersedes": "CLM-a3d4cd26-92c8-47d7-9620-a1ac8fe6e415-v1"
+}

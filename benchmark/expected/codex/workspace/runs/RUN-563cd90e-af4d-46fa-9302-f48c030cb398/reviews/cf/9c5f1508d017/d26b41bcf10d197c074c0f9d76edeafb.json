@@ -1,0 +1,79 @@
+{
+  "artifact_hash": "sha256:d26b41bcf10d197c074c0f9d76edeafb2a4dd20c24a66f96298774e6f79fab13",
+  "artifact_id": "REV-c4f5f372-a7d4-4334-b55d-36d3c6d99bf0",
+  "blocking_issues": [],
+  "claim_assessments": [
+    {
+      "assessment": "Methodology quality is medium: the primary result comes from 120 generated workloads run on one simulator without production latency measurement, the study itself says it must not be generalized directly to production systems, and the 40-trace production replication reports workload-locality sensitivity alongside a null overall reduction.",
+      "claim_id": "CLM-a3d4cd26-92c8-47d7-9620-a1ac8fe6e415",
+      "material_contradictions": [
+        "EVD-sha256-00eb57532f3c7d2d38a8118a091bd27795dc5df4a9ce2da27f8d9a80b815eab3"
+      ],
+      "methodology_quality": "medium",
+      "support_assessment": "conflicting"
+    }
+  ],
+  "created_at": "2026-07-23T04:14:17.012091Z",
+  "created_by": {
+    "actor_type": "agent",
+    "host": "codex",
+    "model_identifier": "gpt-5"
+  },
+  "decision": "passed_with_warnings",
+  "findings": [
+    {
+      "finding_type": "synthetic_method_scope",
+      "methodology_sections": [
+        {
+          "chunk_id": "CHK-sha256-4ed70eb51a67fea97eceab2999e02521a09943ae03454a1e5a8a6d365dce4489",
+          "document_id": "DOC-sha256-d61d88fe14346fe72e70d821ef4ba2f9f091fc748097c9df9c475c6764493e0b"
+        },
+        {
+          "chunk_id": "CHK-sha256-a4c06b5cbe346f11482f19023d96a42c882a35fca18a6def28717b08d566c8be",
+          "document_id": "DOC-sha256-d61d88fe14346fe72e70d821ef4ba2f9f091fc748097c9df9c475c6764493e0b"
+        }
+      ],
+      "summary": "The primary result was produced from 120 generated workloads using one simulator and did not measure production latency, which constrains external validity."
+    },
+    {
+      "evidence_ids": [
+        "EVD-sha256-00eb57532f3c7d2d38a8118a091bd27795dc5df4a9ce2da27f8d9a80b815eab3"
+      ],
+      "finding_type": "replication_comparison",
+      "methodology_sections": [
+        {
+          "chunk_id": "CHK-sha256-f7871563162b58837198b296a1e0d52976fcb623eb49f371526dfae0eea8ed69",
+          "document_id": "DOC-sha256-e97a9212b10b03d5504ae5c057780b303c06cc98ecdaacb7561b1590d88e4dc9"
+        }
+      ],
+      "summary": "The independent replication used 40 production traces, did not reuse the original simulator or dataset, and reported that workload locality changed the direction of the measured effect."
+    },
+    {
+      "evidence_ids": [
+        "EVD-sha256-181da3f4d8e5b7017d27f9f9b809c0ee517e3d19844a3dff26fcbdb84b3f2f1e",
+        "EVD-sha256-b093d75f8b57d3a5ba4b9ab18a03b6d77119f211ac087600b2a766620a41a6ee",
+        "EVD-sha256-00eb57532f3c7d2d38a8118a091bd27795dc5df4a9ce2da27f8d9a80b815eab3"
+      ],
+      "finding_type": "generalization_limit",
+      "summary": "Because the supporting study is synthetic and the replication shows workload-locality sensitivity in production traces, the result should remain workload-bounded and not be treated as production-generalizable."
+    }
+  ],
+  "required_amendments": [],
+  "review_id": "REV-c4f5f372-a7d4-4334-b55d-36d3c6d99bf0",
+  "review_type": "methodology_review",
+  "reviewed_artifact_ids": [
+    "CLM-a3d4cd26-92c8-47d7-9620-a1ac8fe6e415"
+  ],
+  "reviewer_identity": {
+    "agent_model": "gpt-5",
+    "process": "method_comparison_against_replication",
+    "reviewer_type": "agent"
+  },
+  "reviewer_independence_status": "not_applicable",
+  "schema_name": "Review",
+  "schema_version": "1.0.0",
+  "warnings": [
+    "Methodology quality is not high because the main positive result depends on one simulator, generated workloads, and no production latency measurement.",
+    "The contradictory production-trace replication and workload-locality sensitivity preserve the unresolved contradiction and keep human review required."
+  ]
+}

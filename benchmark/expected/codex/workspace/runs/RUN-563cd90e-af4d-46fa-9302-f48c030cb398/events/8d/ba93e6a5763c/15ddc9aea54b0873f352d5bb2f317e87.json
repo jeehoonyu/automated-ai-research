@@ -1,0 +1,27 @@
+{
+  "actor_type": "system",
+  "artifact_hash": "sha256:15ddc9aea54b0873f352d5bb2f317e87ab8ca12d84897c073d314fb89945709a",
+  "artifact_hashes": [
+    "sha256:0e921b76b68cee2b9178b5017ca4f982bf52f4c89e4cd993f36f68af846aa312",
+    "sha256:0174ca092a83fa8277d476f2ba9372fe55c5a57204577305e1a3009b60e1868b",
+    "sha256:1052e540e02d906ec324af72cbbe8f594148ab36ded40dce56847d26de814d93"
+  ],
+  "artifact_id": "EVT-019f8d1f-6d3c-7faf-8256-cd235c72e241",
+  "created_at": "2026-07-23T03:57:54.876270Z",
+  "created_by": {
+    "actor_type": "system",
+    "host": "research-cli",
+    "model_identifier": null
+  },
+  "event_id": "EVT-019f8d1f-6d3c-7faf-8256-cd235c72e241",
+  "new_disposition": "active",
+  "new_phase": "planned",
+  "previous_disposition": "active",
+  "previous_phase": "initialized",
+  "reason": "Validated and promoted planning stage outputs",
+  "run_id": "RUN-563cd90e-af4d-46fa-9302-f48c030cb398",
+  "schema_name": "LifecycleEvent",
+  "schema_version": "1.0.0",
+  "trigger": "research validate RUN-563cd90e-af4d-46fa-9302-f48c030cb398 --stage planning",
+  "validation_result": null
+}

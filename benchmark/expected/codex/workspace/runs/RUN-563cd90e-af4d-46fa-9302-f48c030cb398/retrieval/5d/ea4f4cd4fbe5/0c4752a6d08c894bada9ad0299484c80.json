@@ -1,0 +1,66 @@
+{
+  "artifact_hash": "sha256:0c4752a6d08c894bada9ad0299484c805e2fa82183ce303c5af87b399c04fa4b",
+  "artifact_id": "RET-019f8d23-68bd-74f6-9e7e-4d83973a6193",
+  "coverage_notes": [
+    "Searches recovered direct support, an explicit contradictory replication, a production-generalization limitation, a derivative non-independent summary, and related-but-non-supporting material.",
+    "The direct support and limitation come from the same synthetic cache study document and are not independent confirmations.",
+    "The summary document explicitly reuses the 18 percent result and states that it is not an independent experiment.",
+    "The contradictory replication uses production traces and reports no statistically reliable reduction in data movement.",
+    "The related processor note is topically adjacent but contains no cache data movement measurement and does not support the central claim."
+  ],
+  "created_at": "2026-07-23T04:02:14.175125Z",
+  "created_by": {
+    "actor_type": "agent",
+    "host": "codex",
+    "model_identifier": "gpt-5"
+  },
+  "queries": [
+    {
+      "query": "data movement",
+      "result_count": 3,
+      "top_chunk_ids": [
+        "CHK-sha256-9bec180ff5156705035529523b4ecb3c97cbd241e480d20324bc44a77d326a15",
+        "CHK-sha256-faa4a53a696d745fd37de6d911165fd0de7fc379353ad4fb345f2ba03d45737d",
+        "CHK-sha256-4b15933034c6a97c3e87b82acaebd6b26bb545562031ce020af8daf6b8fa943d"
+      ]
+    },
+    {
+      "query": "no reliable reduction",
+      "result_count": 1,
+      "top_chunk_ids": [
+        "CHK-sha256-9bec180ff5156705035529523b4ecb3c97cbd241e480d20324bc44a77d326a15"
+      ]
+    },
+    {
+      "query": "18 percent measurement independent experiment",
+      "result_count": 1,
+      "top_chunk_ids": [
+        "CHK-sha256-d4666ef08018e38eb32d235f3baeadb7403c81fe05fdb0eec85df1f88bdb2c3c"
+      ]
+    },
+    {
+      "query": "synthetic production systems generalized directly",
+      "result_count": 1,
+      "top_chunk_ids": [
+        "CHK-sha256-a4c06b5cbe346f11482f19023d96a42c882a35fca18a6def28717b08d566c8be"
+      ]
+    },
+    {
+      "query": "does not support benchmark central claim",
+      "result_count": 1,
+      "top_chunk_ids": [
+        "CHK-sha256-4b15933034c6a97c3e87b82acaebd6b26bb545562031ce020af8daf6b8fa943d"
+      ]
+    }
+  ],
+  "ranked_chunk_ids": [
+    "CHK-sha256-9bec180ff5156705035529523b4ecb3c97cbd241e480d20324bc44a77d326a15",
+    "CHK-sha256-faa4a53a696d745fd37de6d911165fd0de7fc379353ad4fb345f2ba03d45737d",
+    "CHK-sha256-4b15933034c6a97c3e87b82acaebd6b26bb545562031ce020af8daf6b8fa943d",
+    "CHK-sha256-d4666ef08018e38eb32d235f3baeadb7403c81fe05fdb0eec85df1f88bdb2c3c",
+    "CHK-sha256-a4c06b5cbe346f11482f19023d96a42c882a35fca18a6def28717b08d566c8be"
+  ],
+  "run_id": "RUN-563cd90e-af4d-46fa-9302-f48c030cb398",
+  "schema_name": "RetrievalResult",
+  "schema_version": "1.0.0"
+}

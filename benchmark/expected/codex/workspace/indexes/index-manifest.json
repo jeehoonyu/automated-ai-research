@@ -1,0 +1,49 @@
+{
+  "artifact_hash": "sha256:d6ab7acee701b00c4f8501cc195593a13ad09d878bfea005f986d240bb04022f",
+  "artifact_id": "IDX-sha256-cf2175354e171f2005c0c60f3799b16094f87eea44a2c0ad3e6288583f916cbc",
+  "chunk_count": 11,
+  "chunking_configuration": {
+    "max_characters": 1200,
+    "overlap_characters": 150,
+    "version": "1.0.0"
+  },
+  "created_at": "2026-07-23T03:47:42.477966Z",
+  "created_by": {
+    "actor_type": "system",
+    "host": "research-cli",
+    "model_identifier": null
+  },
+  "database_file_hash": "sha256:4d3ec25ec9ad86b66c1dd7ee13cc4c8cfe41567a311a70694de7786ad92d90aa",
+  "database_schema_version": "1.0.0",
+  "document_version_ids": [
+    "DVER-sha256-28a426ed9296b0309b13a7e861a7d1ee74160c63d3453fa02a4b820d81f66a7c",
+    "DVER-sha256-45f5a5566f8d0f36ec7dcd472c3dc3d8a89d507f9787d0708174ec445c261405",
+    "DVER-sha256-6902c6244fb798b58faa455bdd18f5d1dd59ce4124a8e1cba16ecad9c924688c",
+    "DVER-sha256-6bbde034e5ff6a16d37f872dabf00079ac433ded989adf6dccda165e7daf5703",
+    "DVER-sha256-c231d098ef014150d2e350ccb9926b8234f69358e32b6f806075f54596b34841"
+  ],
+  "extraction_versions": [
+    "1.0.0"
+  ],
+  "index_id": "IDX-sha256-cf2175354e171f2005c0c60f3799b16094f87eea44a2c0ad3e6288583f916cbc",
+  "input_artifact_hashes": [
+    "sha256:a2a1390857415aea4585c737fa94800c521785e12a0398316153bf44355e9982",
+    "sha256:6c6cd025fac0451797c55e804ca9f0965fdeb036308f454e5042436ef1318a8c",
+    "sha256:e7a50197dd371e7909b5eea3be2135995847617ac13fac5ad024756ff9e89253",
+    "sha256:b00455952f4098fdcc095dc4d735b6537fc715e5c12433a0f4ada7c938253df8",
+    "sha256:0e7e9056ead6c2f1847fbb36ba0b1dff7da4b9c56a3d347de0e4496fbbfb3a98",
+    "sha256:faf4b50bd0f03bb3d2815762f2a6c64764559788475719c2dd32993731ccc2a6",
+    "sha256:2fc2ec52369f4c8e0d22484487710248f3552678caf23bcf375a1e60bbae1f92",
+    "sha256:a42aa6d79044a59bbc4b5c89ac7d061ba202a5a151c2e741ad7a00bd06b63855",
+    "sha256:81b90e1950fcedbad74b063b45229a4574a79a8573274aebfb59ef9e9275b7bf",
+    "sha256:39a1d020d5c298f3dba13b783f3ff5203b9ea5224793dc30816e9670274f8545",
+    "sha256:e22fe98e521e75d8f98f13ec796b51f9de2ec23573064fac9aef719f8f10000e"
+  ],
+  "input_ordering": "document_id ASC, page ASC NULLS LAST, chunk_id ASC",
+  "logical_index_hash": "sha256:cf2175354e171f2005c0c60f3799b16094f87eea44a2c0ad3e6288583f916cbc",
+  "ranking": "fts5_bm25_ascending",
+  "schema_name": "IndexManifest",
+  "schema_version": "1.0.0",
+  "sqlite_version": "3.49.1",
+  "tokenizer": "unicode61 remove_diacritics 2"
+}

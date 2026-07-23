@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Profile",
+  "type": "object",
+  "required": ["schema_name", "schema_version", "profile_id", "risk_level", "minimum_independence", "required_review_types", "human_review_triggers"],
+  "properties": {
+    "schema_name": {"const": "Profile"},
+    "schema_version": {"const": "1.0.0"},
+    "profile_id": {"type": "string"},
+    "risk_level": {"enum": ["standard", "high"]},
+    "minimum_independence": {"enum": ["confirmed_independent", "procedurally_isolated"]},
+    "required_review_types": {"type": "array", "items": {"type": "string"}},
+    "human_review_triggers": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": true
+}
