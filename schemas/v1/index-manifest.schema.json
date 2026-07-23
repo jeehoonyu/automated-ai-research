@@ -19,6 +19,7 @@
     "database_schema_version": {"type": "string"},
     "chunking_configuration": {"type": "object"},
     "extraction_versions": {"type": "array", "items": {"type": "string"}},
+    "extraction_toolchains": {"type": "array", "items": {"type": "object"}},
     "logical_index_hash": {"type": "string"},
     "database_file_hash": {"type": "string"},
     "chunk_count": {"type": "integer", "minimum": 0}

@@ -25,12 +25,13 @@ def read_json(path: Path) -> dict[str, Any]:
     return value
 
 
-def write_json_atomic(path: Path, value: Any) -> None:
+def write_json_atomic(path: Path, value: Any, *, root: Path | None = None) -> None:
     text = json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
-    write_text_atomic(path, text)
+    write_text_atomic(path, text, root=root)
 
 
-def write_text_atomic(path: Path, text: str) -> None:
+def write_text_atomic(path: Path, text: str, *, root: Path | None = None) -> None:
+    _validate_write_target(root, path)
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary = tempfile.mkstemp(prefix=".tmp-", dir=path.parent)
     try:
@@ -45,7 +46,8 @@ def write_text_atomic(path: Path, text: str) -> None:
         raise
 
 
-def write_bytes_atomic(path: Path, data: bytes) -> None:
+def write_bytes_atomic(path: Path, data: bytes, *, root: Path | None = None) -> None:
+    _validate_write_target(root, path)
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary = tempfile.mkstemp(prefix=".tmp-", dir=path.parent)
     try:
@@ -60,7 +62,8 @@ def write_bytes_atomic(path: Path, data: bytes) -> None:
         raise
 
 
-def append_jsonl(path: Path, value: dict[str, Any]) -> None:
+def append_jsonl(path: Path, value: dict[str, Any], *, root: Path | None = None) -> None:
+    _validate_write_target(root, path)
     path.parent.mkdir(parents=True, exist_ok=True)
     serialized = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     with path.open("a", encoding="utf-8", newline="\n") as handle:
@@ -95,3 +98,12 @@ def file_sha256(path: Path, block_size: int = 1024 * 1024) -> str:
 
 def bytes_sha256(data: bytes) -> str:
     return sha256_bytes(data)
+
+
+def _validate_write_target(root: Path | None, path: Path) -> None:
+    if root is None:
+        return
+    from research.security import ensure_no_symlink_components, ensure_workspace_write
+
+    ensure_workspace_write(root, path)
+    ensure_no_symlink_components(root, path)

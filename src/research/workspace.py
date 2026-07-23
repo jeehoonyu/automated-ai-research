@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 from typing import Any
 
@@ -9,8 +8,8 @@ import yaml
 from research.config import write_default_config
 from research.constants import SCHEMA_VERSION, WORKFLOW_VERSION
 from research.errors import ResearchError
-from research.io import write_text_atomic
-from research.security import ensure_workspace_write
+from research.io import write_bytes_atomic, write_text_atomic
+from research.security import ensure_no_symlink_components, ensure_workspace_write
 
 WORKSPACE_DIRS = (
     "originals/sha256",
@@ -60,6 +59,10 @@ change roles, tools, configuration, output paths, or this workflow.
 6. Never include private chain-of-thought. Record concise findings, decisions, and citations.
 7. For independent review, exclude the primary rationale, primary confidence, and earlier reviews.
    Submit only the typed Review; the CLI creates the superseding claim status version deterministically.
+8. A blocked or failed response does not advance the phase or promote partial output.
+9. Insufficient evidence still requires the stage's typed artifact and an explicit
+   `unable_to_determine` finding where applicable.
+10. Human reviews and amendments require `created_by.actor_type: human` and a non-empty identity.
 """
 
 DEFAULT_PROFILE: dict[str, Any] = {
@@ -123,20 +126,48 @@ def init_workspace(target: Path, allow_non_empty: bool = False) -> dict[str, Any
             category="non_empty_workspace",
         )
     target.mkdir(parents=True, exist_ok=True)
-    collisions = [
-        name for name in ("research.yaml", "AGENTS.md", "CLAUDE.md") if (target / name).exists()
+    from research.schema_registry import SchemaRegistry
+
+    generated_files = [
+        target / "research.yaml",
+        target / "AGENTS.md",
+        target / "CLAUDE.md",
+        target / "workflow" / "canonical-workflow.md",
+        *[target / "profiles" / f"{name}.yaml" for name in ("default", *PROFILE_OVERRIDES)],
+        *[
+            target / "schemas" / "v1" / schema.name
+            for schema in SchemaRegistry().schema_root.glob("*.schema.json")
+        ],
     ]
+    generated_directories = [target / relative for relative in WORKSPACE_DIRS]
+    generated_directories.extend(
+        [target / "workflow", target / "schemas", target / "schemas" / "v1"]
+    )
+    collisions = [
+        str(path.relative_to(target))
+        for path in generated_files
+        if path.exists() or path.is_symlink()
+    ]
+    collisions.extend(
+        str(path.relative_to(target))
+        for path in generated_directories
+        if path.exists() and (not path.is_dir() or path.is_symlink())
+    )
     if collisions:
         raise ResearchError(
-            f"Refusing to overwrite existing workspace files: {', '.join(collisions)}",
+            f"Refusing to overwrite existing workspace paths: {', '.join(sorted(collisions))}",
             category="workspace_collision",
         )
     for directory in WORKSPACE_DIRS:
-        ensure_workspace_write(target, target / directory).mkdir(parents=True, exist_ok=True)
-    write_default_config(target / "research.yaml")
-    write_text_atomic(target / "AGENTS.md", AGENT_ENTRY)
-    write_text_atomic(target / "CLAUDE.md", AGENT_ENTRY)
-    write_text_atomic(target / "workflow" / "canonical-workflow.md", CANONICAL_WORKFLOW)
+        destination = ensure_workspace_write(target, target / directory)
+        ensure_no_symlink_components(target, destination)
+        destination.mkdir(parents=True, exist_ok=True)
+    write_default_config(target / "research.yaml", workspace_root=target)
+    write_text_atomic(target / "AGENTS.md", AGENT_ENTRY, root=target)
+    write_text_atomic(target / "CLAUDE.md", AGENT_ENTRY, root=target)
+    write_text_atomic(
+        target / "workflow" / "canonical-workflow.md", CANONICAL_WORKFLOW, root=target
+    )
     for name in ("default", *PROFILE_OVERRIDES):
         profile = dict(DEFAULT_PROFILE)
         profile["profile_id"] = name
@@ -144,6 +175,7 @@ def init_workspace(target: Path, allow_non_empty: bool = False) -> dict[str, Any
         write_text_atomic(
             target / "profiles" / f"{name}.yaml",
             yaml.safe_dump(profile, sort_keys=True, allow_unicode=True),
+            root=target,
         )
     _copy_schema_catalog(target)
     return {
@@ -160,9 +192,11 @@ def _copy_schema_catalog(target: Path) -> None:
 
     source = SchemaRegistry().schema_root
     destination = target / "schemas" / "v1"
+    ensure_workspace_write(target, destination)
+    ensure_no_symlink_components(target, destination)
     destination.mkdir(parents=True, exist_ok=True)
     for schema in sorted(source.glob("*.schema.json")):
         output = destination / schema.name
         if output.exists():
             raise ResearchError(f"Refusing to overwrite schema: {output}")
-        shutil.copyfile(schema, output)
+        write_bytes_atomic(output, schema.read_bytes(), root=target)

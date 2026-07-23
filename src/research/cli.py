@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import functools
-from collections.abc import Callable
+import sys
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any, ParamSpec, TypeVar
 
 import click
 
 from research import __version__
-from research.constants import EXIT_SOURCE
+from research.constants import EXIT_ARGUMENTS, EXIT_SOURCE
 from research.errors import ResearchError
 from research.indexing import build_index, search_index
 from research.ingestion import import_sources
@@ -36,7 +37,62 @@ STAGES_WITH_RESPONSES = (
 )
 
 
-@click.group(context_settings={"help_option_names": ["-h", "--help"]})
+class ResultGroup(click.Group):
+    """Preserve the result envelope for argument errors raised before command invocation."""
+
+    def main(
+        self,
+        args: Sequence[str] | None = None,
+        prog_name: str | None = None,
+        complete_var: str | None = None,
+        standalone_mode: bool = True,
+        **extra: Any,
+    ) -> Any:
+        arguments = list(args) if args is not None else sys.argv[1:]
+        try:
+            result = super().main(
+                args=arguments,
+                prog_name=prog_name,
+                complete_var=complete_var,
+                standalone_mode=False,
+                **extra,
+            )
+            if standalone_mode and isinstance(result, int):
+                raise SystemExit(result)
+            return result
+        except click.UsageError as exc:
+            if "--json" in arguments:
+                command = exc.ctx.info_name if exc.ctx is not None else (prog_name or "research")
+                emit(
+                    CommandResult(
+                        str(command),
+                        "failed",
+                        {},
+                        [],
+                        [
+                            {
+                                "category": "invalid_arguments",
+                                "message": exc.format_message(),
+                                "details": {},
+                            }
+                        ],
+                    ),
+                    True,
+                )
+            elif standalone_mode:
+                exc.show()
+            else:
+                raise
+            if standalone_mode:
+                raise SystemExit(EXIT_ARGUMENTS) from exc
+            raise
+        except click.exceptions.Exit as exc:
+            if standalone_mode:
+                raise SystemExit(exc.exit_code) from exc
+            raise
+
+
+@click.group(cls=ResultGroup, context_settings={"help_option_names": ["-h", "--help"]})
 @click.option(
     "workspace_option",
     "--workspace",
@@ -126,7 +182,7 @@ def import_command(
 ) -> tuple[dict[str, Any], int]:
     """Import local PDF and Markdown documents."""
     result = import_sources(_workspace(ctx), sources)
-    exit_code = EXIT_SOURCE if result["failed_count"] else 0
+    exit_code = EXIT_SOURCE if result["failed_count"] or result["partial_count"] else 0
     result["_status"] = result.pop("status")
     result["_warnings"] = result.pop("warnings")
     result["_errors"] = list(result["failures"])

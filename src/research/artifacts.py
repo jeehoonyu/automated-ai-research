@@ -83,7 +83,7 @@ def store_artifact(
                 f"Artifact hash collision at {path}", category="artifact_hash_collision"
             )
         return finalized, path
-    write_json_atomic(path, finalized)
+    write_json_atomic(path, finalized, root=base)
     return finalized, path
 
 

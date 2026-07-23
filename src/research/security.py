@@ -70,8 +70,16 @@ def redact_secrets(value: str) -> str:
 
 def ensure_no_symlink_components(root: Path, path: Path) -> None:
     resolved_root = root.resolve()
+    try:
+        path.resolve(strict=False).relative_to(resolved_root)
+        relative = Path(os.path.abspath(path)).relative_to(resolved_root)
+    except ValueError as exc:
+        raise ResearchError(
+            f"Workspace path resolves outside the workspace: {path}",
+            category="unsafe_path",
+            exit_code=EXIT_SECURITY,
+        ) from exc
     current = resolved_root
-    relative = path.resolve(strict=False).relative_to(resolved_root)
     for part in relative.parts:
         current = current / part
         if os.path.lexists(current) and current.is_symlink():

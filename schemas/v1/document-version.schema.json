@@ -15,8 +15,11 @@
     "source_sha256": {"type": "string"},
     "extraction_status": {"enum": ["extracted", "partially_extracted", "ambiguous", "unsupported_format", "ocr_required", "processing_failed", "human_review_required"]},
     "toolchain": {"type": "object"},
+    "extraction_configuration": {"type": "object"},
+    "extraction_configuration_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
     "normalization_version": {"type": "string"},
     "normalized_path": {"type": "string"},
+    "normalized_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
     "pages": {"type": "array", "items": {"type": "object"}},
     "warnings": {"type": "array", "items": {"type": "object"}}
   },

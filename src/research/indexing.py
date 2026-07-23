@@ -9,13 +9,19 @@ from pathlib import Path
 from typing import Any
 
 from research.artifacts import artifact_base, load_and_verify_artifact, store_artifact
-from research.canonical import canonical_sha256
+from research.canonical import canonical_sha256, prefixed_sha256
 from research.config import load_config
 from research.constants import NORMALIZATION_VERSION
 from research.errors import ResearchError
-from research.identifiers import derived_identifier
+from research.identifiers import derived_identifier, generated_identifier
+from research.ingestion import document_version_id_for
 from research.io import append_jsonl, file_sha256, iter_json, utc_now, write_json_atomic
-from research.security import redact_secrets
+from research.security import (
+    ensure_no_symlink_components,
+    ensure_workspace_write,
+    is_within,
+    redact_secrets,
+)
 
 DATABASE_SCHEMA_VERSION = "1.0.0"
 
@@ -32,17 +38,23 @@ def build_index(workspace: Path) -> dict[str, Any]:
     )
     rows = [_index_row(chunk, workspace) for chunk in chunks]
     rows.sort(key=lambda row: (row["document_id"], _nullable_number(row["page"]), row["chunk_id"]))
+    extraction_toolchains = _extraction_toolchains(workspace, rows)
     tokenizer = str(config["index"]["tokenizer"])
+    input_artifact_hashes = sorted(str(chunk["artifact_hash"]) for chunk in chunks)
     logical_payload = {
         "database_schema_version": DATABASE_SCHEMA_VERSION,
         "tokenizer": tokenizer,
         "ranking": config["index"]["ranking"],
         "chunking": config["chunking"],
+        "extraction_toolchains": extraction_toolchains,
+        "input_artifact_hashes": input_artifact_hashes,
         "rows": rows,
     }
     logical_hash = canonical_sha256(logical_payload)
     index_id = derived_identifier("IDX", logical_payload)
     indexes = workspace / "indexes"
+    ensure_workspace_write(workspace, indexes)
+    ensure_no_symlink_components(workspace, indexes)
     indexes.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(
         prefix=".research-index-", suffix=".sqlite3", dir=indexes
@@ -50,6 +62,8 @@ def build_index(workspace: Path) -> dict[str, Any]:
     os.close(descriptor)
     temporary = Path(temporary_name)
     database = indexes / "research.sqlite3"
+    ensure_workspace_write(workspace, database)
+    ensure_no_symlink_components(workspace, database)
     try:
         connection = sqlite3.connect(temporary)
         try:
@@ -100,11 +114,12 @@ def build_index(workspace: Path) -> dict[str, Any]:
             "sqlite_version": sqlite3.sqlite_version,
             "tokenizer": tokenizer,
             "ranking": config["index"]["ranking"],
-            "input_artifact_hashes": [chunk["artifact_hash"] for chunk in chunks],
+            "input_artifact_hashes": input_artifact_hashes,
             "input_ordering": "document_id ASC, page ASC NULLS LAST, chunk_id ASC",
             "database_schema_version": DATABASE_SCHEMA_VERSION,
             "chunking_configuration": config["chunking"],
             "extraction_versions": [NORMALIZATION_VERSION],
+            "extraction_toolchains": extraction_toolchains,
             "document_version_ids": sorted({str(chunk["document_version_id"]) for chunk in chunks}),
             "logical_index_hash": logical_hash,
             "database_file_hash": database_hash,
@@ -112,7 +127,7 @@ def build_index(workspace: Path) -> dict[str, Any]:
         }
     )
     stored, path = store_artifact(workspace, manifest)
-    write_json_atomic(indexes / "index-manifest.json", stored)
+    write_json_atomic(indexes / "index-manifest.json", stored, root=workspace)
     return {
         "index_id": index_id,
         "index_path": str(database),
@@ -137,11 +152,34 @@ def search_index(
     fts_query = _literal_fts_query(normalized)
     database = workspace / "indexes" / "research.sqlite3"
     manifest_path = workspace / "indexes" / "index-manifest.json"
+    ensure_workspace_write(workspace, database)
+    ensure_no_symlink_components(workspace, database)
+    ensure_workspace_write(workspace, manifest_path)
+    ensure_no_symlink_components(workspace, manifest_path)
     if not database.is_file() or not manifest_path.is_file():
         raise ResearchError(
             "No index exists; run `research index` first", category="index_not_found"
         )
     manifest = load_and_verify_artifact(manifest_path)
+    actual_database_hash = f"sha256:{file_sha256(database)}"
+    if actual_database_hash != manifest.get("database_file_hash"):
+        raise ResearchError(
+            "Index database bytes do not match the recorded manifest; rebuild the index",
+            category="index_hash_mismatch",
+        )
+    if run_id:
+        from research.runs import load_run
+
+        _, run_manifest = load_run(workspace, run_id)
+        snapshot = run_manifest.get("index_snapshot")
+        if not isinstance(snapshot, dict) or (
+            snapshot.get("index_id") != manifest.get("index_id")
+            or snapshot.get("logical_index_hash") != manifest.get("logical_index_hash")
+        ):
+            raise ResearchError(
+                "Current search index differs from the run's frozen index snapshot",
+                category="index_snapshot_mismatch",
+            )
     predicates = ["chunks_fts MATCH ?"]
     parameters: list[Any] = [fts_query]
     filters: dict[str, Any] = {}
@@ -204,17 +242,22 @@ def search_index(
             }
         )
     event = {
+        "event_id": generated_identifier("SEA"),
         "timestamp": utc_now(),
         "run_id": run_id,
         "query": redact_secrets(query),
+        "query_sha256": prefixed_sha256(query.encode("utf-8")),
         "query_normalization": redact_secrets(normalized),
+        "query_normalization_sha256": prefixed_sha256(normalized.encode("utf-8")),
         "fts_query": redact_secrets(fts_query),
+        "fts_query_sha256": prefixed_sha256(fts_query.encode("utf-8")),
         "filters": filters,
         "limit": limit,
         "result_chunk_ids": [result["chunk_id"] for result in results],
         "index_id": manifest["index_id"],
     }
-    append_jsonl(workspace / "logs" / "search-events.jsonl", event)
+    event["event_hash"] = canonical_sha256(event)
+    append_jsonl(workspace / "logs" / "search-events.jsonl", event, root=workspace)
     return {
         "query": query,
         "query_normalization": normalized,
@@ -225,6 +268,8 @@ def search_index(
             "tie_breaking": "document_id ASC, page ASC NULLS LAST, chunk_id ASC",
         },
         "index_id": manifest["index_id"],
+        "search_event_id": event["event_id"],
+        "search_event_hash": event["event_hash"],
         "results": results,
     }
 
@@ -263,28 +308,101 @@ def _create_database(connection: sqlite3.Connection, tokenizer: str) -> None:
 
 
 def _current_chunks(workspace: Path) -> list[dict[str, Any]]:
-    expected_chunking_hash = canonical_sha256(load_config(workspace)["chunking"])
-    versions: dict[str, dict[str, Any]] = {}
+    config = load_config(workspace)
+    expected_chunking_hash = canonical_sha256(config["chunking"])
+    documents: dict[str, dict[str, Any]] = {}
+    for candidate in iter_json(workspace / "documents" / "manifests"):
+        if candidate.get("schema_name") != "Document":
+            continue
+        loaded = load_and_verify_artifact(_find_artifact_file(workspace, candidate))
+        documents[str(loaded["document_id"])] = loaded
+    versions_by_id: dict[str, dict[str, Any]] = {}
     for candidate in iter_json(workspace / "documents" / "versions"):
         if candidate.get("schema_name") != "DocumentVersion":
             continue
-        document_id = str(candidate["document_id"])
-        if document_id not in versions or str(candidate["created_at"]) > str(
-            versions[document_id]["created_at"]
-        ):
-            versions[document_id] = candidate
-    current_version_ids = {str(value["document_version_id"]) for value in versions.values()}
+        loaded = load_and_verify_artifact(_find_artifact_file(workspace, candidate))
+        versions_by_id[str(loaded["document_version_id"])] = loaded
+    current_versions: dict[str, dict[str, Any]] = {}
+    for document_id, document in documents.items():
+        desired_id = document_version_id_for(document, config)
+        selected = versions_by_id.get(desired_id)
+        if selected is None:
+            raise ResearchError(
+                f"Document {document_id} has not been extracted with the active configuration; "
+                "re-import the source before indexing",
+                category="stale_extraction_configuration",
+            )
+        current_versions[desired_id] = selected
     chunks: dict[str, dict[str, Any]] = {}
     for candidate in iter_json(workspace / "documents" / "chunks"):
         if candidate.get("schema_name") != "Chunk":
             continue
-        if candidate.get("document_version_id") not in current_version_ids:
+        version = current_versions.get(str(candidate.get("document_version_id")))
+        if version is None:
             continue
         if candidate.get("chunking_configuration_hash") != expected_chunking_hash:
             continue
-        load_and_verify_artifact(_find_artifact_file(workspace, candidate))
-        chunks[str(candidate["chunk_id"])] = candidate
+        if candidate.get("index_eligible") is not True:
+            continue
+        loaded = load_and_verify_artifact(_find_artifact_file(workspace, candidate))
+        _validate_indexable_chunk(workspace, loaded, version, config)
+        chunks[str(loaded["chunk_id"])] = loaded
     return list(chunks.values())
+
+
+def _validate_indexable_chunk(
+    workspace: Path,
+    chunk: dict[str, Any],
+    version: dict[str, Any],
+    config: dict[str, Any],
+) -> None:
+    chunk_id = str(chunk["chunk_id"])
+    if chunk.get("document_id") != version.get("document_id"):
+        raise ResearchError(
+            f"Chunk {chunk_id} does not belong to its document version",
+            category="dangling_reference",
+        )
+    normalized_path = workspace / str(version.get("normalized_path", ""))
+    if not is_within(workspace, normalized_path):
+        raise ResearchError(
+            f"Chunk {chunk_id} references a missing or unsafe normalized document",
+            category="dangling_reference",
+        )
+    ensure_no_symlink_components(workspace, normalized_path)
+    if not normalized_path.is_file():
+        raise ResearchError(
+            f"Chunk {chunk_id} references a missing normalized document",
+            category="dangling_reference",
+        )
+    normalized = normalized_path.read_text(encoding="utf-8")
+    start = int(chunk["start_offset"])
+    end = int(chunk["end_offset"])
+    if start < 0 or end <= start or end > len(normalized):
+        raise ResearchError(f"Chunk {chunk_id} has invalid normalized offsets")
+    exact = normalized[start:end]
+    if exact != chunk.get("exact_text") or prefixed_sha256(exact.encode("utf-8")) != chunk.get(
+        "text_sha256"
+    ):
+        raise ResearchError(
+            f"Chunk {chunk_id} does not resolve to its normalized source text",
+            category="locator_mismatch",
+        )
+    expected_id = derived_identifier(
+        "CHK",
+        {
+            "document_version_id": chunk["document_version_id"],
+            "page": chunk.get("page"),
+            "section_path": chunk.get("section_path", []),
+            "start_offset": start,
+            "end_offset": end,
+            "chunking_configuration": config["chunking"],
+        },
+    )
+    if chunk_id != expected_id or chunk.get("artifact_id") != expected_id:
+        raise ResearchError(
+            f"Chunk identifier is not derived from its canonical locator: {chunk_id}",
+            category="invalid_identifier",
+        )
 
 
 def _find_artifact_file(workspace: Path, artifact: dict[str, Any]) -> Path:
@@ -318,6 +436,17 @@ def _index_row(chunk: dict[str, Any], workspace: Path) -> dict[str, Any]:
         "title": metadata.get("title") or metadata.get("original_filename"),
         "source_metadata": metadata,
     }
+
+
+def _extraction_toolchains(workspace: Path, rows: list[dict[str, Any]]) -> list[dict[str, str]]:
+    unique: dict[str, dict[str, str]] = {}
+    for version_id in sorted({str(row["document_version_id"]) for row in rows}):
+        version = _load_latest_by_schema_and_id(
+            workspace / "documents" / "versions", "DocumentVersion", version_id
+        )
+        toolchain = {str(key): str(value) for key, value in version.get("toolchain", {}).items()}
+        unique[json.dumps(toolchain, sort_keys=True, separators=(",", ":"))] = toolchain
+    return [unique[key] for key in sorted(unique)]
 
 
 def _load_latest_by_schema_and_id(root: Path, schema: str, artifact_id: str) -> dict[str, Any]:

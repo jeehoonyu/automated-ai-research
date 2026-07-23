@@ -11,7 +11,22 @@
     "created_at": {"type": "string"},
     "created_by": {"type": "object"},
     "run_id": {"type": "string"},
-    "queries": {"type": "array", "items": {"type": "object"}},
+    "queries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["query"],
+        "properties": {
+          "query": {"type": "string", "minLength": 1},
+          "top_chunk_ids": {"type": "array", "items": {"type": "string"}},
+          "result_count": {"type": "integer", "minimum": 0},
+          "search_event_id": {"type": "string"},
+          "search_event_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+        },
+        "additionalProperties": true
+      },
+      "minItems": 1
+    },
     "ranked_chunk_ids": {"type": "array", "items": {"type": "string"}},
     "coverage_notes": {"type": "array", "items": {"type": "string"}}
   },

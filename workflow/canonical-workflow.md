@@ -11,8 +11,9 @@
 5. Independent review excludes primary rationale, confidence, prior reviews, and suggested wording.
 6. Reports render canonical JSON and cannot strengthen validated claim language.
 7. `unable_to_determine` is a valid outcome.
+8. Blocked or failed stages retain the prior phase and cannot promote partial outputs.
+9. Human reviews and amendments identify a human actor; agent output cannot clear a human gate.
 
 Stage-specific contracts are in `workflow/stages/`; machine contracts are generated as run packets.
 Conditional human review and amendment packets do not alter the canonical stage order, but they require
 full revalidation before publication.
-

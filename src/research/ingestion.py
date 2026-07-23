@@ -28,7 +28,12 @@ from research.io import (
     write_json_atomic,
     write_text_atomic,
 )
-from research.security import sanitize_filename, validate_import_source
+from research.security import (
+    ensure_no_symlink_components,
+    ensure_workspace_write,
+    sanitize_filename,
+    validate_import_source,
+)
 
 _HEADING = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 _FIGURE_CAPTION = re.compile(r"^\s*(figure|fig\.)\s*\d+", re.IGNORECASE)
@@ -77,13 +82,23 @@ def import_sources(workspace: Path, inputs: Iterable[Path]) -> dict[str, Any]:
                     "message": f"{type(exc).__name__}: {exc}",
                 }
             )
-    status = "success" if not failures else ("partial" if imported or duplicates else "failed")
+    partial_documents = [
+        item for item in [*imported, *duplicates] if item.get("extraction_status") != "extracted"
+    ]
+    status = (
+        "failed"
+        if failures and not imported and not duplicates
+        else "partial"
+        if failures or partial_documents
+        else "success"
+    )
     return {
         "status": status,
         "imported_count": len(imported),
         "duplicate_count": len(duplicates),
         "warning_count": len(warnings),
         "failed_count": len(failures),
+        "partial_count": len(partial_documents),
         "documents": imported + duplicates,
         "warnings": warnings,
         "failures": failures,
@@ -123,14 +138,22 @@ def _import_one(workspace: Path, source: Path, config: dict[str, Any]) -> dict[s
     document_id = content_identifier("DOC", source_hex)
     original_relative = Path("originals") / "sha256" / source_hex[:2] / source_hex[2:4] / source_hex
     original_path = workspace / original_relative
+    ensure_workspace_write(workspace, original_path)
+    ensure_no_symlink_components(workspace, original_path)
     existing_documents = [
         item
         for item in _iter_document_manifests(workspace)
         if item.get("document_id") == document_id
     ]
     duplicate = bool(existing_documents)
-    if not original_path.exists():
-        write_bytes_atomic(original_path, source.read_bytes())
+    if original_path.exists():
+        if not original_path.is_file() or file_sha256(original_path) != source_hex:
+            raise ResearchError(
+                f"Content-addressed original is missing or has been modified: {original_path}",
+                category="source_hash_mismatch",
+            )
+    else:
+        write_bytes_atomic(original_path, source.read_bytes(), root=workspace)
     event = {
         "event_id": generated_identifier("IMP"),
         "timestamp": utc_now(),
@@ -140,10 +163,10 @@ def _import_one(workspace: Path, source: Path, config: dict[str, Any]) -> dict[s
         "source_filename": sanitize_filename(source.name),
         "duplicate": duplicate,
     }
-    append_jsonl(workspace / "imports" / "import-events.jsonl", event)
+    append_jsonl(workspace / "imports" / "import-events.jsonl", event, root=workspace)
     if duplicate:
         stored_document = max(existing_documents, key=lambda item: str(item["created_at"]))
-        desired_version_id = _document_version_id(stored_document, config)
+        desired_version_id = document_version_id_for(stored_document, config)
         existing_versions = [
             item
             for item in _iter_document_versions(workspace)
@@ -265,32 +288,44 @@ def _toolchain(media_type: str) -> dict[str, str]:
     return tools
 
 
-def _document_version_id(document: dict[str, Any], config: dict[str, Any]) -> str:
+def document_version_id_for(document: dict[str, Any], config: dict[str, Any]) -> str:
+    """Return the extraction version selected by the active deterministic configuration."""
     media_type = str(document["media_type"])
-    extraction_configuration: dict[str, Any]
-    if media_type == "application/pdf":
-        extraction_configuration = dict(config["pdf"])
-    else:
-        extraction_configuration = {
-            "encoding": "utf-8-sig-with-utf-8-replacement-fallback",
-            "unicode_normalization": "NFC",
-            "newline_normalization": "LF",
-        }
     composite = {
         "source_sha256": document["source_sha256"],
-        "extraction_configuration_hash": config_hash(
-            {"extraction": extraction_configuration, "media_type": media_type}
-        ),
+        "extraction_configuration_hash": extraction_configuration_hash_for(document, config),
         "toolchain": _toolchain(media_type),
         "normalization_version": NORMALIZATION_VERSION,
     }
     return derived_identifier("DVER", composite)
 
 
+def extraction_configuration_for(
+    document: dict[str, Any], config: dict[str, Any]
+) -> dict[str, Any]:
+    if document["media_type"] == "application/pdf":
+        return dict(config["pdf"])
+    return {
+        "encoding": "utf-8-sig-with-utf-8-replacement-fallback",
+        "unicode_normalization": "NFC",
+        "newline_normalization": "LF",
+    }
+
+
+def extraction_configuration_hash_for(document: dict[str, Any], config: dict[str, Any]) -> str:
+    return config_hash(
+        {
+            "extraction": extraction_configuration_for(document, config),
+            "media_type": document["media_type"],
+        }
+    )
+
+
 def _failed_document_version(
     document: dict[str, Any], config: dict[str, Any], error: Exception
 ) -> dict[str, Any]:
-    document_version_id = _document_version_id(document, config)
+    document_version_id = document_version_id_for(document, config)
+    extraction_configuration = extraction_configuration_for(document, config)
     result = artifact_base("DocumentVersion", document_version_id)
     result.update(
         {
@@ -299,6 +334,8 @@ def _failed_document_version(
             "source_sha256": document["source_sha256"],
             "extraction_status": "processing_failed",
             "toolchain": _toolchain(str(document["media_type"])),
+            "extraction_configuration": extraction_configuration,
+            "extraction_configuration_hash": extraction_configuration_hash_for(document, config),
             "normalization_version": NORMALIZATION_VERSION,
             "normalized_path": "",
             "pages": [],
@@ -329,9 +366,10 @@ def _extract_markdown(
         )
     normalized = unicodedata.normalize("NFC", text.replace("\r\n", "\n").replace("\r", "\n"))
     markdown_metadata = _markdown_metadata(normalized)
-    document_version_id = _document_version_id(document, config)
+    document_version_id = document_version_id_for(document, config)
+    extraction_configuration = extraction_configuration_for(document, config)
     relative = Path("documents") / "normalized" / document_version_id / "document.md"
-    write_text_atomic(workspace / relative, normalized)
+    write_text_atomic(workspace / relative, normalized, root=workspace)
     sections = _markdown_sections(normalized)
     chunks = _make_chunks(
         document,
@@ -348,8 +386,11 @@ def _extract_markdown(
             "source_sha256": document["source_sha256"],
             "extraction_status": status,
             "toolchain": _toolchain("text/markdown"),
+            "extraction_configuration": extraction_configuration,
+            "extraction_configuration_hash": extraction_configuration_hash_for(document, config),
             "normalization_version": NORMALIZATION_VERSION,
             "normalized_path": relative.as_posix(),
+            "normalized_sha256": f"sha256:{file_sha256(workspace / relative)}",
             "pages": [],
             "metadata": {
                 "source_line_count": len(normalized.splitlines()),
@@ -422,6 +463,12 @@ def _markdown_metadata(text: str) -> dict[str, Any]:
                     "publication_date",
                     "date",
                     "language",
+                    "doi",
+                    "arxiv_id",
+                    "isbn",
+                    "source_url",
+                    "dataset_id",
+                    "version_of",
                 ):
                     if key in frontmatter and isinstance(frontmatter[key], (str, int, float, list)):
                         metadata[key] = frontmatter[key]
@@ -443,7 +490,8 @@ def _extract_pdf(
     reader = PdfReader(str(source))
     if reader.is_encrypted:
         raise ValueError("Encrypted PDFs are unsupported in the MVP")
-    document_version_id = _document_version_id(document, config)
+    document_version_id = document_version_id_for(document, config)
+    extraction_configuration = extraction_configuration_for(document, config)
     dpi = int(config["pdf"]["render_dpi"])
     minimum_chars = int(config["pdf"]["minimum_usable_characters"])
     pdf_document = pdfium.PdfDocument(str(source))
@@ -518,7 +566,11 @@ def _extract_pdf(
                     / document_version_id
                     / f"page-{page_number:05d}-table-{table_index:03d}.json"
                 )
-                write_json_atomic(workspace / relative_table, {"page": page_number, "rows": table})
+                write_json_atomic(
+                    workspace / relative_table,
+                    {"page": page_number, "rows": table},
+                    root=workspace,
+                )
                 table_records.append(
                     {
                         "path": relative_table.as_posix(),
@@ -559,7 +611,7 @@ def _extract_pdf(
             warnings.extend({**warning, "page": page_number} for warning in page_warnings)
     normalized = "".join(normalized_parts)
     normalized_relative = Path("documents") / "normalized" / document_version_id / "document.md"
-    write_text_atomic(workspace / normalized_relative, normalized)
+    write_text_atomic(workspace / normalized_relative, normalized, root=workspace)
     chunks = _make_chunks(document, document_version_id, normalized, sections, config)
     ocr_pages = [record["page"] for record in page_records if record["ocr_required"]]
     if ocr_pages and len(ocr_pages) == len(page_records):
@@ -577,8 +629,11 @@ def _extract_pdf(
             "source_sha256": document["source_sha256"],
             "extraction_status": status,
             "toolchain": _toolchain("application/pdf"),
+            "extraction_configuration": extraction_configuration,
+            "extraction_configuration_hash": extraction_configuration_hash_for(document, config),
             "normalization_version": NORMALIZATION_VERSION,
             "normalized_path": normalized_relative.as_posix(),
+            "normalized_sha256": f"sha256:{file_sha256(workspace / normalized_relative)}",
             "pages": page_records,
             "metadata": {
                 "title": metadata.get("/Title"),
@@ -609,7 +664,7 @@ def _render_pdf_page(
     image.save(buffer, format="PNG", optimize=False)
     data = buffer.getvalue()
     relative = Path("documents") / "renders" / document_version_id / f"page-{page_number:05d}.png"
-    write_bytes_atomic(workspace / relative, data)
+    write_bytes_atomic(workspace / relative, data, root=workspace)
     return {
         "path": relative.as_posix(),
         "sha256": prefixed_sha256(data),
@@ -646,6 +701,44 @@ def _visual_regions(page: Any, text: str, page_number: int) -> list[dict[str, An
                 "caption": None,
             }
         )
+    drawings = [
+        *getattr(page, "rects", []),
+        *getattr(page, "curves", []),
+        *getattr(page, "lines", []),
+    ]
+    drawing_boxes: list[tuple[float, float, float, float]] = []
+    for drawing in drawings:
+        try:
+            x0 = max(0.0, float(drawing.get("x0", 0.0)))
+            x1 = min(width, float(drawing.get("x1", width)))
+            top = max(0.0, float(drawing.get("top", 0.0)))
+            bottom = min(height, float(drawing.get("bottom", height)))
+        except (TypeError, ValueError):
+            continue
+        if x1 > x0 or bottom > top:
+            drawing_boxes.append((x0, top, x1, bottom))
+    if drawing_boxes:
+        x0 = min(item[0] for item in drawing_boxes)
+        top = min(item[1] for item in drawing_boxes)
+        x1 = max(item[2] for item in drawing_boxes)
+        bottom = max(item[3] for item in drawing_boxes)
+        area_ratio = max(0.0, x1 - x0) * max(0.0, bottom - top) / (width * height)
+        if 0.01 <= area_ratio <= 0.95:
+            regions.append(
+                {
+                    "region_id": f"page-{page_number}-drawing-region",
+                    "region_type": "vector_figure_candidate",
+                    "bounding_box": {
+                        "x": x0 / width,
+                        "y": top / height,
+                        "width": (x1 - x0) / width,
+                        "height": (bottom - top) / height,
+                    },
+                    "coordinate_system": "normalized_top_left_0_to_1",
+                    "detection_status": "ambiguous",
+                    "caption": None,
+                }
+            )
     captions = [line.strip() for line in text.splitlines() if _FIGURE_CAPTION.match(line)]
     if captions and not regions:
         regions.append(
@@ -764,6 +857,7 @@ def _make_chunks(
                             "section_end": section["end"],
                         },
                         "chunking_version": CHUNKING_VERSION,
+                        "chunking_configuration": dict(config["chunking"]),
                         "chunking_configuration_hash": config_hash(config["chunking"]),
                         "overlap_characters": 0 if first_in_section else overlap,
                         "index_eligible": True,

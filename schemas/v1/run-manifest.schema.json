@@ -13,17 +13,33 @@
     "run_id": {"type": "string", "pattern": "^RUN-[0-9a-fA-F-]{36}$"},
     "question": {"type": "string", "minLength": 1},
     "profile": {"type": "string"},
-    "phase": {"type": "string"},
-    "disposition": {"type": "string"},
+    "phase": {"enum": ["initialized", "planned", "retrieved", "evidence_extracted", "synthesized", "contradiction_reviewed", "citation_reviewed", "methodology_reviewed", "independently_reviewed", "validation_passed", "report_eligible", "published"]},
+    "disposition": {"enum": ["active", "blocked", "review_pending", "human_review_required", "validation_failed", "superseded", "cancelled"]},
     "workflow_version": {"type": "string"},
-    "configuration_hash": {"type": "string"},
+    "configuration_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "configuration_snapshot": {"type": "object"},
     "schema_versions": {"type": "object"},
-    "source_document_ids": {"type": "array", "items": {"type": "string"}},
-    "source_snapshot": {"type": "array", "items": {"type": "object"}},
+    "source_document_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "source_snapshot": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["document_id", "source_sha256", "document_artifact_hash", "document_version_id", "document_version_artifact_hash", "extraction_status"],
+        "properties": {
+          "document_id": {"type": "string"},
+          "source_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+          "document_artifact_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+          "document_version_id": {"type": ["string", "null"]},
+          "document_version_artifact_hash": {"type": ["string", "null"]},
+          "extraction_status": {"type": ["string", "null"]}
+        },
+        "additionalProperties": false
+      }
+    },
     "source_collection_state": {"enum": ["frozen_at_initialization", "amended"]},
     "index_snapshot": {"type": ["object", "null"]},
     "host": {"type": "object"},
-    "event_log": {"type": "string"}
+    "event_log": {"const": "events.jsonl"}
   },
   "additionalProperties": true
 }

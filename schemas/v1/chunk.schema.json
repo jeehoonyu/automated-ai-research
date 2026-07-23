@@ -22,6 +22,7 @@
     "exact_text": {"type": "string"},
     "text_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
     "chunking_version": {"type": "string"},
+    "chunking_configuration": {"type": "object"},
     "chunking_configuration_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
     "index_eligible": {"type": "boolean"},
     "warnings": {"type": "array", "items": {"type": "object"}}

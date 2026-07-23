@@ -12,7 +12,11 @@ from research.errors import ResearchError
 from research.identifiers import derived_identifier
 from research.io import write_text_atomic
 from research.runs import latest_artifact, load_run, transition_published
-from research.validation import _current_run_artifacts, current_run_artifact_hashes
+from research.validation import (
+    _current_run_artifacts,
+    publication_integrity_errors,
+    validation_input_artifact_hashes,
+)
 
 REPORT_TEMPLATE = """{% if draft %}
 > **DRAFT — NOT VALIDATED OR PUBLISHED**
@@ -23,14 +27,19 @@ REPORT_TEMPLATE = """{% if draft %}
 
 {{ question }}
 
-## Scope and method
+## Scope and research method
 
 - Profile: `{{ profile }}`
 - Workflow version: `{{ workflow_version }}`
 - Reviewer independence: `{{ independence_status }}`
 - Human review status: `{{ human_review_status }}`
 
-{% if plan %}{{ plan.scope | tojson }}{% else %}No validated research plan is available.{% endif %}
+{% if plan %}- Scope: {{ plan.scope | tojson }}
+- Inclusion criteria: {{ plan.inclusion_criteria | join('; ') }}
+- Exclusion criteria: {{ plan.exclusion_criteria | join('; ') }}
+- Search terms: {{ plan.search_terms | join('; ') }}
+- Expected limitations: {{ plan.expected_limitations | join('; ') }}
+{% else %}No validated research plan is available.{% endif %}
 
 ## Source summary
 
@@ -60,8 +69,18 @@ Supporting evidence: {% for evidence_id in claim.supporting_evidence_ids %}`{{ e
 
 ## Evidence and citation index
 
-{% for item in citations %}- `{{ item.evidence_id }}` → `{{ item.document_id }}`{% if item.page %}, page {{ item.page }}{% endif %}{% if item.section %}, section {{ item.section }}{% endif %}; locator `{{ item.locator_type }}`
+{% for item in citations %}- `{{ item.evidence_id }}` → `{{ item.document_id }}`{% if item.page %}, page {{ item.page }}{% endif %}{% if item.source_line_start %}, lines {{ item.source_line_start }}–{{ item.source_line_end }}{% endif %}{% if item.section %}, section {{ item.section }}{% endif %}; locator `{{ item.locator_type }}`{% if item.start_offset is not none %}, span {{ item.start_offset }}:{{ item.end_offset }}{% endif %}
 {% else %}- No evidence records are available.
+{% endfor %}
+
+## Supporting evidence
+
+{% for item in citations %}### {{ item.evidence_id }}
+
+{% if item.exact_text %}> {{ item.exact_text | replace('\n', ' ') }}
+{% else %}Visual evidence region on page {{ item.page }}; inspect the evidence ID to resolve the render and bounding box.
+{% endif %}
+{% else %}No evidence records are available.
 {% endfor %}
 
 ## Contradictions and limitations
@@ -74,6 +93,12 @@ Supporting evidence: {% for evidence_id in claim.supporting_evidence_ids %}`{{ e
 
 {% for review in reviews %}- `{{ review.review_type }}` / `{{ review.review_id }}`: {{ review.decision }}{% if review.warnings %}; warnings: {{ review.warnings | join('; ') }}{% endif %}
 {% else %}- No canonical reviews are available.
+{% endfor %}
+
+## Methodological limitations
+
+{% for review in methodology_reviews %}- `{{ review.review_id }}`: {{ review.findings | tojson }}{% if review.warnings %}; warnings: {{ review.warnings | join('; ') }}{% endif %}
+{% else %}- No methodology-review findings are available.
 {% endfor %}
 
 ## Unresolved questions and insufficient evidence
@@ -93,6 +118,12 @@ Supporting evidence: {% for evidence_id in claim.supporting_evidence_ids %}`{{ e
 {% else %}No validation result is available. This report is a draft.
 {% endif %}
 
+## References
+
+{% for source in sources %}- `{{ source.document_id }}` — {{ source.title }}{% if source.authors %}; {{ source.authors }}{% endif %}{% if source.publication_date %}; {{ source.publication_date }}{% endif %}
+{% else %}- No referenced source documents are available.
+{% endfor %}
+
 ## Provenance summary
 
 - Run ID: `{{ run_id }}`
@@ -107,7 +138,7 @@ This report is a rendering of canonical JSON artifacts. Original source files re
 def generate_report(workspace: Path, run_id: str, *, draft: bool = False) -> dict[str, Any]:
     run_dir, manifest = load_run(workspace, run_id)
     validation = latest_artifact(run_dir / "validation", "ValidationResult")
-    current_hashes = current_run_artifact_hashes(run_dir)
+    current_hashes = validation_input_artifact_hashes(workspace, run_dir, manifest)
     if not draft:
         if validation is None or not validation.get("report_eligible"):
             raise ResearchError(
@@ -121,7 +152,17 @@ def generate_report(workspace: Path, run_id: str, *, draft: bool = False) -> dic
                 category="stale_validation",
                 exit_code=EXIT_REPORT_GATE,
             )
-        if manifest.get("phase") != "report_eligible" or not manifest.get("report_eligible"):
+        integrity_errors = publication_integrity_errors(workspace, run_dir, manifest)
+        if integrity_errors:
+            raise ResearchError(
+                "Source or locator integrity changed after validation; re-run `research validate`",
+                category="stale_validation",
+                exit_code=EXIT_REPORT_GATE,
+                details={"integrity_errors": integrity_errors},
+            )
+        if manifest.get("phase") not in {"report_eligible", "published"} or not manifest.get(
+            "report_eligible"
+        ):
             raise ResearchError(
                 "Run lifecycle is not report-eligible",
                 category="report_gating_failure",
@@ -175,6 +216,9 @@ def generate_report(workspace: Path, run_id: str, *, draft: bool = False) -> dic
             sources=sources,
             claims=claims,
             reviews=reviews,
+            methodology_reviews=[
+                item for item in reviews if item.get("review_type") == "methodology_review"
+            ],
             citations=citations,
             conflicting_claims=[
                 item
@@ -208,8 +252,12 @@ def generate_report(workspace: Path, run_id: str, *, draft: bool = False) -> dic
     suffix = report_hash.removeprefix("sha256:")[:16]
     filename = f"draft-{suffix}.md" if draft else f"report-{suffix}.md"
     path = run_dir / "report" / filename
-    write_text_atomic(path, report)
-    write_text_atomic(run_dir / "report" / ("latest-draft.md" if draft else "latest.md"), report)
+    write_text_atomic(path, report, root=run_dir)
+    write_text_atomic(
+        run_dir / "report" / ("latest-draft.md" if draft else "latest.md"),
+        report,
+        root=run_dir,
+    )
     report_id = derived_identifier(
         "RPT",
         {
@@ -251,8 +299,13 @@ def _citation(evidence: dict[str, Any]) -> dict[str, Any]:
         "evidence_id": evidence["evidence_id"],
         "document_id": evidence["document_id"],
         "page": locator.get("page"),
+        "source_line_start": locator.get("source_line_start"),
+        "source_line_end": locator.get("source_line_end"),
         "section": " > ".join(section) if isinstance(section, list) else str(section),
         "locator_type": locator.get("type"),
+        "start_offset": locator.get("start_offset"),
+        "end_offset": locator.get("end_offset"),
+        "exact_text": evidence.get("exact_text"),
     }
 
 
@@ -261,15 +314,32 @@ def _sources(workspace: Path, evidence: list[dict[str, Any]]) -> list[dict[str, 
     result: list[dict[str, str]] = []
     from research.io import iter_json
 
+    referenced_versions = {
+        str(item["document_id"]): str(item["document_version_id"]) for item in evidence
+    }
+    versions = {
+        str(item["document_id"]): item
+        for item in iter_json(workspace / "documents" / "versions")
+        if item.get("schema_name") == "DocumentVersion"
+        and item.get("document_version_id") == referenced_versions.get(str(item.get("document_id")))
+    }
     for document in iter_json(workspace / "documents" / "manifests"):
         if document.get("document_id") not in ids:
             continue
-        metadata = document.get("metadata", {})
+        metadata = dict(document.get("metadata", {}))
+        metadata.update(versions.get(str(document["document_id"]), {}).get("metadata", {}))
+        authors = metadata.get("authors") or metadata.get("author") or ""
+        if isinstance(authors, list):
+            authors = ", ".join(str(item) for item in authors)
         result.append(
             {
                 "document_id": str(document["document_id"]),
                 "title": str(
                     metadata.get("title") or metadata.get("original_filename") or "Untitled"
+                ),
+                "authors": str(authors),
+                "publication_date": str(
+                    metadata.get("publication_date") or metadata.get("date") or ""
                 ),
             }
         )

@@ -16,7 +16,9 @@ are projections whose history or inputs remain canonical.
 
 - Workspace and security modules enforce discovery, path containment, size limits, and atomic writes.
 - Ingestion preserves originals, extracts Markdown/PDF content, renders PDF pages, and creates chunks.
-- Indexing rebuilds SQLite FTS5 from the latest validated document versions.
+- Indexing rebuilds SQLite FTS5 from the document versions selected by the active extraction
+  configuration. Configuration rollback selects the matching historical version rather than whichever
+  version happened to be created most recently.
 - Run management creates packets, promotes stage candidates, and appends lifecycle events.
 - Validation checks deterministic structure and enforces typed semantic-review decisions.
 - Reporting renders accepted claims verbatim without strengthening their classification.
@@ -31,6 +33,7 @@ typed, reviewable artifacts. Reproducibility means replayable inputs and decisio
 ## Lifecycle
 
 A run has an ordered `phase` and an orthogonal `disposition`. Review or validation can block a run
-without erasing its completed phase. Every transition is append-only. Supplemental human reviews and
-amendments invalidate report eligibility until full revalidation succeeds.
-
+without erasing its completed phase. A blocked or failed stage response does not advance the phase or
+promote partial outputs. Every transition is append-only and full validation verifies both immutable
+event artifacts and the JSONL event chain. Supplemental human reviews and amendments invalidate report
+eligibility until full revalidation succeeds.

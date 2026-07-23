@@ -17,6 +17,8 @@ def inspect_artifact(workspace: Path, artifact_id: str) -> dict[str, Any]:
         if not root.exists():
             continue
         for path in sorted(root.rglob("*.json"), key=lambda item: item.as_posix()):
+            if root == workspace / "runs" and "responses" in path.relative_to(root).parts:
+                continue
             try:
                 with path.open("r", encoding="utf-8") as handle:
                     value = json.load(handle)
@@ -34,6 +36,25 @@ def inspect_artifact(workspace: Path, artifact_id: str) -> dict[str, Any]:
                 value.get("review_id"),
                 value.get("validation_result_id"),
             }
+            if value.get("schema_name") == "DocumentVersion":
+                version_id = str(value.get("document_version_id", ""))
+                for page in value.get("pages", []):
+                    page_number = page.get("page")
+                    render = page.get("render", {})
+                    identifiers.update(
+                        {
+                            render.get("sha256"),
+                            f"{version_id}/page/{page_number}",
+                        }
+                    )
+                    for region in page.get("visual_regions", []):
+                        region_id = region.get("region_id")
+                        identifiers.update(
+                            {
+                                region_id,
+                                f"{version_id}/region/{region_id}",
+                            }
+                        )
             if artifact_id in identifiers:
                 matches.append((path, value))
     if not matches:
@@ -54,6 +75,8 @@ def inspect_artifact(workspace: Path, artifact_id: str) -> dict[str, Any]:
     if artifact.get("schema_name") == "Evidence":
         context = _evidence_context(workspace, artifact)
     elif artifact.get("schema_name") == "DocumentVersion":
+        selected_page = _selected_page_lookup(artifact, artifact_id)
+        selected_region = _selected_region_lookup(artifact, artifact_id)
         context = {
             "normalized_path": str(workspace / str(artifact.get("normalized_path", ""))),
             "page_renders": [
@@ -64,6 +87,8 @@ def inspect_artifact(workspace: Path, artifact_id: str) -> dict[str, Any]:
                 }
                 for page in artifact.get("pages", [])
             ],
+            "selected_page": selected_page,
+            "selected_visual_region": selected_region,
         }
     elif artifact.get("schema_name") == "Document":
         context = {
@@ -93,6 +118,30 @@ def inspect_artifact(workspace: Path, artifact_id: str) -> dict[str, Any]:
         "context": context,
         "integrity": {"valid": not integrity_errors, "errors": integrity_errors},
     }
+
+
+def _selected_page_lookup(version: dict[str, Any], lookup: str) -> dict[str, Any] | None:
+    version_id = str(version.get("document_version_id", ""))
+    for page in version.get("pages", []):
+        render = page.get("render", {})
+        if lookup in {render.get("sha256"), f"{version_id}/page/{page.get('page')}"}:
+            return {
+                "page": page.get("page"),
+                "render": render,
+                "ocr_required": page.get("ocr_required"),
+                "extraction_status": page.get("extraction_status"),
+            }
+    return None
+
+
+def _selected_region_lookup(version: dict[str, Any], lookup: str) -> dict[str, Any] | None:
+    version_id = str(version.get("document_version_id", ""))
+    for page in version.get("pages", []):
+        for region in page.get("visual_regions", []):
+            region_id = region.get("region_id")
+            if lookup in {region_id, f"{version_id}/region/{region_id}"}:
+                return {"page": page.get("page"), **region}
+    return None
 
 
 def _evidence_context(workspace: Path, evidence: dict[str, Any]) -> dict[str, Any]:

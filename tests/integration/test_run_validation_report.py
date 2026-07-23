@@ -1,12 +1,16 @@
 from __future__ import annotations
 
-import uuid
+import json
 from pathlib import Path
 from typing import Any
 
-from research.artifacts import artifact_base
+import pytest
+
+from research.artifacts import artifact_base, store_artifact
 from research.canonical import finalize_artifact, prefixed_sha256
+from research.errors import ResearchError
 from research.identifiers import derived_identifier, generated_identifier
+from research.indexing import build_index, search_index
 from research.ingestion import import_sources
 from research.inspection import inspect_artifact
 from research.io import iter_json, write_json_atomic
@@ -18,11 +22,12 @@ from research.validation import validate_run
 def test_complete_agent_artifact_flow(workspace: Path, tmp_path: Path) -> None:
     source = tmp_path / "study.md"
     source.write_text(
-        "# Results\n\nThe measured configuration used 120 samples and reported lower data movement.\n",
+        "# Results\n\nThe token 120 sample configuration reported lower data movement.\n",
         encoding="utf-8",
     )
     imported = import_sources(workspace, [source])
     assert imported["failed_count"] == 0
+    build_index(workspace)
     run = create_run(workspace, "What did the study report?", "default", host="codex")
     run_id = run["run_id"]
     run_dir = Path(run["run_path"])
@@ -47,19 +52,31 @@ def test_complete_agent_artifact_flow(workspace: Path, tmp_path: Path) -> None:
     _submit(run_dir, "planning", run_id, [plan])
     promote_stage(workspace, run_id, "planning")
 
+    search = search_index(workspace, "token=120", run_id=run_id)
+    ranked_chunk_ids = [item["chunk_id"] for item in search["results"]]
+    chunk = next(
+        item
+        for item in iter_json(workspace / "documents" / "chunks")
+        if item.get("chunk_id") == ranked_chunk_ids[0]
+    )
     retrieval = _artifact(
         "RetrievalResult",
         generated_identifier("RET"),
         run_id=run_id,
-        queries=[{"query": "samples data movement"}],
-        ranked_chunk_ids=[],
+        queries=[
+            {
+                "query": "token=120",
+                "top_chunk_ids": ranked_chunk_ids,
+                "search_event_id": search["search_event_id"],
+                "search_event_hash": search["search_event_hash"],
+            }
+        ],
+        ranked_chunk_ids=ranked_chunk_ids,
         coverage_notes=["All local documents searched"],
     )
     _submit(run_dir, "retrieval", run_id, [retrieval])
     promote_stage(workspace, run_id, "retrieval")
 
-    chunk = next(item for item in iter_json(workspace / "documents" / "chunks"))
-    retrieval["ranked_chunk_ids"] = [chunk["chunk_id"]]
     locator = {
         "type": "text_span",
         "page": None,
@@ -98,7 +115,7 @@ def test_complete_agent_artifact_flow(workspace: Path, tmp_path: Path) -> None:
     _submit(run_dir, "evidence_extraction", run_id, [evidence])
     promote_stage(workspace, run_id, "evidence_extraction")
 
-    claim_id = f"CLM-{uuid.uuid4()}"
+    claim_id = generated_identifier("CLM")
     claim = _claim(claim_id, 1, evidence_id)
     _submit(run_dir, "synthesis", run_id, [claim])
     promote_stage(workspace, run_id, "synthesis")
@@ -113,7 +130,17 @@ def test_complete_agent_artifact_flow(workspace: Path, tmp_path: Path) -> None:
     for version_number, (stage, review_type, methodology, citation) in enumerate(
         review_specs, start=2
     ):
-        review = _review(run_id, claim_id, review_type)
+        contradiction_search_event_ids: list[str] = []
+        if stage == "contradiction_review":
+            contradiction_search = search_index(workspace, "not reliable", run_id=run_id)
+            contradiction_search_event_ids.append(contradiction_search["search_event_id"])
+        review = _review(
+            run_id,
+            claim_id,
+            review_type,
+            evidence_id,
+            contradiction_search_event_ids,
+        )
         updated = _claim(
             claim_id,
             version_number,
@@ -154,9 +181,34 @@ def test_complete_agent_artifact_flow(workspace: Path, tmp_path: Path) -> None:
     _, manifest = load_run(workspace, run_id)
     assert manifest["phase"] == "report_eligible"
 
+    document = next(iter_json(workspace / "documents" / "manifests"))
+    original_path = workspace / document["original_storage_path"]
+    original_bytes = original_path.read_bytes()
+    original_path.write_bytes(original_bytes + b"\npost-validation tamper")
+    with pytest.raises(ResearchError, match="integrity changed"):
+        generate_report(workspace, run_id)
+    original_path.write_bytes(original_bytes)
+
+    search_log = workspace / "logs" / "search-events.jsonl"
+    search_log_text = search_log.read_text(encoding="utf-8")
+    search_events = [json.loads(line) for line in search_log_text.splitlines()]
+    run_event = next(item for item in search_events if item.get("run_id") == run_id)
+    run_event["event_hash"] = "sha256:" + ("0" * 64)
+    search_log.write_text(
+        "\n".join(json.dumps(item, sort_keys=True) for item in search_events) + "\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ResearchError, match="integrity changed"):
+        generate_report(workspace, run_id)
+    search_log.write_text(search_log_text, encoding="utf-8")
+
     report = generate_report(workspace, run_id)
     assert Path(report["report_path"]).is_file()
-    assert "report-eligible" not in Path(report["report_path"]).read_text(encoding="utf-8")
+    report_text = Path(report["report_path"]).read_text(encoding="utf-8")
+    assert "report-eligible" not in report_text
+    assert "## Supporting evidence" in report_text
+    assert "## Methodological limitations" in report_text
+    assert "## References" in report_text
     _, manifest = load_run(workspace, run_id)
     assert manifest["phase"] == "published"
 
@@ -192,11 +244,22 @@ def test_complete_agent_artifact_flow(workspace: Path, tmp_path: Path) -> None:
         replacement_artifact_hash=replacement["artifact_hash"],
         review_required=True,
     )
+    amendment["created_by"] = {
+        "actor_type": "human",
+        "host": "manual-review",
+        "model_identifier": None,
+    }
     _submit(run_dir, "amendment", run_id, [replacement, amendment])
     amended = promote_stage(workspace, run_id, "amendment")
     assert amended["revalidation_required"] is True
 
     human_review = _review(run_id, claim_id, "human_review")
+    human_review["created_by"] = {
+        "actor_type": "human",
+        "host": "manual-review",
+        "model_identifier": None,
+    }
+    human_review["reviewer_identity"] = {"name": "Test reviewer"}
     human_review["reviewed_artifact_ids"] = [amendment_id]
     human_review["claim_assessments"] = []
     _submit(run_dir, "human_review", run_id, [human_review])
@@ -215,6 +278,15 @@ def test_complete_agent_artifact_flow(workspace: Path, tmp_path: Path) -> None:
     assert inspected_claim["context"]["supporting_evidence"]
     inspected_document = inspect_artifact(workspace, chunk["document_id"])
     assert inspected_document["context"]["import_aliases"]
+
+    rogue_review = _review(run_id, claim_id, "citation_review", evidence_id)
+    store_artifact(run_dir, rogue_review)
+    lifecycle_validation, lifecycle_exit = validate_run(workspace, run_id)
+    assert lifecycle_exit == 5
+    assert any(
+        item["code"] == "unrecorded_canonical_artifact"
+        for item in lifecycle_validation["blocking_errors"]
+    )
 
 
 def _artifact(schema_name: str, artifact_id: str, **values: Any) -> dict[str, Any]:
@@ -276,7 +348,13 @@ def _claim(
     return result
 
 
-def _review(run_id: str, claim_id: str, review_type: str) -> dict[str, Any]:
+def _review(
+    run_id: str,
+    claim_id: str,
+    review_type: str,
+    evidence_id: str | None = None,
+    contradiction_search_event_ids: list[str] | None = None,
+) -> dict[str, Any]:
     review_id = generated_identifier("REV")
     return _artifact(
         "Review",
@@ -307,7 +385,19 @@ def _review(run_id: str, claim_id: str, review_type: str) -> dict[str, Any]:
                 "citation_support": "supports"
                 if review_type == "citation_review"
                 else "not_applicable",
+                "evidence_assessments": (
+                    [
+                        {
+                            "evidence_id": evidence_id,
+                            "citation_support": "supports",
+                            "context_preserved": True,
+                        }
+                    ]
+                    if review_type == "citation_review" and evidence_id
+                    else []
+                ),
                 "contradiction_search_performed": review_type == "contradiction_review",
+                "contradiction_search_event_ids": contradiction_search_event_ids or [],
                 "material_contradictions": [],
                 "methodology_quality": "medium"
                 if review_type == "methodology_review"

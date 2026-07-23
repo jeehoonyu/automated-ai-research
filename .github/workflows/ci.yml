@@ -24,4 +24,6 @@ jobs:
       - run: ruff format --check .
       - run: mypy src/research
       - run: pytest --cov=research --cov-report=term-missing
+      - run: python -m pip wheel . --no-deps --wheel-dir dist
+      - run: python tests/packaging_smoke.py
       - run: research --help

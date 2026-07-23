@@ -27,9 +27,23 @@
           "assessment": {"type": "string"},
           "citation_support": {"enum": ["supports", "partially_supports", "related_not_supporting", "contradicts", "not_applicable"]},
           "contradiction_search_performed": {"type": "boolean"},
+          "contradiction_search_event_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
           "material_contradictions": {"type": "array", "items": {"type": "string"}},
           "methodology_quality": {"enum": ["high", "medium", "low", "unknown", "not_applicable"]},
-          "support_assessment": {"enum": ["supports", "partially_supports", "unsupported", "conflicting", "unable_to_determine", "not_applicable"]}
+          "support_assessment": {"enum": ["supports", "partially_supports", "unsupported", "conflicting", "unable_to_determine", "not_applicable"]},
+          "evidence_assessments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["evidence_id", "citation_support"],
+              "properties": {
+                "evidence_id": {"type": "string"},
+                "citation_support": {"enum": ["supports", "partially_supports", "related_not_supporting", "contradicts"]},
+                "context_preserved": {"type": "boolean"}
+              },
+              "additionalProperties": true
+            }
+          }
         },
         "additionalProperties": true
       }

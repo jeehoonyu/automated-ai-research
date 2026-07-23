@@ -33,3 +33,15 @@ def generated_identifier(prefix: str) -> str:
 
 def run_identifier() -> str:
     return f"RUN-{uuid.uuid4()}"
+
+
+def identifier_has_uuid_version(identifier: str, prefix: str, version: int) -> bool:
+    marker = f"{prefix}-"
+    if not identifier.startswith(marker):
+        return False
+    value = identifier[len(marker) :].split("-v", maxsplit=1)[0]
+    try:
+        parsed = uuid.UUID(value)
+    except ValueError:
+        return False
+    return parsed.version == version

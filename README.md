@@ -10,7 +10,7 @@ The host coding agent performs research reasoning; this project does not embed o
 - Preserves PDF and Markdown originals by SHA-256 identity.
 - Extracts page-aware text and renders every PDF page for visual verification.
 - Flags image-only and low-text pages instead of silently treating them as extracted.
-- Builds a rebuildable SQLite FTS5 index with stable result ordering.
+- Builds a rebuildable, integrity-checked SQLite FTS5 index with stable result ordering.
 - Creates typed work packets shared by Codex and Claude Code.
 - Validates evidence locators, claims, reviews, amendments, hashes, and lifecycle transitions.
 - Produces Markdown reports only from canonical, validated JSON artifacts.
@@ -53,6 +53,8 @@ research report <run-id>
 
 Use `research report <run-id> --draft` for an explicitly unvalidated draft. Publication is blocked
 when citations, reviews, independence, source hashes, locators, or human-review gates fail.
+Human review and amendment artifacts must explicitly identify a human actor; host-agent output cannot
+silently clear a human gate.
 
 ## Authority and trust
 
@@ -70,7 +72,8 @@ chain-of-thought.
 See [architecture](docs/architecture.md), [workflow](docs/workflow.md),
 [artifact contracts](docs/artifact-contracts.md), [validation rules](docs/validation-rules.md), and
 the [security model](docs/security-model.md). Release qualification, including separate host and
-human-review gates, is tracked in the [release checklist](docs/release-checklist.md).
+human-review gates, is tracked in the [release checklist](docs/release-checklist.md), with current
+evidence and open external gates in the [completion audit](docs/completion-audit.md).
 
 ## License
 
