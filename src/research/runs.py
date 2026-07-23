@@ -646,8 +646,16 @@ def _write_manifest(run_dir: Path, manifest: dict[str, Any]) -> dict[str, Any]:
     finalized = finalize_artifact(manifest)
     SchemaRegistry().validate(finalized)
     hash_part = str(finalized["artifact_hash"]).removeprefix("sha256:")
-    history = run_dir / "manifest-history" / f"{hash_part}.json"
-    if not history.exists():
+    history = (
+        run_dir / "manifest-history" / hash_part[:2] / hash_part[2:14] / f"{hash_part[14:34]}.json"
+    )
+    if history.exists():
+        if read_json(history) != finalized:
+            raise ResearchError(
+                f"Run manifest history hash collision at {history}",
+                category="artifact_hash_collision",
+            )
+    else:
         write_json_atomic(history, finalized, root=run_dir)
     write_json_atomic(run_dir / "manifest.json", finalized, root=run_dir)
     return finalized

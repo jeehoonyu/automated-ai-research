@@ -13,3 +13,5 @@ of ineligible reports.
 Codex and Claude Code conformance runs use identical sources, profiles, packets, schemas, and gates.
 Their prose may differ. Accepted conformance artifacts belong under `benchmark/expected/<host>/` and
 must pass the normal CLI validator; host execution is intentionally not embedded in automated tests.
+`python benchmark/prepare_conformance.py <output>` constructs both workspaces from one copied canonical
+source/index base and verifies a normalized packet-contract hash before any host reasoning begins.

@@ -8,3 +8,13 @@ are recorded in `expected/fixture-contract.json`.
 The corpus includes a supported result, an independent contradiction, a methodology limitation,
 prompt-injection text, an insufficient-evidence path, a PDF table, vector visual evidence, and an
 image-only raster page. Integration tests additionally generate malformed and encrypted PDFs.
+
+Prepare equivalent current-corpus workspaces and run packets for both supported hosts with:
+
+```bash
+python benchmark/prepare_conformance.py ./conformance-output
+```
+
+The command imports and indexes one neutral base workspace, copies that immutable source/index state to
+both hosts, initializes separate runs, and refuses completion unless their semantic packet contracts
+match. It never invokes a model or claims that either host completed a stage.

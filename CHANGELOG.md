@@ -15,6 +15,9 @@
 - Add checked-in deterministic visual/table benchmark PDFs, same-ID human visual-verification
   amendments, strict RFC3339/actor metadata, supplemental-stage blocking, explicit report uncertainty
   factors and contradictory excerpts, atomic-failure recovery, and HTML-escaping coverage.
+- Add a hashed two-question cross-host conformance preparer that clones one canonical source/index
+  base and verifies normalized Codex/Claude packet parity, plus shorter sharded run-manifest history
+  paths for Windows compatibility.
 - Add isolated wheel-install smoke testing to the cross-platform CI matrix.
 
 ## 0.1.0

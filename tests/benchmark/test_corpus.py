@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+from benchmark.prepare_conformance import prepare_conformance_pair
+from research.canonical import canonical_sha256
 from research.errors import ResearchError
 from research.indexing import build_index, search_index
 from research.ingestion import import_sources
@@ -75,6 +77,63 @@ def test_checked_in_pdf_benchmark_contract(workspace: Path) -> None:
                 page = version["pages"][page_number - 1]
                 assert page["table_detection_status"] == "extracted"
                 assert page["tables"]
+
+
+def test_cross_host_preparation_uses_one_source_index_and_packet_contract(
+    tmp_path: Path,
+) -> None:
+    result = prepare_conformance_pair(tmp_path / "conformance")
+    unhashed_result = dict(result)
+    preparation_hash = unhashed_result.pop("preparation_hash")
+    assert preparation_hash == canonical_sha256(unhashed_result)
+    assert result["import_counts"] == {
+        "imported": 7,
+        "duplicates": 1,
+        "partial": 1,
+        "failed": 0,
+    }
+    assert (
+        result["hosts"]["codex"]["packet_contract_hash"]
+        == result["hosts"]["claude-code"]["packet_contract_hash"]
+    )
+    assert result["packet_contract_hash"] == result["hosts"]["codex"]["packet_contract_hash"]
+    assert {item["expected_outcome"] for item in result["questions"].values()} == {
+        "conflicting_evidence",
+        "unable_to_determine",
+    }
+    assert len(result["source_documents"]) == 7
+    assert len(result["schema_hashes"]) == 18
+
+    source_sets: list[list[str]] = []
+    index_hashes: list[str] = []
+    for host in ("codex", "claude-code"):
+        workspace = Path(result["hosts"][host]["workspace"])
+        source_sets.append(
+            sorted(
+                str(item["source_sha256"])
+                for item in iter_json(workspace / "documents" / "manifests")
+            )
+        )
+        index_manifest = next(iter_json(workspace / "indexes" / "index-manifest.json"))
+        index_hashes.append(str(index_manifest["logical_index_hash"]))
+        assert set(result["hosts"][host]["runs"]) == set(result["questions"])
+        for run in result["hosts"][host]["runs"].values():
+            run_id = run["run_id"]
+            run_manifest = next(iter_json(workspace / "runs" / run_id / "manifest.json"))
+            assert run_manifest["host"]["environment"] == host
+            independent_packet = next(
+                item
+                for item in iter_json(workspace / "runs" / run_id / "packets")
+                if item["stage"] == "independent_review"
+            )
+            assert {
+                "primary_rationale",
+                "primary_confidence",
+                "previous_review_conclusions",
+                "suggested_final_wording",
+            }.issubset(independent_packet["excluded_inputs"])
+    assert source_sets[0] == source_sets[1]
+    assert index_hashes == [result["logical_index_hash"], result["logical_index_hash"]]
 
 
 def test_checked_in_codex_conformance_run_is_validly_human_blocked(tmp_path: Path) -> None:
