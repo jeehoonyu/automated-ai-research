@@ -309,7 +309,7 @@ def generate_report(workspace: Path, run_id: str, *, draft: bool = False) -> dic
             "report_manifest_id": report_id,
             "run_id": run_id,
             "draft": draft,
-            "report_path": str(path.relative_to(run_dir)),
+            "report_path": path.relative_to(run_dir).as_posix(),
             "report_sha256": report_hash,
             "validation_result_id": validation.get("validation_result_id") if validation else None,
             "input_artifact_hashes": report_input_hashes,

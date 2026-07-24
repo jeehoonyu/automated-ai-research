@@ -206,6 +206,9 @@ def test_complete_agent_artifact_flow(workspace: Path, tmp_path: Path) -> None:
     report = generate_report(workspace, run_id)
     assert Path(report["report_path"]).is_file()
     report_text = Path(report["report_path"]).read_text(encoding="utf-8")
+    report_manifest = next(iter_json(workspace / "runs" / run_id / "report" / "manifests"))
+    assert "\\" not in report_manifest["report_path"]
+    assert report_manifest["report_path"].startswith("report/")
     assert "report-eligible" not in report_text
     assert "## Supporting evidence" in report_text
     assert "## Contradictory evidence" in report_text

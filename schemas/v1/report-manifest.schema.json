@@ -13,7 +13,7 @@
     "created_by": {"type": "object"},
     "run_id": {"type": "string"},
     "draft": {"type": "boolean"},
-    "report_path": {"type": "string"},
+    "report_path": {"type": "string", "pattern": "^report/[A-Za-z0-9._-]+\\.md$"},
     "report_sha256": {"type": "string"},
     "validation_result_id": {"type": ["string", "null"]},
     "input_artifact_hashes": {"type": "array", "items": {"type": "string"}}
