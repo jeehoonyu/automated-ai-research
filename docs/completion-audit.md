@@ -4,7 +4,7 @@ This audit records what is demonstrated by the current repository state and keep
 gates distinct from local implementation evidence. The MVP must not be described as fully released
 until every open gate below has direct evidence.
 
-## Verified locally on 2026-07-23
+## Verified locally and in CI on 2026-07-23
 
 - Python 3.12.10 passes Ruff formatting and lint, strict mypy, compilation, and all 18 checked-in
   JSON Schema parses.
@@ -13,7 +13,14 @@ until every open gate below has direct evidence.
   hosts where symlink creation is permitted.
 - A clean wheel build installs in an isolated virtual environment, exposes `research --help`, and
   initializes a workspace from the packaged schema catalog. The verified wheel SHA-256 is
-  `5fb3f95057220f3e7103fae4a44bb8bdbd39f056f6075bb80af879e4358f13d7`.
+  `6b62d4bd1df5740bfa94cca8b79e115748022189b42481a80bb557cf09cce521`.
+- GitHub Actions run
+  [30063073784](https://github.com/jeehoonyu/automated-ai-research/actions/runs/30063073784)
+  passes the complete lint, formatting, typing, deterministic-fixture, test, wheel-install, and CLI
+  smoke matrix on Ubuntu, macOS, and Windows for implementation revision `ac51972`.
+- The project is published as the public GitHub repository
+  [jeehoonyu/automated-ai-research](https://github.com/jeehoonyu/automated-ai-research), with `main`
+  as its default branch.
 - Integration tests exercise duplicate Markdown imports, aliases, tables, fenced code, inert links,
   multi-column and table PDFs, raster and vector visual candidates, captions, full-page renders,
   OCR-required pages, malformed/encrypted PDFs, source/render/index/search-log tampering, deterministic
@@ -39,15 +46,11 @@ until every open gate below has direct evidence.
 
 ## Open release gates
 
-- The configured GitHub Actions matrix has not been observed running on Linux, macOS, and Windows for
-  this exact revision.
 - Claude Code conformance has not run because the installed CLI reports `loggedIn: false`. The prepared
   checked-in workspace contains no fabricated Claude-authored artifacts. Both checked-in host
   conformance results require a fresh execution using the current two-question/PDF preparation before
   outcome parity can pass; setup parity itself is now tested.
 - A real human has not resolved the Codex benchmark's mandatory material-contradiction review. Agent
   output cannot impersonate this action.
-- This local repository has no Git remote, so no GitHub repository, tag, or release publication is
-  evidenced here.
 
 See [release-checklist.md](release-checklist.md) for the normative release gates.

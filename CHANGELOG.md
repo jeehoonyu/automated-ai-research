@@ -21,6 +21,8 @@
 - Add a hashed cross-host conformance checker that applies the normal validation and publication gates
   to both benchmark cases and rejects incomplete or outcome-incompatible host runs.
 - Add isolated wheel-install smoke testing to the cross-platform CI matrix.
+- Publish the public repository, verify the full three-platform CI matrix, and make canonical report
+  paths portable across operating systems.
 
 ## 0.1.0
 
