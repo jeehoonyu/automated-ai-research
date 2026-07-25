@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+build/
+dist/
+# Workspaces are user data, not source. Originals and canonical artifacts live inside one.
+example-workspace/

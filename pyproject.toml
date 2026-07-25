@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "automated-ai-research"
+version = "0.1.0"
+description = "Local-first, evidence-first automated research platform. Host agents reason; this package makes claims checkable."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Apache-2.0" }
+authors = [{ name = "automated-ai-research contributors" }]
+keywords = ["research", "evidence", "citations", "provenance", "agents"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
+
+# Core processing performs NO network requests. Nothing here is a model provider, an agent
+# framework, or a hosted service client - that is a hard architectural boundary, not an omission.
+dependencies = [
+    "click>=8.1",          # CLI routing
+    "jsonschema>=4.21",    # canonical artifact validation
+    "PyYAML>=6.0",         # research.yaml + profiles
+    "rfc3339-validator>=0.1.4",
+    "pypdf>=4.2",          # PDF metadata + text
+    "pdfplumber>=0.11",    # PDF tables / layout
+    "pypdfium2>=4.28",     # page rendering
+    "Jinja2>=3.1",         # report rendering
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.5",
+    "mypy>=1.10",
+]
+
+[project.scripts]
+research = "research.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/jeehoonyu/automated-ai-research"
+Documentation = "https://github.com/jeehoonyu/automated-ai-research/tree/main/docs"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+research = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S"]
+ignore = ["S101"]  # assert is fine in tests
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src/research"]
