@@ -310,7 +310,8 @@ def _run_cli(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess
     )
 
 
-NOT_IMPLEMENTED = ["import", "index", "search", "run", "status", "inspect", "validate", "report"]
+IMPLEMENTED = ["init", "import"]
+NOT_IMPLEMENTED = ["index", "search", "run", "status", "inspect", "validate", "report"]
 
 
 @pytest.mark.parametrize("command", NOT_IMPLEMENTED)
@@ -318,7 +319,7 @@ def test_unimplemented_commands_do_not_claim_success(command: str, tmp_path: Pat
     """A CLI that exits 0 for work it did not do is the same defect class as a report claiming
     support it does not have. Unimplemented commands must fail loudly and name the phase."""
     args = {"search": ["q"], "status": ["RUN-x"], "inspect": ["DOC-x"],
-            "validate": ["RUN-x"], "report": ["RUN-x"], "import": ["."],
+            "validate": ["RUN-x"], "report": ["RUN-x"],
             "run": ["--question", "q"]}.get(command, [])
     proc = _run_cli(command, *args, "--json", cwd=tmp_path)
     assert proc.returncode != 0, f"`research {command}` exited 0 without being implemented"
@@ -331,8 +332,17 @@ def test_unimplemented_commands_do_not_claim_success(command: str, tmp_path: Pat
 def test_every_public_command_exists():
     """The nine commands in the spec must all be routable, even before they do work."""
     proc = _run_cli("--help")
-    for command in ["init", *NOT_IMPLEMENTED]:
+    for command in [*IMPLEMENTED, *NOT_IMPLEMENTED]:
         assert command in proc.stdout
+
+
+def test_doctor_capability_list_matches_reality():
+    """`doctor` must not advertise a capability the CLI does not have, and must not hide one it
+    does. This is the list that goes stale first, so it is asserted rather than trusted."""
+    proc = _run_cli("doctor", "--json")
+    data = json.loads(proc.stdout)["data"]
+    assert data["implemented"] == IMPLEMENTED
+    assert data["not_implemented"] == NOT_IMPLEMENTED
 
 
 def test_json_envelope_is_versioned_and_complete(tmp_path: Path):

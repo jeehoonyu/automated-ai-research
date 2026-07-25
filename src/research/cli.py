@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import sys
+from pathlib import Path
 from typing import Any
 
 import click
@@ -107,7 +108,48 @@ def cmd_init(path: str, allow_non_empty: bool, profile: str, as_json: bool) -> N
 @_JSON_OPT
 def cmd_import(paths: tuple[str, ...], workspace_path: str | None, as_json: bool) -> None:
     """Import local PDF or Markdown documents, preserving originals."""
-    _not_implemented("import", "Phase 2 (document import)", as_json)
+    from .importers.importer import import_paths
+
+    env = Envelope(command="import")
+    try:
+        ws = load_workspace(workspace_path)
+        env.data = import_paths(ws, list(paths))
+    except ResearchError as exc:
+        env.status = "failed"
+        env.errors.append(exc.to_dict())
+        _emit(env, as_json, human=f"research import: {exc.message}")
+
+    d = env.data
+    # Partial processing must not read as complete success (spec section 34). A failed source or a
+    # document needing human review sets a non-ok status, and the exit code follows from it.
+    for doc in d["documents"]:
+        if doc["error"]:
+            env.warn("source_processing_failure", doc["error"], path=doc["path"])
+    if d["failed_count"]:
+        env.status = "partial"
+    if d["needs_human_review_count"]:
+        env.warn("human_review_required",
+                 f"{d['needs_human_review_count']} document(s) extracted with a status that cannot "
+                 f"back a citation without human review",
+                 documents=[x["document_id"] for x in d["documents"]
+                            if x["extraction_status"] in
+                            {"ocr_required", "partially_extracted", "ambiguous",
+                             "human_review_required"}])
+        if env.status == "ok":
+            env.status = "partial"
+
+    lines = [
+        f"imported   {d['imported_count']}",
+        f"duplicate  {d['duplicate_count']}",
+        f"failed     {d['failed_count']}",
+        f"warnings   {d['warning_count']}",
+    ]
+    if d["needs_human_review_count"]:
+        lines.append(f"needs human review  {d['needs_human_review_count']}")
+    for doc in d["documents"]:
+        mark = "dup " if doc["duplicate"] else ("ERR " if doc["error"] else "    ")
+        lines.append(f"  {mark}{Path(doc['path']).name}  {doc['extraction_status'] or doc['error']}")
+    _emit(env, as_json, human="\n".join(lines))
 
 
 @main.command("index")
@@ -184,8 +226,8 @@ def cmd_report(run_id: str, draft: bool, workspace_path: str | None, as_json: bo
 def cmd_doctor(workspace_path: str | None, as_json: bool) -> None:
     """Report what this build can actually do. Used by the honesty test."""
     env = Envelope(command="doctor")
-    implemented = ["init"]
-    pending = ["import", "index", "search", "run", "status", "inspect", "validate", "report"]
+    implemented = ["init", "import"]
+    pending = ["index", "search", "run", "status", "inspect", "validate", "report"]
     ws: dict[str, Any] | None = None
     try:
         w = load_workspace(workspace_path)
