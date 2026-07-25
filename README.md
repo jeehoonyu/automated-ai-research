@@ -23,13 +23,13 @@ output checkable.
 
 ## Status
 
-**Phases 1–3 of 10 are implemented.** Everything else is scaffolded and honest about it: commands
+**Phases 1–4 of 10 are implemented.** Everything else is scaffolded and honest about it: commands
 for unimplemented phases exit non-zero and name the phase. They do not pretend to succeed.
 
 | Command | State |
 |---|---|
-| `research init`, `research import` | implemented |
-| `index` `search` `run` `status` `inspect` `validate` `report` | routable; exit 1 with `not_implemented` |
+| `init` `import` `index` `search` | implemented |
+| `run` `status` `inspect` `validate` `report` | routable; exit 1 with `not_implemented` |
 
 - **Phase 1 (foundation)** — RFC 8785 canonical JSON, SHA-256 content addressing, the
   `artifact_hash` self-reference rule, content-derived identifiers, UUIDv7 with intra-millisecond
@@ -41,8 +41,13 @@ for unimplemented phases exit non-zero and name the phase. They do not pretend t
 - **Phase 3 (normalization and chunking)** — one canonical normalized text per document version,
   page maps, section extraction, chunk generation that never straddles a page boundary, text
   locators with span hashes, and the visual-region model.
+- **Phase 4 (indexing and search)** — SQLite FTS5 built only from index-eligible chunks, a
+  reproducible `index_hash` over the logical rows (with the SQLite file hash recorded separately),
+  deterministic tie-breaking, literal-only query normalization, and search results carrying a
+  locator that resolves to exact source text.
 
-93 tests. `research import` produces everything the index will later consume.
+121 tests. `research search` returns candidates an agent can cite — and nothing that looks like a
+verdict on whether they support anything.
 
 ## Install
 

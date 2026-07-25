@@ -157,19 +157,67 @@ def cmd_import(paths: tuple[str, ...], workspace_path: str | None, as_json: bool
 @_JSON_OPT
 def cmd_index(workspace_path: str | None, as_json: bool) -> None:
     """Build or rebuild the SQLite FTS5 index from canonical artifacts."""
-    _not_implemented("index", "Phase 4 (indexing and search)", as_json)
+    from .indexing.builder import build_index
+
+    env = Envelope(command="index")
+    try:
+        ws = load_workspace(workspace_path)
+        result = build_index(ws)
+    except ResearchError as exc:
+        env.status = "failed"
+        env.errors.append(exc.to_dict())
+        _emit(env, as_json, human=f"research index: {exc.message}")
+
+    env.data = {
+        "document_count": result.document_count,
+        "chunk_count": result.chunk_count,
+        "skipped_ineligible_chunks": result.skipped_ineligible,
+        "index_hash": result.index_hash,
+        "sqlite_file_hash": result.sqlite_file_hash,
+        "manifest_path": result.manifest_path,
+    }
+    for warning in result.warnings:
+        env.warn("index_warning", warning)
+    _emit(env, as_json, human="\n".join([
+        f"indexed {result.chunk_count} chunk(s) from {result.document_count} document(s)",
+        f"  skipped (not index-eligible)  {result.skipped_ineligible}",
+        f"  index_hash                    {result.index_hash}",
+        f"  manifest                      {result.manifest_path}",
+    ]))
 
 
 @main.command("search")
 @click.argument("query")
-@click.option("--document-type", help="Filter by document type.")
+@click.option("--document-type", help="Filter by document type (pdf, markdown).")
+@click.option("--document-id", help="Restrict to one document.")
 @click.option("--limit", type=int, default=20, show_default=True)
 @_WS_OPT
 @_JSON_OPT
-def cmd_search(query: str, document_type: str | None, limit: int,
+def cmd_search(query: str, document_type: str | None, document_id: str | None, limit: int,
                workspace_path: str | None, as_json: bool) -> None:
     """Return ranked passages with exact citation locators."""
-    _not_implemented("search", "Phase 4 (indexing and search)", as_json)
+    from .search.engine import search
+
+    env = Envelope(command="search")
+    try:
+        ws = load_workspace(workspace_path)
+        env.data = search(ws, query, document_type=document_type, document_id=document_id,
+                          limit=limit)
+    except ResearchError as exc:
+        env.status = "failed"
+        env.errors.append(exc.to_dict())
+        _emit(env, as_json, human=f"research search: {exc.message}")
+
+    d = env.data
+    lines = [f"{d['result_count']} result(s) for {d['query']!r}",
+             "  (BM25 lexical overlap — not a measure of support)"]
+    for r in d["results"]:
+        where = f"p{r['page']}" if r["page"] is not None else f"L{r['line_start']}"
+        section = " › ".join(r["section_path"]) if r["section_path"] else "-"
+        lines.append(f"  {r['rank']:2d}. {(r['source']['title'] or '?')[:34]:34s} {where:>6s}  {section}")
+        lines.append(f"      {r['snippet'][:96]}")
+        lines.append(f"      {r['chunk_id']}")
+    _emit(env, as_json, human="\n".join(lines))
 
 
 @main.command("run")
@@ -226,8 +274,8 @@ def cmd_report(run_id: str, draft: bool, workspace_path: str | None, as_json: bo
 def cmd_doctor(workspace_path: str | None, as_json: bool) -> None:
     """Report what this build can actually do. Used by the honesty test."""
     env = Envelope(command="doctor")
-    implemented = ["init", "import"]
-    pending = ["index", "search", "run", "status", "inspect", "validate", "report"]
+    implemented = ["init", "import", "index", "search"]
+    pending = ["run", "status", "inspect", "validate", "report"]
     ws: dict[str, Any] | None = None
     try:
         w = load_workspace(workspace_path)
