@@ -23,18 +23,26 @@ output checkable.
 
 ## Status
 
-**Phase 1 of 10 (Foundation) is implemented.** Everything else is scaffolded and honest about it:
-commands for unimplemented phases exit non-zero and name the phase. They do not pretend to succeed.
+**Phases 1–3 of 10 are implemented.** Everything else is scaffolded and honest about it: commands
+for unimplemented phases exit non-zero and name the phase. They do not pretend to succeed.
 
 | Command | State |
 |---|---|
-| `research init` | implemented |
-| `import` `index` `search` `run` `status` `inspect` `validate` `report` | routable; exit 1 with `not_implemented` |
+| `research init`, `research import` | implemented |
+| `index` `search` `run` `status` `inspect` `validate` `report` | routable; exit 1 with `not_implemented` |
 
-Implemented and tested in Phase 1: RFC 8785 canonical JSON, SHA-256 content addressing, the
-`artifact_hash` self-reference rule, content-derived identifiers, UUIDv7 with intra-millisecond
-monotonicity, path containment and filename sanitization, atomic writes, workspace discovery and
-configuration, the versioned result envelope, and stable exit codes.
+- **Phase 1 (foundation)** — RFC 8785 canonical JSON, SHA-256 content addressing, the
+  `artifact_hash` self-reference rule, content-derived identifiers, UUIDv7 with intra-millisecond
+  monotonicity, path containment and filename sanitization, atomic writes, workspace discovery, the
+  versioned result envelope, stable exit codes.
+- **Phase 2 (import)** — content-addressed originals, PDF and Markdown importers, deduplication by
+  content with import aliases, seven explicit extraction statuses, page rendering with per-render
+  hashes, OCR-required detection, append-only import events.
+- **Phase 3 (normalization and chunking)** — one canonical normalized text per document version,
+  page maps, section extraction, chunk generation that never straddles a page boundary, text
+  locators with span hashes, and the visual-region model.
+
+93 tests. `research import` produces everything the index will later consume.
 
 ## Install
 

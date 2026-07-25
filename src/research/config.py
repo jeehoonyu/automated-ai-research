@@ -66,7 +66,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
 
 STANDARD_DIRS = (
     "originals/sha256",
-    "documents/manifests", "documents/normalized", "documents/pages",
+    "documents/manifests", "documents/normalized", "documents/pages", "documents/chunks",
     "documents/renders", "documents/tables", "documents/figures",
     "indexes", "imports", "runs", "profiles", "logs", "cache",
 )

@@ -144,6 +144,9 @@ def import_one(ws: Workspace, source: Path) -> ImportOutcome:
         "extraction_config_hash": ws.extraction_config_hash(),
     })
 
+    # ---- Phase 3: normalize into one canonical text, then chunk it ----
+    body.update(_normalize_and_chunk(ws, doc_id, dver, body, media_type))
+
     artifact = make_artifact(schema_name="Document", artifact_id=doc_id, body=body,
                              actor_type="cli")
     write_artifact(manifest_path, artifact, root=ws.root)
@@ -225,6 +228,66 @@ def _import_markdown(ws: Workspace, source: Path, doc_id: str, dver: str) -> dic
         "extraction_warnings": result.warnings,
         "normalized_path": f"documents/normalized/{doc_id.replace(':', '_')}.md",
         "text_sha256": sha256_text(result.text),
+    }
+
+
+def _normalize_and_chunk(ws: Workspace, doc_id: str, dver: str, body: dict[str, Any],
+                         media_type: str) -> dict[str, Any]:
+    """Produce the canonical normalized text and the chunk artifact.
+
+    The normalized text is written to disk because every text locator is a pair of offsets INTO it
+    (spec §20). Without the stored text a citation cannot be resolved at all, only believed.
+    """
+    from ..extraction.chunking import chunk_document, chunking_config_hash
+    from ..extraction.normalize import NOT_PERFORMED, normalize_markdown, normalize_pdf
+
+    safe = doc_id.replace(":", "_")
+    if media_type == "application/pdf":
+        pages_dir = safe_join(ws.root, "documents", "pages", safe)
+        page_texts: dict[int, str] = {}
+        for page in body.get("pages", []):
+            fp = pages_dir / f"page-{page['page_number']:04d}.txt"
+            page_texts[page["page_number"]] = fp.read_text(encoding="utf-8") if fp.exists() else ""
+        doc = normalize_pdf(body.get("pages", []), page_texts)
+        page_statuses = {p["page_number"]: p["extraction_status"] for p in body.get("pages", [])}
+    else:
+        normalized_path = ws.root / body["normalized_path"]
+        raw = normalized_path.read_text(encoding="utf-8") if normalized_path.exists() else ""
+        doc = normalize_markdown(raw, body.get("sections", []))
+        page_statuses = {}
+
+    norm_rel = f"documents/normalized/{safe}.txt"
+    atomic_write_bytes(ws.root / norm_rel, doc.text.encode("utf-8"), root=ws.root)
+
+    cfg = dict(ws.get("chunking", {}))
+    chunks = chunk_document(doc, document_id=doc_id, document_version_id=dver,
+                            config=cfg, page_statuses=page_statuses)
+
+    chunk_artifact = make_artifact(
+        schema_name="ChunkSet", artifact_id=dver, actor_type="cli",
+        body={
+            "document_id": doc_id,
+            "document_version_id": dver,
+            "normalized_text_sha256": doc.text_sha256,
+            "chunking_config": cfg,
+            "chunking_config_hash": chunking_config_hash(cfg),
+            "chunk_count": len(chunks),
+            "index_eligible_count": sum(1 for c in chunks if c.index_eligible),
+            "chunks": [c.to_dict() for c in chunks],
+        })
+    chunk_path = safe_join(ws.root, "documents", "chunks", f"{safe}.json")
+    write_artifact(chunk_path, chunk_artifact, root=ws.root)
+
+    return {
+        "normalized_text_path": norm_rel,
+        "normalized_text_sha256": doc.text_sha256,
+        "normalization_not_performed": NOT_PERFORMED,
+        "page_map": [{"page_number": p.page_number, "start_offset": p.start_offset,
+                      "end_offset": p.end_offset} for p in doc.page_map],
+        "chunk_set_path": f"documents/chunks/{safe}.json",
+        "chunk_count": len(chunks),
+        "index_eligible_chunk_count": sum(1 for c in chunks if c.index_eligible),
+        "normalization_warnings": doc.warnings,
     }
 
 
