@@ -116,6 +116,54 @@ contradictions, related-but-non-supporting citations, dependent sources, an imag
 prompt-injection content. Every one of those is a positive control. The release gates (§38) are
 written as things that must be *detected*, not merely as things that must not crash.
 
+## 6b. A check that cannot look must not return "nothing found"
+
+**What happened.** The critique faculty built to fix all of the above was itself adversarially
+reviewed, and every one of its checks **failed open**: rename a field, change a word form, or delete
+the input file, and the check returned an empty result with no signal that it had been unable to
+look. An empty finding list is indistinguishable from a clean bill of health. It had rebuilt, inside
+the auditor, the exact defect the auditor existed to catch.
+
+**The rule.** "I could not evaluate this" and "this is fine" must be different return values, and
+only one of them may satisfy a gate.
+
+**Here.** Validation must distinguish *passed* from *not evaluated* per check, and report eligibility
+must treat the second as blocking (spec §8.8). A dangling reference, an unresolvable locator, and a
+missing review are all "could not look" conditions — each explicitly blocks publication rather than
+being skipped. `ValidationResult` should record which checks ran, not only which failed.
+
+## 6c. An acceptance test must prove each check carries weight
+
+**What happened.** The faculty's acceptance test asserted that three known errors were detected. Two
+different checks tagged the same error, so the test passed with one of the two oracles **entirely
+disabled** — it could not distinguish "the oracle works" from "something else happened to catch it".
+The fix was to assert on (error, check) pairs rather than on errors alone.
+
+**The rule.** Deleting any single check must break at least one assertion. Otherwise the suite
+measures coverage it does not have.
+
+**Here.** Spec §38's release gates are per-capability for this reason. When wiring the benchmark
+(§36.3), assert that the *specific* mechanism fires — that the seeded contradiction is caught by
+contradiction detection, that the related-but-non-supporting citation is caught by citation review —
+not merely that the run ends up blocked. A blocked run proves nothing about *why* it was blocked.
+
+## 6d. Auditing labels is not auditing evidence
+
+**What happened.** The faculty's checks compared a scorecard against a scorecard. A reviewer
+constructed a run whose eight "independent trajectories" were byte-identical clones, whose pooled
+confidence interval was zero-width, whose control arm was a row of hardcoded zeros, and whose
+citations resolved to pages that did not contain their quotes. Every recorded number was internally
+consistent, so the auditor reported it **clean** and the scorer labelled it a finding.
+
+**The rule.** Internal consistency of a verdict says nothing about whether the evidence beneath it is
+real. An auditor that never descends to the evidence cannot detect a fabricated one.
+
+**Here.** This is why citation review compares a paraphrase against **exact stored source text**, why
+locators must resolve to an actual span in actual bytes (§38.4), and why `verified` is reserved for
+directly checkable facts (§23.1). Validation must reach the evidence, not stop at the claim record.
+The clone-trajectory case has a direct analogue here: N documents that are republications of one
+primary source are not N independent supports (§24).
+
 ## 7. Immutable history needs a retraction mechanism, not an eraser
 
 **What happened.** Correcting an append-only ledger required a way to supersede a claim without
