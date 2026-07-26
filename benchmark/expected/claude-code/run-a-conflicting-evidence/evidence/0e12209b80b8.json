@@ -1,0 +1,33 @@
+{
+  "schema_name": "Evidence",
+  "schema_version": "1.0.0",
+  "artifact_id": "EVD-sha256-679bfe69cea5310c7b7e48ae5e4803a8dc645404f259538e546f0e12209b80b8",
+  "created_at": "2026-07-26T07:15:21Z",
+  "created_by": {
+    "actor_type": "host_agent",
+    "host": "claude-code",
+    "model_identifier": "claude-opus-5"
+  },
+  "evidence_id": "EVD-sha256-679bfe69cea5310c7b7e48ae5e4803a8dc645404f259538e546f0e12209b80b8",
+  "document_id": "DOC-sha256-52e2fb125a0bdfe84b081a186c3cda403c5362cabc3721e9e22aba55a1b8cd89",
+  "document_version_id": "DVER-sha256-9be289cfeabd6b4b04c11a8e69bf5a6148a714593996193d0a67c4b20a93367e",
+  "evidence_type": "experimental_result",
+  "locator": {
+    "type": "text_span",
+    "page": 1,
+    "section_path": [
+      "1 Replication study. In our replication across three hardware platforms, the"
+    ],
+    "chunk_id": "CHK-sha256-f303e5a041ef122c91e239bfc6bd3397b86e6f34942e3c6ee9faabd3d4c192d8",
+    "start_offset": 0,
+    "end_offset": 242,
+    "source_line_start": null,
+    "source_line_end": null,
+    "span_sha256": "sha256:044a69b39029934066169c390ad0db043b35bd7a43a34a172bea27eacd18f507"
+  },
+  "exact_text": "1 Replication study. In our replication across three hardware platforms, the\nprocess-in-memory configuration increased measured off-chip data movement by\n12 percent relative to the baseline, the opposite of the direction previously\nreported.\n",
+  "extraction_status": "extracted",
+  "human_review_required": false,
+  "notes": "Independent replication reporting the OPPOSITE direction (+12%).",
+  "artifact_hash": "sha256:c7e4dc2e27583b8e68598dc2acb2f0c7256655de0e2a19523f494eda5a3441c7"
+}

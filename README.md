@@ -84,13 +84,18 @@ file appeared.
 
 ### What is not established
 
-Spec §37 requires that Codex and Claude Code both complete the benchmark against the same packets.
-The benchmark exercises the deterministic contract with simulated agent artifacts, so **neither host
-has been run against it**. That is the one unmet release gate; see `docs/release-checklist.md`.
+Spec §37 requires that Codex **and** Claude Code both complete the benchmark against the same
+packets. **Claude Code has** — two real runs with artifacts committed under
+[`benchmark/expected/claude-code/`](benchmark/expected/claude-code/), one correctly blocked on a
+discovered contradiction and one published, with zero `not_evaluated` checks in either.
+**Codex has not been run**, so the gate is half met; see
+[`docs/release-checklist.md`](docs/release-checklist.md).
 
-Contradiction *detection* is also only partly demonstrated: a seeded contradiction attached to a
-claim is surfaced and blocks, but the platform does not discover contradictions itself — that is the
-contradiction-review agent's job.
+That run also exposed two defects worth knowing about: a validator bug that refused `verified` to
+correctly-scoped single-source facts (fixed), and an independence violation by the primary agent —
+the first review packet leaked the primary's own classification, which **nothing in the CLI could
+have detected**. Independence is self-declared; the platform enforces the consequences of the
+declaration, not its truthfulness.
 
 ## Install
 

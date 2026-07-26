@@ -1,0 +1,32 @@
+{
+  "schema_name": "Evidence",
+  "schema_version": "1.0.0",
+  "artifact_id": "EVD-sha256-a460a2a10e9576135a184c4036d1b1686848fda59a2ed8decee2df44f637a12f",
+  "created_at": "2026-07-26T07:19:27Z",
+  "created_by": {
+    "actor_type": "host_agent",
+    "host": "claude-code"
+  },
+  "evidence_id": "EVD-sha256-a460a2a10e9576135a184c4036d1b1686848fda59a2ed8decee2df44f637a12f",
+  "document_id": "DOC-sha256-37de79c621d3efac6d05dea9154a92162429d5b26c83e145f60d055ec72359a5",
+  "document_version_id": "DVER-sha256-861883b8735efcf657b76681a42d97f7dbc980dacc2103bd9ecd2fd630aad9d5",
+  "evidence_type": "method_description",
+  "locator": {
+    "type": "text_span",
+    "page": 2,
+    "section_path": [
+      "1 Introduction. This report evaluates a process-in-memory configuration."
+    ],
+    "chunk_id": "CHK-sha256-e53b363e7d6fd114f4fbc2a553ae7abefd1b0772b42bf3950dbec26ad0dabbf4",
+    "start_offset": 230,
+    "end_offset": 506,
+    "source_line_start": null,
+    "source_line_end": null,
+    "span_sha256": "sha256:1f4a1723c9bb822fd85a9635590363413351f0d17761171cf992a1022734ef37"
+  },
+  "exact_text": "3 Method and limitations. All twelve workloads were drawn from a single\nbenchmark family and executed on one hardware platform. No independent\nreplication was performed and the evaluation used a single random seed, so the\nreported interval reflects run-to-run variation only.\n",
+  "extraction_status": "extracted",
+  "human_review_required": false,
+  "notes": "The study's own statement of its evaluation scope.",
+  "artifact_hash": "sha256:0af7c9d8b0d67871a7b96d0234a23b3be265ac822db15a77591de4eefa4c5bf9"
+}

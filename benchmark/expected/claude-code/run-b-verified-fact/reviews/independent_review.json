@@ -1,0 +1,40 @@
+{
+  "schema_name": "Review",
+  "schema_version": "1.0.0",
+  "artifact_id": "REV-019f9d4c-4c79-701d-b687-81c3f914a6a6",
+  "created_at": "2026-07-26T07:20:51Z",
+  "created_by": {
+    "actor_type": "host_agent",
+    "host": "claude-code"
+  },
+  "review_id": "REV-019f9d4c-4c79-701d-b687-81c3f914a6a6",
+  "review_type": "independent_review",
+  "run_id": "RUN-7eb7704a-e2b4-42fd-b1f9-9abb2dab282a",
+  "reviewed_artifact_ids": [
+    "CLM-019f9d4b-05ac-70df-b8ab-e25dfe81e092"
+  ],
+  "reviewer": {
+    "actor_type": "host_agent",
+    "host": "claude-code",
+    "model_identifier": "claude-opus-5"
+  },
+  "decision": "passed",
+  "findings": [
+    "Reviewer independently classified the claim `verified` without being shown the primary agent's classification, and confirmed it is directly checkable.",
+    "Reviewer confirmed the claim stays within the source's direct scope and does NOT carry the 41 percent effect size forward, which would have made it interpretive and barred `verified`.",
+    "Reviewer noted the single-source basis rules out `strongly_supported` while remaining compatible with `verified`, which turns on direct checkability rather than source count."
+  ],
+  "warnings": [
+    "The reviewer could not itself resolve the locator against the stored document — it judged the passage as quoted in the packet. The deterministic layer re-resolves locators during validation, but the packet should give the reviewer the means to check independently."
+  ],
+  "blocking_issues": [],
+  "review_independence": {
+    "primary_rationale_excluded": true,
+    "primary_confidence_excluded": true,
+    "prior_review_conclusions_excluded": true,
+    "fresh_agent_context_requested": true,
+    "host_confirmed_fresh_context": true,
+    "status": "confirmed_independent"
+  },
+  "artifact_hash": "sha256:ae8e1c8e692822b7e2f94ba91bc0f2f44343788fdc972f9e04223ff583a24b60"
+}

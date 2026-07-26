@@ -347,6 +347,44 @@ def test_verified_without_a_passed_independent_review_blocks_publication(complet
     assert result["report_eligible"] is False
 
 
+def test_verified_does_not_require_multiple_sources(complete_run):
+    """Spec §23.1: `verified` turns on DIRECT CHECKABILITY, not on source count.
+
+    Its own examples — a paper's stated publication date, a directly reported sample size, a
+    documented configuration value — have exactly one authoritative source. Requiring corroboration
+    would make `verified` unreachable for the facts it exists to describe.
+
+    Regression: the source-independence check originally demanded independence for `verified` as
+    well as `strongly_supported`, and refused a correctly-scoped single-source fact. A real
+    conformance run caught it.
+    """
+    ws, rid, meta = complete_run
+    path = meta["run_dir"] / "claims" / "c1.json"
+    claim = json.loads(path.read_text(encoding="utf-8"))
+    claim["claim_type"] = "direct_fact"
+    claim["support_classification"] = "verified"
+    claim["independent_review_status"] = "confirmed_independent"
+    path.write_text(json.dumps(claim), encoding="utf-8")
+
+    result = validate_run(ws, rid)
+    assert _status(result, "source_independence_established") == "not_applicable"
+    assert _status(result, "support_classifications_earned") == "passed"
+    assert result["report_eligible"] is True, result["blocking_errors"]
+
+
+def test_strongly_supported_still_requires_more_than_one_source(complete_run):
+    """The other half of the same rule: corroboration is exactly what this label means."""
+    ws, rid, meta = complete_run
+    path = meta["run_dir"] / "claims" / "c1.json"
+    claim = json.loads(path.read_text(encoding="utf-8"))
+    claim["support_classification"] = "strongly_supported"
+    path.write_text(json.dumps(claim), encoding="utf-8")
+
+    result = validate_run(ws, rid)
+    assert _status(result, "source_independence_established") == "failed"
+    assert result["report_eligible"] is False
+
+
 def test_an_unreadable_artifact_is_not_evaluated_rather_than_skipped(complete_run):
     ws, rid, meta = complete_run
     (meta["run_dir"] / "claims" / "broken.json").write_text("{not json", encoding="utf-8")

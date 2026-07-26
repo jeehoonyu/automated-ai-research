@@ -1,0 +1,29 @@
+{
+  "schema_name": "Review",
+  "schema_version": "1.0.0",
+  "artifact_id": "REV-019f9d4c-4c29-705a-877e-37abfee1da7b",
+  "created_at": "2026-07-26T07:20:50Z",
+  "created_by": {
+    "actor_type": "host_agent",
+    "host": "claude-code"
+  },
+  "review_id": "REV-019f9d4c-4c29-705a-877e-37abfee1da7b",
+  "review_type": "contradiction_review",
+  "run_id": "RUN-7eb7704a-e2b4-42fd-b1f9-9abb2dab282a",
+  "reviewed_artifact_ids": [
+    "CLM-019f9d4b-05ac-70df-b8ab-e25dfe81e092"
+  ],
+  "reviewer": {
+    "actor_type": "host_agent",
+    "host": "claude-code",
+    "model_identifier": "claude-opus-5"
+  },
+  "decision": "passed",
+  "findings": [
+    "Searched for any source disputing the primary study's stated evaluation scope. None exists: the scope is the study's own self-report and no other document addresses it.",
+    "The corpus-wide contradiction about the EFFECT (41% reduction vs 12% increase) does not bear on this claim, which asserts only what the study says about its own design."
+  ],
+  "warnings": [],
+  "blocking_issues": [],
+  "artifact_hash": "sha256:bd252445c37a1be12f822c9b02ff0190c240a1326b2ede17fea3fba3eb6e1ab1"
+}

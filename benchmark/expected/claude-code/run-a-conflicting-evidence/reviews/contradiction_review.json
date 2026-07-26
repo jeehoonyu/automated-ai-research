@@ -1,0 +1,32 @@
+{
+  "schema_name": "Review",
+  "schema_version": "1.0.0",
+  "artifact_id": "REV-019f9d4a-6628-7081-b709-321ef385b531",
+  "created_at": "2026-07-26T07:18:46Z",
+  "created_by": {
+    "actor_type": "host_agent",
+    "host": "claude-code"
+  },
+  "review_id": "REV-019f9d4a-6628-7081-b709-321ef385b531",
+  "review_type": "contradiction_review",
+  "run_id": "RUN-1160be7c-5c57-4e89-ba18-0bab2cf45600",
+  "reviewed_artifact_ids": [
+    "CLM-019f9d47-4680-70de-93a0-125590bf3a2c"
+  ],
+  "reviewer": {
+    "actor_type": "host_agent",
+    "host": "claude-code",
+    "model_identifier": "claude-opus-5"
+  },
+  "decision": "human_review_required",
+  "findings": [
+    "Ran a NEW search specifically seeking disagreement: 'increased data movement replication opposite direction'. It returned pim-replication.pdf, which reports the opposite sign.",
+    "The contradiction is direct: same metric, same comparator, opposite direction, and the replication itself flags the opposition.",
+    "Nothing in the corpus resolves it. The survey reports no measurements; the preliminary note has no control or statistical test; the scanned appendix has no extractable text."
+  ],
+  "warnings": [
+    "The two sides differ in methodological strength; a human must decide whether to weight the replication more heavily."
+  ],
+  "blocking_issues": [],
+  "artifact_hash": "sha256:0176247a1ef2019fdaf3fbc88190b37768a50037e8e11fc7b74c9c43db5247c7"
+}

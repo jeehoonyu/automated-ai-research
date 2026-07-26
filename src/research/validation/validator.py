@@ -457,11 +457,21 @@ def check_source_independence(ctx: RunContext) -> CheckResult:
     `unknown` independence is never promoted to independent: a multi-source claim whose sources were
     never assessed returns `not_evaluated`, which blocks, rather than passing by default.
     """
+    # ONLY `strongly_supported` requires independent corroboration (spec §23.2). `verified` does
+    # NOT: it is reserved for DIRECTLY CHECKABLE facts, and the specification's own examples — a
+    # paper's stated publication date, a directly reported sample size, a documented configuration
+    # value — are single-source by their nature. A study's own account of its method has exactly one
+    # authoritative source, and demanding a second one would make `verified` unreachable for the
+    # facts it exists to describe.
+    #
+    # An earlier version required independence for both, which a conformance run caught by refusing
+    # `verified` on a correctly-scoped single-source fact.
     needs = [c for c in ctx.claims
-             if c.get("support_classification") in ("strongly_supported", "verified")]
+             if c.get("support_classification") == "strongly_supported"]
     if not needs:
         return CheckResult("source_independence_established", "not_applicable",
-                           "no claim asserts strong support")
+                           "no claim asserts strong support (only `strongly_supported` requires "
+                           "independent corroboration)")
 
     evidence_by_id = ctx.evidence_by_id()
     relationships = _relationships(ctx)
@@ -477,9 +487,11 @@ def check_source_independence(ctx: RunContext) -> CheckResult:
                        for e in claim.get("supporting_evidence_ids", [])
                        if e in evidence_by_id})
         if len(docs) < 2:
-            # A single-document claim cannot be corroborated by independence at all.
+            # `strongly_supported` explicitly means corroborated by multiple independent sources,
+            # so one document cannot earn it. (`verified` is not routed here at all.)
             dependent.append(f"{claim['claim_id']}: rests on one document, so it cannot be "
-                             f"{claim['support_classification']}")
+                             f"strongly_supported — that classification means multiple "
+                             f"independent sources agree")
             continue
         for i, a in enumerate(docs):
             for b in docs[i + 1:]:

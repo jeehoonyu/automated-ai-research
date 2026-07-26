@@ -1,0 +1,43 @@
+{
+  "schema_name": "Review",
+  "schema_version": "1.0.0",
+  "artifact_id": "REV-019f9d4a-667d-7002-a80e-2e1e4d828d68",
+  "created_at": "2026-07-26T07:18:46Z",
+  "created_by": {
+    "actor_type": "host_agent",
+    "host": "claude-code"
+  },
+  "review_id": "REV-019f9d4a-667d-7002-a80e-2e1e4d828d68",
+  "review_type": "independent_review",
+  "run_id": "RUN-1160be7c-5c57-4e89-ba18-0bab2cf45600",
+  "reviewed_artifact_ids": [
+    "CLM-019f9d47-4680-70de-93a0-125590bf3a2c"
+  ],
+  "reviewer": {
+    "actor_type": "host_agent",
+    "host": "claude-code",
+    "model_identifier": "claude-opus-5"
+  },
+  "decision": "passed_with_warnings",
+  "findings": [
+    "Reviewer reached 'conflicting_evidence' independently, without being shown the primary agent's classification.",
+    "Reviewer independently determined the effective independent source count is TWO, not four, deduplicating the byte-identical copy and the industry-brief republication.",
+    "Reviewer confirmed both quoted figures are faithfully reproduced with no misattribution.",
+    "Reviewer judged the research question itself unanswerable from this corpus, and noted a claim asserting either direction would not have been supportable."
+  ],
+  "warnings": [
+    "The claim presents the two sides as evidentially symmetric and omits the design asymmetry.",
+    "'Independent' as applied to the replication is not verifiable from the supplied evidence.",
+    "Downstream aggregation must deduplicate the primary study against its copy and its brief."
+  ],
+  "blocking_issues": [],
+  "review_independence": {
+    "primary_rationale_excluded": true,
+    "primary_confidence_excluded": true,
+    "prior_review_conclusions_excluded": true,
+    "fresh_agent_context_requested": true,
+    "host_confirmed_fresh_context": true,
+    "status": "confirmed_independent"
+  },
+  "artifact_hash": "sha256:2ddd0b809367e4b2ae495a6acaaa93f9167c76468f4173c2eb0dab5a74a11fa9"
+}

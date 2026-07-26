@@ -1,0 +1,29 @@
+{
+  "schema_name": "Claim",
+  "schema_version": "1.0.0",
+  "artifact_id": "CLM-019f9d4b-05ac-70df-b8ab-e25dfe81e092",
+  "created_at": "2026-07-26T07:19:27Z",
+  "created_by": {
+    "actor_type": "host_agent",
+    "host": "claude-code"
+  },
+  "claim_id": "CLM-019f9d4b-05ac-70df-b8ab-e25dfe81e092",
+  "run_id": "RUN-7eb7704a-e2b4-42fd-b1f9-9abb2dab282a",
+  "claim": "The primary study evaluated twelve workloads drawn from a single benchmark family on one hardware platform using a single random seed, and performed no independent replication.",
+  "claim_type": "direct_fact",
+  "claim_status": "independently_reviewed",
+  "support_classification": "verified",
+  "supporting_evidence_ids": [
+    "EVD-sha256-a460a2a10e9576135a184c4036d1b1686848fda59a2ed8decee2df44f637a12f"
+  ],
+  "contradicting_evidence_ids": [],
+  "citation_status": "passed",
+  "contradiction_status": "none_found",
+  "independent_review_status": "confirmed_independent",
+  "human_review_required": false,
+  "scope": "A statement about what the primary study reports of its own design.",
+  "limitations": [
+    "Reports the study's self-description; no external verification of its methods was possible from this corpus."
+  ],
+  "artifact_hash": "sha256:5ddd8f2a448a4339bbe0aff6e163a936e3ff9d53d772db2d14261073d1a58e0e"
+}

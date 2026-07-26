@@ -91,10 +91,17 @@ def test_the_canonical_workflow_is_identical_in_repo_and_package():
 
 
 def test_the_release_checklist_states_the_unmet_gate():
-    """Spec §37 is not demonstrated. The checklist must say so rather than quietly omit it."""
-    text = (REPO / "docs" / "release-checklist.md").read_text(encoding="utf-8")
-    assert "NOT MET" in text
-    assert "38.10" in text and "Cross-host" in text
+    """Gate 38.10 requires BOTH hosts. Claude Code has run; Codex has not.
+
+    The checklist must record the half that is missing rather than rounding up to 'done'. This test
+    is deliberately about the *substance* — that Codex is named as not run — so completing the Codex
+    conformance run is what makes it fail, which is the correct time to revisit it.
+    """
+    text = " ".join((REPO / "docs" / "release-checklist.md")
+                    .read_text(encoding="utf-8").split()).lower()
+    assert "38.10" in text
+    assert "codex has not been run" in text, \
+        "the checklist must name Codex as the outstanding half of gate 38.10"
 
 
 def test_the_readme_does_not_claim_cross_host_conformance():
@@ -108,4 +115,34 @@ def test_the_readme_does_not_claim_cross_host_conformance():
     text = " ".join((REPO / "README.md").read_text(encoding="utf-8").split()).lower()
     assert "not established" in text, "the README must have a 'what is not established' section"
     assert "37" in text
-    assert "neither host has been run" in text
+    assert "codex has not been run" in text, \
+        "the README must state which host is still outstanding, not round the gate up to 'done'"
+
+
+def test_the_claude_code_conformance_artifacts_are_present_and_honest():
+    """The conformance claim in the README must be backed by committed artifacts.
+
+    A README asserting 'Claude Code has completed the benchmark' with nothing on disk is precisely
+    the docs-outrun-code failure this suite exists to catch.
+    """
+    import json
+
+    root = REPO / "benchmark" / "expected" / "claude-code"
+    assert (root / "README.md").is_file(), "the conformance run must document itself"
+
+    results = {}
+    for run in sorted(p for p in root.iterdir() if p.is_dir()):
+        path = run / "validation" / "validation-result.json"
+        assert path.is_file(), f"{run.name} has no validation result"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        statuses = [c["status"] for c in data["checks"]]
+        # Zero not_evaluated is the interesting property: every gate had what it needed to decide.
+        assert "not_evaluated" not in statuses, \
+            f"{run.name} left checks unevaluated, so it did not really complete"
+        results[run.name] = data["report_eligible"]
+
+    assert len(results) >= 2, "both the blocked and the published run must be committed"
+    assert True in results.values(), "a run that reached publication must be evidenced"
+    assert False in results.values(), \
+        "the correctly-blocked run must be kept too — a benchmark that only shows successes is a " \
+        "demo, not evidence"

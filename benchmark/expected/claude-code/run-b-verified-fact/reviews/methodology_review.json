@@ -1,0 +1,30 @@
+{
+  "schema_name": "Review",
+  "schema_version": "1.0.0",
+  "artifact_id": "REV-019f9d4c-4c76-7087-b318-6b811dd04f41",
+  "created_at": "2026-07-26T07:20:51Z",
+  "created_by": {
+    "actor_type": "host_agent",
+    "host": "claude-code"
+  },
+  "review_id": "REV-019f9d4c-4c76-7087-b318-6b811dd04f41",
+  "review_type": "methodology_review",
+  "run_id": "RUN-7eb7704a-e2b4-42fd-b1f9-9abb2dab282a",
+  "reviewed_artifact_ids": [
+    "CLM-019f9d4b-05ac-70df-b8ab-e25dfe81e092"
+  ],
+  "reviewer": {
+    "actor_type": "host_agent",
+    "host": "claude-code",
+    "model_identifier": "claude-opus-5"
+  },
+  "decision": "passed_with_warnings",
+  "findings": [
+    "The claim reports the study's self-described method; a method section is the direct and authoritative source for that."
+  ],
+  "warnings": [
+    "This is verified as 'the study states this scope', not as 'this scope was independently confirmed'. The claim inherits any inaccuracy in the self-report."
+  ],
+  "blocking_issues": [],
+  "artifact_hash": "sha256:8f749c841bc2d70045aecb42977725d2a0e74acfb0c0b85d32abdd89f20909ab"
+}

@@ -1,0 +1,141 @@
+{
+  "schema_name": "ValidationResult",
+  "schema_version": "1.0.0",
+  "artifact_id": "RUN-1160be7c-5c57-4e89-ba18-0bab2cf45600",
+  "created_at": "2026-07-26T07:18:46Z",
+  "created_by": {
+    "actor_type": "cli"
+  },
+  "run_id": "RUN-1160be7c-5c57-4e89-ba18-0bab2cf45600",
+  "report_eligible": false,
+  "checks": [
+    {
+      "check": "artifacts_conform_to_schema",
+      "status": "passed",
+      "detail": "8 artifact(s)"
+    },
+    {
+      "check": "source_hashes_match",
+      "status": "passed",
+      "detail": "8 document(s)"
+    },
+    {
+      "check": "evidence_references_resolve",
+      "status": "passed",
+      "detail": "3 record(s)"
+    },
+    {
+      "check": "text_locators_resolve",
+      "status": "passed",
+      "detail": "3 locator(s) resolved"
+    },
+    {
+      "check": "visual_locators_resolve",
+      "status": "not_applicable",
+      "detail": "no visual evidence"
+    },
+    {
+      "check": "claims_reference_evidence",
+      "status": "passed",
+      "detail": "1 claim(s)"
+    },
+    {
+      "check": "citations_support_their_claims",
+      "status": "passed",
+      "detail": "1 claim(s) assessed"
+    },
+    {
+      "check": "contradiction_review_complete",
+      "status": "passed",
+      "detail": "1 review(s)",
+      "artifact_ids": [
+        "REV-019f9d4a-6628-7081-b709-321ef385b531"
+      ]
+    },
+    {
+      "check": "citation_review_complete",
+      "status": "passed",
+      "detail": "1 review(s)",
+      "artifact_ids": [
+        "REV-019f9d4a-6675-704f-adbf-43558e5e978b"
+      ]
+    },
+    {
+      "check": "methodology_review_complete",
+      "status": "passed",
+      "detail": "1 review(s)",
+      "artifact_ids": [
+        "REV-019f9d4a-6679-70e2-a49e-a96ea2d1c4a9"
+      ]
+    },
+    {
+      "check": "independent_review_complete",
+      "status": "passed",
+      "detail": "1 review(s)",
+      "artifact_ids": [
+        "REV-019f9d4a-667d-7002-a80e-2e1e4d828d68"
+      ]
+    },
+    {
+      "check": "reviewer_independence_sufficient",
+      "status": "passed",
+      "detail": "confirmed_independent",
+      "artifact_ids": [
+        "REV-019f9d4a-667d-7002-a80e-2e1e4d828d68"
+      ]
+    },
+    {
+      "check": "ocr_evidence_human_verified",
+      "status": "not_applicable",
+      "detail": "no evidence depends on an ocr_required page"
+    },
+    {
+      "check": "visual_interpretation_certain",
+      "status": "passed",
+      "detail": "no uncertain readings"
+    },
+    {
+      "check": "contradictions_disclosed",
+      "status": "failed",
+      "detail": "1 claim(s) carry an unresolved contradiction; these must be disclosed and human-reviewed before publication",
+      "artifact_ids": [
+        "CLM-019f9d47-4680-70de-93a0-125590bf3a2c"
+      ]
+    },
+    {
+      "check": "support_classifications_earned",
+      "status": "passed",
+      "detail": "1 claim(s)"
+    },
+    {
+      "check": "source_independence_established",
+      "status": "not_applicable",
+      "detail": "no claim asserts strong support"
+    },
+    {
+      "check": "lifecycle_transitions_valid",
+      "status": "passed",
+      "detail": "event log replays cleanly"
+    }
+  ],
+  "blocking_errors": [
+    {
+      "check": "contradictions_disclosed",
+      "status": "failed",
+      "detail": "1 claim(s) carry an unresolved contradiction; these must be disclosed and human-reviewed before publication",
+      "artifact_ids": [
+        "CLM-019f9d47-4680-70de-93a0-125590bf3a2c"
+      ]
+    }
+  ],
+  "warnings": [],
+  "human_review_required": true,
+  "human_review_reasons": [
+    "contradiction_review_complete: 1 review(s)",
+    "contradictions_disclosed: 1 claim(s) carry an unresolved contradiction; these must be disclosed and human-reviewed before publication"
+  ],
+  "schema_versions_used": {
+    "ValidationResult": "1.0.0"
+  },
+  "artifact_hash": "sha256:8c7e08dc094748b5622bb70b120eefbb89bdbc4b49e1e66186987643d2fb4588"
+}

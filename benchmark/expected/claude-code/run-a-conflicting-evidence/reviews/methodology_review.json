@@ -1,0 +1,32 @@
+{
+  "schema_name": "Review",
+  "schema_version": "1.0.0",
+  "artifact_id": "REV-019f9d4a-6679-70e2-a49e-a96ea2d1c4a9",
+  "created_at": "2026-07-26T07:18:46Z",
+  "created_by": {
+    "actor_type": "host_agent",
+    "host": "claude-code"
+  },
+  "review_id": "REV-019f9d4a-6679-70e2-a49e-a96ea2d1c4a9",
+  "review_type": "methodology_review",
+  "run_id": "RUN-1160be7c-5c57-4e89-ba18-0bab2cf45600",
+  "reviewed_artifact_ids": [
+    "CLM-019f9d47-4680-70de-93a0-125590bf3a2c"
+  ],
+  "reviewer": {
+    "actor_type": "host_agent",
+    "host": "claude-code",
+    "model_identifier": "claude-opus-5"
+  },
+  "decision": "passed_with_warnings",
+  "findings": [
+    "Primary study: twelve workloads from ONE benchmark family, one hardware platform, one random seed, no independent replication — stated in its own limitations section.",
+    "Replication: three hardware platforms, ten random seeds, full control configuration. The methodologically stronger of the two.",
+    "Preliminary note: three author-selected workloads, no control, no statistical test. Unusable for direction; not cited."
+  ],
+  "warnings": [
+    "Neither result has been independently replicated more than once; both remain single studies of their respective designs."
+  ],
+  "blocking_issues": [],
+  "artifact_hash": "sha256:9915e01a832b9b7f846e63d3c0c55b7ae6e32122b2a7005c29ab79c0f65b3c78"
+}

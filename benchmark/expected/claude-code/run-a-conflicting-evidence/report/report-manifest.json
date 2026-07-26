@@ -1,0 +1,61 @@
+{
+  "schema_name": "ReportManifest",
+  "schema_version": "1.0.0",
+  "artifact_id": "RUN-1160be7c-5c57-4e89-ba18-0bab2cf45600",
+  "created_at": "2026-07-26T07:19:06Z",
+  "created_by": {
+    "actor_type": "cli"
+  },
+  "run_id": "RUN-1160be7c-5c57-4e89-ba18-0bab2cf45600",
+  "report_path": "runs/RUN-1160be7c-5c57-4e89-ba18-0bab2cf45600/report/report-draft.md",
+  "report_sha256": "sha256:e73ebba58e15cef52b3e8a14d6d945477f330fe655e3ed503ec938bdea441962",
+  "draft": true,
+  "validation_result_hash": "sha256:8c7e08dc094748b5622bb70b120eefbb89bdbc4b49e1e66186987643d2fb4588",
+  "claim_ids": [
+    "CLM-019f9d47-4680-70de-93a0-125590bf3a2c"
+  ],
+  "evidence_ids": [
+    "EVD-sha256-3c57134fc16f9789506c1fde05d9715639385c659ed3b68e0cdad692e0577c39",
+    "EVD-sha256-4a85ef71ea5f62117c00d88389a8669c386e89c59408b715d984b40b226d8706",
+    "EVD-sha256-679bfe69cea5310c7b7e48ae5e4803a8dc645404f259538e546f0e12209b80b8"
+  ],
+  "citation_index": [
+    {
+      "ref": 1,
+      "evidence_id": "EVD-sha256-3c57134fc16f9789506c1fde05d9715639385c659ed3b68e0cdad692e0577c39",
+      "document_id": "DOC-sha256-37de79c621d3efac6d05dea9154a92162429d5b26c83e145f60d055ec72359a5",
+      "document_version_id": "DVER-sha256-861883b8735efcf657b76681a42d97f7dbc980dacc2103bd9ecd2fd630aad9d5",
+      "source": "pim-primary-study-copy.pdf",
+      "position": "page 1, 1 Introduction. This report evaluates a process-in-memory configuration."
+    },
+    {
+      "ref": 2,
+      "evidence_id": "EVD-sha256-4a85ef71ea5f62117c00d88389a8669c386e89c59408b715d984b40b226d8706",
+      "document_id": "DOC-sha256-37de79c621d3efac6d05dea9154a92162429d5b26c83e145f60d055ec72359a5",
+      "document_version_id": "DVER-sha256-861883b8735efcf657b76681a42d97f7dbc980dacc2103bd9ecd2fd630aad9d5",
+      "source": "pim-primary-study-copy.pdf",
+      "position": "page 2, 1 Introduction. This report evaluates a process-in-memory configuration."
+    },
+    {
+      "ref": 3,
+      "evidence_id": "EVD-sha256-679bfe69cea5310c7b7e48ae5e4803a8dc645404f259538e546f0e12209b80b8",
+      "document_id": "DOC-sha256-52e2fb125a0bdfe84b081a186c3cda403c5362cabc3721e9e22aba55a1b8cd89",
+      "document_version_id": "DVER-sha256-9be289cfeabd6b4b04c11a8e69bf5a6148a714593996193d0a67c4b20a93367e",
+      "source": "pim-replication.pdf",
+      "position": "page 1, 1 Replication study. In our replication across three hardware platforms, the"
+    }
+  ],
+  "schema_versions_used": {
+    "Claim": "1.0.0",
+    "Evidence": "1.0.0",
+    "Review": "1.0.0",
+    "ValidationResult": "1.0.0"
+  },
+  "disclosures": [
+    "DRAFT: rendered before validation passed; not a published research output",
+    "human review is outstanding",
+    "1 claim(s) carry an unresolved contradiction",
+    "3 document(s) contain unreadable pages"
+  ],
+  "artifact_hash": "sha256:755ee30c61d09ec8d7e7292d1bb75cbe0126a1a2d23b690a503ac3b8bd5dfb8f"
+}

@@ -1,0 +1,36 @@
+{
+  "schema_name": "Review",
+  "schema_version": "1.0.0",
+  "artifact_id": "REV-019f9d4c-4c73-709d-add0-a4771c26a668",
+  "created_at": "2026-07-26T07:20:51Z",
+  "created_by": {
+    "actor_type": "host_agent",
+    "host": "claude-code"
+  },
+  "review_id": "REV-019f9d4c-4c73-709d-add0-a4771c26a668",
+  "review_type": "citation_review",
+  "run_id": "RUN-7eb7704a-e2b4-42fd-b1f9-9abb2dab282a",
+  "reviewed_artifact_ids": [
+    "CLM-019f9d4b-05ac-70df-b8ab-e25dfe81e092"
+  ],
+  "reviewer": {
+    "actor_type": "host_agent",
+    "host": "claude-code",
+    "model_identifier": "claude-opus-5"
+  },
+  "decision": "passed",
+  "findings": [
+    "The locator re-resolves against the stored normalized text and the span hash matches.",
+    "All five components map one-to-one onto the quoted passage with no strengthening."
+  ],
+  "warnings": [],
+  "blocking_issues": [],
+  "per_claim": [
+    {
+      "claim_id": "CLM-019f9d4b-05ac-70df-b8ab-e25dfe81e092",
+      "assessment": "Every component is stated verbatim or near-verbatim in the cited passage.",
+      "citation_support": "passed"
+    }
+  ],
+  "artifact_hash": "sha256:61d364372fd46caef1d280e127a210511ee4bdcc8d5dadbb3f36b3ac26eb17ea"
+}

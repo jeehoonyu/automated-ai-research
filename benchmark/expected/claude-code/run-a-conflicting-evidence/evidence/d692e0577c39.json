@@ -1,0 +1,33 @@
+{
+  "schema_name": "Evidence",
+  "schema_version": "1.0.0",
+  "artifact_id": "EVD-sha256-3c57134fc16f9789506c1fde05d9715639385c659ed3b68e0cdad692e0577c39",
+  "created_at": "2026-07-26T07:15:21Z",
+  "created_by": {
+    "actor_type": "host_agent",
+    "host": "claude-code",
+    "model_identifier": "claude-opus-5"
+  },
+  "evidence_id": "EVD-sha256-3c57134fc16f9789506c1fde05d9715639385c659ed3b68e0cdad692e0577c39",
+  "document_id": "DOC-sha256-37de79c621d3efac6d05dea9154a92162429d5b26c83e145f60d055ec72359a5",
+  "document_version_id": "DVER-sha256-861883b8735efcf657b76681a42d97f7dbc980dacc2103bd9ecd2fd630aad9d5",
+  "evidence_type": "experimental_result",
+  "locator": {
+    "type": "text_span",
+    "page": 1,
+    "section_path": [
+      "1 Introduction. This report evaluates a process-in-memory configuration."
+    ],
+    "chunk_id": "CHK-sha256-36fda065808b45f9af85872d96e2ac532bb7a0bc0b2665ebbad82dd569737f37",
+    "start_offset": 0,
+    "end_offset": 228,
+    "source_line_start": null,
+    "source_line_end": null,
+    "span_sha256": "sha256:86aeb5e6a826989ba69af1fc6bdfe314eb1ed157f957d008aece07d43f70cb39"
+  },
+  "exact_text": "1 Introduction. This report evaluates a process-in-memory configuration.\nAcross the twelve evaluated workloads, the process-in-memory configuration\nreduced measured off-chip data movement by 41 percent relative to the\nbaseline.\n",
+  "extraction_status": "extracted",
+  "human_review_required": false,
+  "notes": "The originally reported 41% reduction.",
+  "artifact_hash": "sha256:fbfaec2455bfefdf9b4b037a401ec310915a29dfb6ff332c22968275031e8594"
+}

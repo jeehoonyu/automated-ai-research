@@ -1,0 +1,1 @@
+{"actor_type":"cli","artifact_hashes":["sha256:7a81b8c59bd00551f12016cb4379ccc7a4593cd48085be04579c5ddf4ee2cf06"],"event":"lifecycle_transition","new_disposition":"active","new_phase":"initialized","previous_disposition":"active","previous_phase":"initialized","reason":"run created","recorded_at":"2026-07-26T07:14:12Z","triggered_by":"research run","validation_result":null}

@@ -1,0 +1,38 @@
+{
+  "schema_name": "Review",
+  "schema_version": "1.0.0",
+  "artifact_id": "REV-019f9d4a-6675-704f-adbf-43558e5e978b",
+  "created_at": "2026-07-26T07:18:46Z",
+  "created_by": {
+    "actor_type": "host_agent",
+    "host": "claude-code"
+  },
+  "review_id": "REV-019f9d4a-6675-704f-adbf-43558e5e978b",
+  "review_type": "citation_review",
+  "run_id": "RUN-1160be7c-5c57-4e89-ba18-0bab2cf45600",
+  "reviewed_artifact_ids": [
+    "CLM-019f9d47-4680-70de-93a0-125590bf3a2c"
+  ],
+  "reviewer": {
+    "actor_type": "host_agent",
+    "host": "claude-code",
+    "model_identifier": "claude-opus-5"
+  },
+  "decision": "passed_with_warnings",
+  "findings": [
+    "Both figures re-resolved through their locators against the stored normalized text and match the quoted passages exactly.",
+    "The survey (pim-survey.md) ranks for the research query but states it reports no measurements of its own. It was NOT cited; citing it would have been related-but-non-supporting."
+  ],
+  "warnings": [
+    "The claim describes the replication as 'independent'; the source says only 'our replication'. That descriptor is an inference, not a citation."
+  ],
+  "blocking_issues": [],
+  "per_claim": [
+    {
+      "claim_id": "CLM-019f9d47-4680-70de-93a0-125590bf3a2c",
+      "assessment": "Both quoted figures are accurate and their locators resolve.",
+      "citation_support": "passed"
+    }
+  ],
+  "artifact_hash": "sha256:6bb47f8e1a3ece4a662fdf5a9ad6f789ad2c54c99dced4e69e56c6151e3e36d4"
+}

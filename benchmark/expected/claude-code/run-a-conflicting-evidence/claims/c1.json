@@ -1,0 +1,37 @@
+{
+  "schema_name": "Claim",
+  "schema_version": "1.0.0",
+  "artifact_id": "CLM-019f9d47-4680-70de-93a0-125590bf3a2c",
+  "created_at": "2026-07-26T07:15:21Z",
+  "created_by": {
+    "actor_type": "host_agent",
+    "host": "claude-code",
+    "model_identifier": "claude-opus-5"
+  },
+  "claim_id": "CLM-019f9d47-4680-70de-93a0-125590bf3a2c",
+  "run_id": "RUN-1160be7c-5c57-4e89-ba18-0bab2cf45600",
+  "claim": "The available sources disagree on the direction of the effect: the primary study reports a 41 percent reduction in off-chip data movement, while an independent replication across three platforms reports a 12 percent increase.",
+  "claim_type": "descriptive_result",
+  "claim_status": "independently_reviewed",
+  "support_classification": "conflicting_evidence",
+  "supporting_evidence_ids": [
+    "EVD-sha256-3c57134fc16f9789506c1fde05d9715639385c659ed3b68e0cdad692e0577c39",
+    "EVD-sha256-4a85ef71ea5f62117c00d88389a8669c386e89c59408b715d984b40b226d8706"
+  ],
+  "contradicting_evidence_ids": [
+    "EVD-sha256-679bfe69cea5310c7b7e48ae5e4803a8dc645404f259538e546f0e12209b80b8"
+  ],
+  "citation_status": "passed",
+  "contradiction_status": "unresolved",
+  "independent_review_status": "not_yet_reviewed",
+  "human_review_required": true,
+  "scope": "Limited to the two studies in this corpus; no external literature was consulted.",
+  "assumptions": [
+    "Both studies measure off-chip data movement comparably."
+  ],
+  "limitations": [
+    "The primary study used one benchmark family, one platform and one seed.",
+    "The replication used three platforms and ten seeds, so it is the methodologically stronger of the two, but has not itself been replicated."
+  ],
+  "artifact_hash": "sha256:75951d279f21cdadbfa006b33d320340cb889c031bbc2fd4d723fb6c7b528c5b"
+}
