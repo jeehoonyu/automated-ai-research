@@ -324,8 +324,8 @@ def _run_cli(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess
     )
 
 
-IMPLEMENTED = ["init", "import", "index", "search", "run", "status", "inspect"]
-NOT_IMPLEMENTED = ["validate", "report"]
+IMPLEMENTED = ["init", "import", "index", "search", "run", "status", "inspect", "validate"]
+NOT_IMPLEMENTED = ["report"]
 
 
 @pytest.mark.parametrize("command", NOT_IMPLEMENTED)

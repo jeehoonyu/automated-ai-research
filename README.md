@@ -23,13 +23,13 @@ output checkable.
 
 ## Status
 
-**Phases 1–6 of 10 are implemented.** Everything else is scaffolded and honest about it: commands
+**Phases 1–7 of 10 are implemented.** Everything else is scaffolded and honest about it: commands
 for unimplemented phases exit non-zero and name the phase. They do not pretend to succeed.
 
 | Command | State |
 |---|---|
-| `init` `import` `index` `search` `run` `status` `inspect` | implemented |
-| `validate` `report` | routable; exit 1 with `not_implemented` |
+| `init` `import` `index` `search` `run` `status` `inspect` `validate` | implemented |
+| `report` | routable; exit 1 with `not_implemented` |
 
 - **Phase 1 (foundation)** — RFC 8785 canonical JSON, SHA-256 content addressing, the
   `artifact_hash` self-reference rule, content-derived identifiers, UUIDv7 with intra-millisecond
@@ -57,7 +57,13 @@ for unimplemented phases exit non-zero and name the phase. They do not pretend t
   outright, OCR-dependent evidence must demand human review, and an independent review must declare
   its independence.
 
-183 tests. A stage is complete only when its artifact exists **and** validates — never because a
+- **Phase 7 (validation and gating)** — 17 checks covering source hashes, locator resolution,
+  claim-evidence links, review completeness, reviewer independence, OCR and visual certainty,
+  contradiction disclosure, support classifications, and lifecycle replay. Each check reports
+  `passed` / `failed` / `not_evaluated` / `not_applicable`, and **`not_evaluated` blocks publication
+  exactly as `failed` does**.
+
+208 tests. A stage is complete only when its artifact exists **and** validates — never because a
 file appeared.
 
 ## Install

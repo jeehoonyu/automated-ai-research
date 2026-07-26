@@ -351,7 +351,45 @@ def cmd_inspect(artifact_id: str, workspace_path: str | None, as_json: bool) -> 
 @_JSON_OPT
 def cmd_validate(run_id: str, stage: str | None, workspace_path: str | None, as_json: bool) -> None:
     """Validate a run and decide report eligibility."""
-    _not_implemented("validate", "Phase 7 (validation)", as_json)
+    from .validation.validator import validate_run
+
+    env = Envelope(command="validate")
+    try:
+        ws = load_workspace(workspace_path)
+        env.data = validate_run(ws, run_id)
+    except ResearchError as exc:
+        env.status = "failed"
+        env.errors.append(exc.to_dict())
+        _emit(env, as_json, human=f"research validate: {exc.message}")
+
+    d = env.data
+    if not d["report_eligible"]:
+        env.status = "blocked"
+    for err in d["blocking_errors"]:
+        env.warn(f"gate_{err['status']}", f"{err['check']}: {err['detail']}")
+    if d["human_review_required"]:
+        env.warn("human_review_required", "; ".join(d["human_review_reasons"])[:300])
+
+    icon = {"passed": "PASS", "failed": "FAIL", "not_evaluated": "N/EVAL",
+            "not_applicable": "n/a"}
+    lines = [
+        f"validation of {run_id}",
+        f"  passed {d['passed']}   failed {d['failed']}   "
+        f"not evaluated {d['not_evaluated']}   n/a {d['not_applicable']}",
+        "",
+    ]
+    for check in d["checks"]:
+        lines.append(f"  {icon[check['status']]:>6s}  {check['check']}")
+        if check["status"] in ("failed", "not_evaluated") and check.get("detail"):
+            lines.append(f"          {check['detail'][:110]}")
+    lines += [
+        "",
+        f"  REPORT ELIGIBLE: {d['report_eligible']}",
+    ]
+    if not d["report_eligible"]:
+        lines.append("  A check that could not be evaluated blocks publication exactly as a "
+                     "failure does.")
+    _emit(env, as_json, human="\n".join(lines))
 
 
 @main.command("report")
@@ -370,8 +408,9 @@ def cmd_report(run_id: str, draft: bool, workspace_path: str | None, as_json: bo
 def cmd_doctor(workspace_path: str | None, as_json: bool) -> None:
     """Report what this build can actually do. Used by the honesty test."""
     env = Envelope(command="doctor")
-    implemented = ["init", "import", "index", "search", "run", "status", "inspect"]
-    pending = ["validate", "report"]
+    implemented = ["init", "import", "index", "search", "run", "status", "inspect",
+                   "validate"]
+    pending = ["report"]
     ws: dict[str, Any] | None = None
     try:
         w = load_workspace(workspace_path)
