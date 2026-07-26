@@ -206,6 +206,15 @@ def check_source_hashes(ctx: RunContext) -> CheckResult:
 def check_evidence_references(ctx: RunContext) -> CheckResult:
     """Every evidence record must point at a document version this workspace actually holds."""
     if not ctx.evidence:
+        # A run whose only conclusion is `unable_to_determine` legitimately has no evidence, and
+        # spec §44 makes that a SUCCESSFUL outcome. Treating "no evidence" as unconditionally
+        # not_evaluated made the sanctioned answer unpublishable — the benchmark's B9 case is what
+        # exposed it. "Nothing to check" and "could not check" are different states.
+        needs_evidence = [c for c in ctx.claims
+                          if c.get("claim_type") != "insufficient_evidence_finding"]
+        if ctx.claims and not needs_evidence:
+            return CheckResult("evidence_references_resolve", "not_applicable",
+                               "this run concluded unable_to_determine; no evidence was cited")
         return CheckResult("evidence_references_resolve", "not_evaluated",
                            "no evidence records have been produced")
     dangling: list[str] = []
@@ -430,6 +439,75 @@ def check_support_classifications(ctx: RunContext) -> CheckResult:
     return CheckResult("support_classifications_earned", "passed", f"{len(ctx.claims)} claim(s)")
 
 
+# Relationships that make two documents NOT independent sources of the same fact.
+DEPENDENT_RELATIONSHIPS = {
+    "duplicate", "republication", "revision_of", "translation_of", "summarizes",
+    "derived_from", "shares_primary_dataset", "shares_experimental_result",
+}
+
+
+def check_source_independence(ctx: RunContext) -> CheckResult:
+    """Spec §24: multiple documents are not automatically multiple independent sources.
+
+    This is the mistake that makes a single study look like a literature. A finding republished as
+    an industry brief, a preprint and its journal version, or three papers reusing one dataset are
+    ONE source wearing several hats — and a claim resting on them is not corroborated, merely
+    repeated.
+
+    `unknown` independence is never promoted to independent: a multi-source claim whose sources were
+    never assessed returns `not_evaluated`, which blocks, rather than passing by default.
+    """
+    needs = [c for c in ctx.claims
+             if c.get("support_classification") in ("strongly_supported", "verified")]
+    if not needs:
+        return CheckResult("source_independence_established", "not_applicable",
+                           "no claim asserts strong support")
+
+    evidence_by_id = ctx.evidence_by_id()
+    relationships = _relationships(ctx)
+    pairs: dict[frozenset[str], str] = {}
+    for rel in relationships:
+        key = frozenset({rel["source_document_id"], rel["related_document_id"]})
+        pairs[key] = rel["relationship_type"]
+
+    dependent: list[str] = []
+    unassessed: list[str] = []
+    for claim in needs:
+        docs = sorted({evidence_by_id[e]["document_id"]
+                       for e in claim.get("supporting_evidence_ids", [])
+                       if e in evidence_by_id})
+        if len(docs) < 2:
+            # A single-document claim cannot be corroborated by independence at all.
+            dependent.append(f"{claim['claim_id']}: rests on one document, so it cannot be "
+                             f"{claim['support_classification']}")
+            continue
+        for i, a in enumerate(docs):
+            for b in docs[i + 1:]:
+                rel = pairs.get(frozenset({a, b}))
+                if rel is None:
+                    unassessed.append(f"{claim['claim_id']}: independence of {a[:24]}… and "
+                                      f"{b[:24]}… was never assessed")
+                elif rel in DEPENDENT_RELATIONSHIPS:
+                    dependent.append(f"{claim['claim_id']}: its sources are related by '{rel}', so "
+                                     f"they are not independent corroboration")
+
+    if dependent:
+        return CheckResult("source_independence_established", "failed", "; ".join(dependent[:5]),
+                           [d.split(":")[0] for d in dependent])
+    if unassessed:
+        return CheckResult("source_independence_established", "not_evaluated",
+                           "; ".join(unassessed[:5]) +
+                           " — unknown independence cannot be promoted to independent",
+                           [u.split(":")[0] for u in unassessed])
+    return CheckResult("source_independence_established", "passed",
+                       f"{len(needs)} strongly-supported claim(s) rest on independent sources")
+
+
+def _relationships(ctx: RunContext) -> list[dict[str, Any]]:
+    items, _ = _load_json_dir(safe_join(ctx.ws.root, "runs", ctx.run_id) / "relationships")
+    return [r for r in items if r.get("schema_name") == "SourceRelationship"]
+
+
 def check_lifecycle(ctx: RunContext) -> CheckResult:
     """Replay the event log: every recorded transition must have been legal."""
     path = safe_join(ctx.ws.root, "runs", ctx.run_id) / "events.jsonl"
@@ -476,6 +554,7 @@ CHECKS = [
     check_visual_certainty,
     check_contradictions_disclosed,
     check_support_classifications,
+    check_source_independence,
     check_lifecycle,
 ]
 

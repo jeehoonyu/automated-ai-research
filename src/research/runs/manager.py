@@ -31,7 +31,7 @@ from .lifecycle import (
 from .packets import all_packets
 
 RUN_DIRS = ("packets", "responses", "evidence", "claims", "reviews", "validation",
-            "amendments", "report")
+            "amendments", "relationships", "report")
 
 
 class RunNotFound(ResearchError):

@@ -1,0 +1,100 @@
+{
+  "benchmark_version": "1.0.0",
+  "description": "Each case seeds one defect (or one correct-but-uncomfortable outcome) and names the SPECIFIC mechanism that must catch it. Asserting only 'publication was blocked' would pass even when the wrong gate fired, or when everything failed for an unrelated reason.",
+  "cases": [
+    {
+      "id": "B1",
+      "name": "supported claim publishes",
+      "seeds": "a claim resting on evidence that resolves, with all four reviews passing",
+      "expect_report_eligible": true,
+      "expect_check": null,
+      "expect_status": null,
+      "note": "The control. If this cannot pass, every other case's failure is uninformative."
+    },
+    {
+      "id": "B2",
+      "name": "unsupported claim is refused",
+      "seeds": "a claim with no supporting evidence ids",
+      "expect_report_eligible": false,
+      "expect_check": "claims_reference_evidence",
+      "expect_status": "failed"
+    },
+    {
+      "id": "B3",
+      "name": "related-but-non-supporting citation is refused",
+      "seeds": "a claim citing the survey, which discusses the subject but states nothing supporting it; citation review marks it related_not_supporting",
+      "expect_report_eligible": false,
+      "expect_check": "citations_support_their_claims",
+      "expect_status": "failed",
+      "note": "The hardest case for a naive system: the source is topical, ranks well, and is genuinely about the subject."
+    },
+    {
+      "id": "B4",
+      "name": "seeded contradiction is surfaced",
+      "seeds": "the replication study reports the opposite direction; the claim records contradiction_status unresolved",
+      "expect_report_eligible": false,
+      "expect_check": "contradictions_disclosed",
+      "expect_status": "failed",
+      "expect_human_review": true
+    },
+    {
+      "id": "B5",
+      "name": "dependent sources are not independent corroboration",
+      "seeds": "a strongly_supported claim resting on the primary study and its industry-brief republication, related by 'republication'",
+      "expect_report_eligible": false,
+      "expect_check": "source_independence_established",
+      "expect_status": "failed",
+      "note": "One study wearing two hats. Spec 24."
+    },
+    {
+      "id": "B6",
+      "name": "unassessed independence is not assumed",
+      "seeds": "a strongly_supported claim on two documents with no SourceRelationship recorded",
+      "expect_report_eligible": false,
+      "expect_check": "source_independence_established",
+      "expect_status": "not_evaluated",
+      "note": "Unknown independence cannot be promoted to independent."
+    },
+    {
+      "id": "B7",
+      "name": "OCR-required evidence is refused without human verification",
+      "seeds": "evidence drawn from the scanned appendix page",
+      "expect_report_eligible": false,
+      "expect_check": "ocr_evidence_human_verified",
+      "expect_status": "failed",
+      "expect_human_review": true
+    },
+    {
+      "id": "B8",
+      "name": "a moved quote is caught",
+      "seeds": "an evidence locator whose offsets no longer contain the recorded span",
+      "expect_report_eligible": false,
+      "expect_check": "text_locators_resolve",
+      "expect_status": "failed"
+    },
+    {
+      "id": "B9",
+      "name": "insufficient evidence is a successful outcome",
+      "seeds": "a question the corpus cannot answer, answered with an insufficient_evidence_finding classified unable_to_determine",
+      "expect_report_eligible": true,
+      "expect_check": null,
+      "expect_status": null,
+      "note": "Spec 44: this must be a success, not a failure of the process."
+    },
+    {
+      "id": "B10",
+      "name": "verified is refused for a broader conclusion",
+      "seeds": "a causal_claim labelled verified",
+      "expect_report_eligible": false,
+      "expect_check": "artifacts_conform_to_schema",
+      "expect_status": "failed",
+      "note": "Caught at the schema layer: the constraint makes the artifact unwritable."
+    }
+  ],
+  "corpus_expectations": {
+    "duplicate_collapses_to_one_document": true,
+    "prompt_injection_is_inert": true,
+    "scanned_page_is_ocr_required": true,
+    "weak_methodology_document_imports_cleanly": true
+  }
+}

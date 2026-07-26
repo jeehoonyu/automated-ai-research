@@ -23,13 +23,13 @@ output checkable.
 
 ## Status
 
-**Phases 1–8 of 10 are implemented.** All nine public commands work. Everything else is scaffolded and honest about it: commands
+**Phases 1–9 of 10 are implemented.** All nine public commands work. Everything else is scaffolded and honest about it: commands
 for unimplemented phases exit non-zero and name the phase. They do not pretend to succeed.
 
 | Command | State |
 |---|---|
 | `init` `import` `index` `search` `run` `status` `inspect` `validate` `report` | implemented |
-| — | Phases 9 (benchmark) and 10 (release) remain |
+| — | Phase 10 (release preparation) remains |
 
 - **Phase 1 (foundation)** — RFC 8785 canonical JSON, SHA-256 content addressing, the
   `artifact_hash` self-reference rule, content-derived identifiers, UUIDv7 with intra-millisecond
@@ -70,8 +70,18 @@ for unimplemented phases exit non-zero and name the phase. They do not pretend t
   qualifier from a fixed table — so it has no vocabulary of its own for how well-supported something
   is.
 
-232 tests. A stage is complete only when its artifact exists **and** validates — never because a
+- **Phase 9 (benchmark)** — a fully synthesized, redistributable corpus of nine documents whose
+  *relationships* are the test: a byte-identical duplicate, a republication of the same study, an
+  independent replication reporting the opposite direction, a topical survey that supports nothing,
+  an image-only page, and a prompt-injection document. Ten cases each name the **specific** gate
+  that must catch them.
+
+249 tests. A stage is complete only when its artifact exists **and** validates — never because a
 file appeared.
+
+**Not yet established:** spec §37 requires that Codex and Claude Code both complete the benchmark
+against the same packets. The benchmark exercises the deterministic contract with simulated agent
+artifacts; cross-host conformance sessions are an outstanding release gate.
 
 ## Install
 
