@@ -12,6 +12,7 @@ present in code.
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
 
 import pytest
@@ -117,6 +118,23 @@ def test_the_readme_does_not_claim_cross_host_conformance():
     assert "37" in text
     assert "codex has not been run" in text, \
         "the README must state which host is still outstanding, not round the gate up to 'done'"
+
+
+def test_cross_host_comparison_refuses_to_pass_with_a_missing_host():
+    """Gate 38.10 must not be satisfiable by one host.
+
+    The comparison harness returns 'cannot compare' rather than 'agree' when a host has no runs.
+    An empty comparison silently reporting agreement would be the fail-open pattern this codebase
+    keeps finding in itself.
+    """
+    sys.path.insert(0, str(REPO / "benchmark"))
+    from compare_hosts import compare
+
+    diffs, notes = compare(REPO / "benchmark" / "expected" / "claude-code",
+                           REPO / "benchmark" / "expected" / "codex")
+    if not (REPO / "benchmark" / "expected" / "codex").is_dir():
+        assert notes, "a missing host must produce a note, not silent agreement"
+        assert not diffs, "with a host absent there is nothing to differ ON — that is not agreement"
 
 
 def test_the_claude_code_conformance_artifacts_are_present_and_honest():

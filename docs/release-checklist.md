@@ -46,11 +46,50 @@ classification, which nothing in the CLI could have detected.
 
 ### Remaining — Codex
 
-1. `research init`, `research import`, `research index`, `research run` on the same corpus.
-2. Work each stage packet with Codex; commit artifacts under `benchmark/expected/codex/`.
-3. Assert both hosts reach the same **outcomes** — prose may differ; schema validity, reference
-   resolution, gate results and final verdicts must agree.
-4. Wire that comparison into CI.
+**Attempted 2026-07-26 and blocked.** Codex is installed (`@openai/codex@0.133.0`) and
+authenticated on this machine, but two things stopped the run:
+
+1. The configured model (`gpt-5.6-sol`) requires a newer CLI than 0.133.0 — recoverable by
+   `-c model=gpt-5.5` or upgrading the CLI.
+2. With a supported model, the account returned
+   *"You've hit your usage limit… try again at Aug 1st, 2026"*. No `OPENAI_API_KEY` is configured
+   as an alternative path.
+
+The run was **not simulated**. A Claude subagent role-playing as Codex, with its output committed
+under `benchmark/expected/codex/`, would be a fabricated conformance record — the precise failure
+this platform exists to refuse. The directory stays empty until Codex actually runs.
+
+When credits reset:
+
+```bash
+python benchmark/build_corpus.py /tmp/corpus
+research init /tmp/ws-codex && research import /tmp/corpus --workspace /tmp/ws-codex
+research index --workspace /tmp/ws-codex
+research run --question "Does process-in-memory reduce off-chip data movement?" --workspace /tmp/ws-codex
+research run --question "What evaluation scope did the primary process-in-memory study use?" --workspace /tmp/ws-codex
+
+# Give Codex each stage packet in turn. Use a SEPARATE `codex exec` invocation for the
+# independent-review stage — a new exec session is a genuinely fresh context, which is what
+# `confirmed_independent` requires.
+codex exec -c model=gpt-5.5 "$(cat /tmp/ws-codex/runs/<run-id>/packets/00-planning.json)"
+
+research validate <run-id> --workspace /tmp/ws-codex
+research report   <run-id> --workspace /tmp/ws-codex
+```
+
+Then copy the canonical artifacts to `benchmark/expected/codex/` mirroring the Claude Code layout,
+and run the comparison:
+
+```bash
+python benchmark/compare_hosts.py benchmark/expected/claude-code benchmark/expected/codex
+```
+
+Exit 0 = hosts agree on every outcome and the gate is closed. Exit 1 = they disagree, with the
+differing fields listed. Exit 3 = a host is missing, so nothing was compared — the harness reports
+"cannot compare" rather than "agree", because an empty comparison passing silently is exactly the
+fail-open pattern this project keeps finding in itself.
+
+Finally, wire that command into CI.
 
 ## Pre-release tasks
 
