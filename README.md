@@ -23,13 +23,13 @@ output checkable.
 
 ## Status
 
-**Phases 1–4 of 10 are implemented.** Everything else is scaffolded and honest about it: commands
+**Phases 1–5 of 10 are implemented.** Everything else is scaffolded and honest about it: commands
 for unimplemented phases exit non-zero and name the phase. They do not pretend to succeed.
 
 | Command | State |
 |---|---|
-| `init` `import` `index` `search` | implemented |
-| `run` `status` `inspect` `validate` `report` | routable; exit 1 with `not_implemented` |
+| `init` `import` `index` `search` `run` `status` `inspect` | implemented |
+| `validate` `report` | routable; exit 1 with `not_implemented` |
 
 - **Phase 1 (foundation)** — RFC 8785 canonical JSON, SHA-256 content addressing, the
   `artifact_hash` self-reference rule, content-derived identifiers, UUIDv7 with intra-millisecond
@@ -46,8 +46,12 @@ for unimplemented phases exit non-zero and name the phase. They do not pretend t
   deterministic tie-breaking, literal-only query normalization, and search results carrying a
   locator that resolves to exact source text.
 
-121 tests. `research search` returns candidates an agent can cite — and nothing that looks like a
-verdict on whether they support anything.
+- **Phase 5 (run management)** — run manifests pinning the source collection, a two-field lifecycle
+  (`phase` + `disposition`) with enforced one-step transitions, stage work packets carrying the
+  independence exclusions, append-only lifecycle events, `research status`, and `research inspect`.
+
+150 tests. A stage is complete only when its artifact exists **and** validates — never because a
+file appeared.
 
 ## Install
 

@@ -197,6 +197,20 @@ def test_safe_join_allows_normal_nesting(tmp_path: Path):
     assert str(p).startswith(str(tmp_path.resolve()))
 
 
+def test_safe_join_works_when_the_root_does_not_exist_yet(tmp_path: Path):
+    """Regression: joining under a not-yet-created root must not be treated as an escape.
+
+    Creating `runs/<run-id>/packets/` happens before the run directory exists. An earlier
+    implementation resolved the deepest EXISTING ancestor, which climbed above the root and rejected
+    a legitimate path with a security error."""
+    fresh_root = tmp_path / "runs" / "RUN-not-created-yet"
+    joined = safe_join(fresh_root, "packets", "00-planning.json")
+    assert str(joined).startswith(str(fresh_root.resolve()))
+    # and traversal is still refused from a non-existent root
+    with pytest.raises(UnsafePathError):
+        safe_join(fresh_root, "..", "..", "escaped.json")
+
+
 @pytest.mark.skipif(os.name == "nt", reason="symlink creation needs privileges on Windows")
 def test_safe_join_blocks_symlink_escape(tmp_path: Path):
     outside = tmp_path.parent / "outside"
@@ -310,8 +324,8 @@ def _run_cli(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess
     )
 
 
-IMPLEMENTED = ["init", "import", "index", "search"]
-NOT_IMPLEMENTED = ["run", "status", "inspect", "validate", "report"]
+IMPLEMENTED = ["init", "import", "index", "search", "run", "status", "inspect"]
+NOT_IMPLEMENTED = ["validate", "report"]
 
 
 @pytest.mark.parametrize("command", NOT_IMPLEMENTED)

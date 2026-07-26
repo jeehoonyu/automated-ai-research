@@ -68,15 +68,19 @@ def safe_join(root: str | Path, *parts: str) -> Path:
                 detail={"root": str(root_r), "component": part})
 
     candidate = root_r.joinpath(*parts)
-    # Resolve the deepest EXISTING ancestor: the target itself may not exist yet, but any existing
-    # ancestor symlink must not already point outside the root.
-    probe = candidate
-    while not probe.exists() and probe != probe.parent:
-        probe = probe.parent
-    if not contains(root_r, probe):
+    # `Path.resolve()` is non-strict: it follows symlinks through the components that DO exist and
+    # normalises the rest. That is exactly the check we want, and it works whether or not the target
+    # (or the root) has been created yet.
+    #
+    # An earlier version walked up to the deepest *existing* ancestor and checked that instead. That
+    # was wrong in a way worth recording: when the root itself did not exist yet — creating
+    # `runs/<run-id>/packets/` under a fresh run directory — the walk climbed ABOVE the root, and the
+    # containment test then failed on a perfectly legitimate path. A security check that rejects
+    # correct behaviour gets relaxed or removed, so a false positive here is not a safe failure.
+    if not contains(root_r, candidate):
         raise UnsafePathError(
             f"resolved path escapes the workspace root: {candidate}",
-            detail={"root": str(root_r), "resolved": str(probe.resolve())})
+            detail={"root": str(root_r), "resolved": str(candidate.resolve())})
     return candidate
 
 

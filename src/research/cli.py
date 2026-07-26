@@ -227,7 +227,32 @@ def cmd_search(query: str, document_type: str | None, document_id: str | None, l
 @_JSON_OPT
 def cmd_run(question: str, profile: str | None, workspace_path: str | None, as_json: bool) -> None:
     """Initialize a research run and generate stage work packets."""
-    _not_implemented("run", "Phase 5 (run management)", as_json)
+    from .runs.manager import create_run
+
+    env = Envelope(command="run")
+    try:
+        ws = load_workspace(workspace_path)
+        env.data = create_run(ws, question=question, profile=profile)
+    except ResearchError as exc:
+        env.status = "failed"
+        env.errors.append(exc.to_dict())
+        _emit(env, as_json, human=f"research run: {exc.message}")
+
+    d = env.data
+    if d["source_document_count"] == 0:
+        env.warn("empty_corpus", "this workspace has no documents; import some before planning")
+    if not d["index_hash"]:
+        env.warn("no_index", "no index has been built; `research search` will not work")
+    _emit(env, as_json, human="\n".join([
+        f"run {d['run_id']}",
+        f"  profile        {d['profile']}",
+        f"  phase          {d['phase']} / {d['disposition']}",
+        f"  sources        {d['source_document_count']} document(s)",
+        f"  packets        {d['packet_count']} written to runs/{d['run_id']}/packets/",
+        "",
+        f"Next: give your agent runs/{d['run_id']}/packets/00-planning.json",
+        f"      then `research validate {d['run_id']} --stage planning`",
+    ]))
 
 
 @main.command("status")
@@ -236,7 +261,36 @@ def cmd_run(question: str, profile: str | None, workspace_path: str | None, as_j
 @_JSON_OPT
 def cmd_status(run_id: str, workspace_path: str | None, as_json: bool) -> None:
     """Show lifecycle state, pending stages, and what is blocking publication."""
-    _not_implemented("status", "Phase 5 (run management)", as_json)
+    from .runs.manager import status
+
+    env = Envelope(command="status")
+    try:
+        ws = load_workspace(workspace_path)
+        env.data = status(ws, run_id)
+    except ResearchError as exc:
+        env.status = "failed"
+        env.errors.append(exc.to_dict())
+        _emit(env, as_json, human=f"research status: {exc.message}")
+
+    d = env.data
+    if d["blocking"]:
+        env.status = "blocked"
+        for b in d["blocking"]:
+            env.warn(b["category"], b["message"])
+    lines = [
+        f"run {d['run_id']}",
+        f"  question       {d['research_question'][:70]}",
+        f"  phase          {d['phase']} / {d['disposition']}",
+        f"  completed      {len(d['completed_stages'])}/10 stages",
+        f"  next stage     {d['next_stage'] or '(none)'}",
+        f"  report         {'eligible' if d['report_eligible'] else 'not eligible'} "
+        f"- {d['report_eligible_reason']}",
+    ]
+    if d["responses_awaiting_validation"]:
+        lines.append(f"  unvalidated    {', '.join(d['responses_awaiting_validation'])}")
+    if d["next_packet"]:
+        lines.append(f"  next packet    {d['next_packet']}")
+    _emit(env, as_json, human="\n".join(lines))
 
 
 @main.command("inspect")
@@ -245,7 +299,49 @@ def cmd_status(run_id: str, workspace_path: str | None, as_json: bool) -> None:
 @_JSON_OPT
 def cmd_inspect(artifact_id: str, workspace_path: str | None, as_json: bool) -> None:
     """Resolve and display an artifact, including citation context."""
-    _not_implemented("inspect", "Phase 5 (run management)", as_json)
+    from .runs.inspector import inspect
+
+    env = Envelope(command="inspect")
+    try:
+        ws = load_workspace(workspace_path)
+        env.data = inspect(ws, artifact_id)
+    except ResearchError as exc:
+        env.status = "failed"
+        env.errors.append(exc.to_dict())
+        _emit(env, as_json, human=f"research inspect: {exc.message}")
+
+    d = env.data
+    lines = [f"{d['kind']}  {artifact_id}"]
+    if d["kind"] == "chunk":
+        if not d["resolves"]:
+            env.fail("locator_resolution_failure",
+                     f"this chunk's locator does not resolve: {d['resolution_status']}")
+        lines += [
+            f"  document     {d['document_id']}",
+            f"  position     " + (f"page {d['page']}" if d["page"] is not None
+                                  else f"lines {d['line_start']}-{d['line_end']}"),
+            f"  section      {' > '.join(d['section_path']) or '-'}",
+            f"  resolves     {d['resolution_status']}",
+            f"  indexable    {d['index_eligible']}",
+            "",
+            "--- resolved text (re-sliced from the stored normalized text) ---",
+            (d["resolved_text"] or "")[:1200],
+        ]
+    elif d["kind"] == "document":
+        lines += [
+            f"  status       {d['extraction_status']}",
+            f"  aliases      {', '.join(d['aliases'])}",
+            f"  pages        {d['page_count']}   renders {len(d['renders'])}",
+            f"  chunks       {d['chunk_count']} ({d['index_eligible_chunk_count']} indexable)",
+            f"  ocr pages    {d['ocr_required_pages'] or 'none'}",
+        ]
+    else:
+        lines += [
+            f"  question     {d['research_question'][:70]}",
+            f"  phase        {d['phase']} / {d['disposition']}",
+            f"  events       {d['event_count']}",
+        ]
+    _emit(env, as_json, human="\n".join(lines))
 
 
 @main.command("validate")
@@ -274,8 +370,8 @@ def cmd_report(run_id: str, draft: bool, workspace_path: str | None, as_json: bo
 def cmd_doctor(workspace_path: str | None, as_json: bool) -> None:
     """Report what this build can actually do. Used by the honesty test."""
     env = Envelope(command="doctor")
-    implemented = ["init", "import", "index", "search"]
-    pending = ["run", "status", "inspect", "validate", "report"]
+    implemented = ["init", "import", "index", "search", "run", "status", "inspect"]
+    pending = ["validate", "report"]
     ws: dict[str, Any] | None = None
     try:
         w = load_workspace(workspace_path)
