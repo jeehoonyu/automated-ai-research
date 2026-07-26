@@ -50,7 +50,7 @@ Documentation = "https://github.com/jeehoonyu/automated-ai-research/tree/main/do
 where = ["src"]
 
 [tool.setuptools.package-data]
-research = ["py.typed"]
+research = ["py.typed", "reporting/templates/*.j2"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

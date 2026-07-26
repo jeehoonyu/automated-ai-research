@@ -324,8 +324,9 @@ def _run_cli(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess
     )
 
 
-IMPLEMENTED = ["init", "import", "index", "search", "run", "status", "inspect", "validate"]
-NOT_IMPLEMENTED = ["report"]
+IMPLEMENTED = ["init", "import", "index", "search", "run", "status", "inspect", "validate",
+               "report"]
+NOT_IMPLEMENTED: list[str] = []   # all nine public commands are implemented
 
 
 @pytest.mark.parametrize("command", NOT_IMPLEMENTED)

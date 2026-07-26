@@ -399,7 +399,42 @@ def cmd_validate(run_id: str, stage: str | None, workspace_path: str | None, as_
 @_JSON_OPT
 def cmd_report(run_id: str, draft: bool, workspace_path: str | None, as_json: bool) -> None:
     """Generate a cited Markdown report from validated artifacts."""
-    _not_implemented("report", "Phase 8 (reporting)", as_json)
+    from .reporting.renderer import render_report
+
+    env = Envelope(command="report")
+    try:
+        ws = load_workspace(workspace_path)
+        result = render_report(ws, run_id, draft=draft)
+    except ResearchError as exc:
+        env.status = "blocked" if exc.category == "report_gating_failure" else "failed"
+        env.errors.append(exc.to_dict())
+        _emit(env, as_json, human=f"research report: {exc.message}")
+
+    env.data = {
+        "run_id": result.run_id,
+        "draft": result.draft,
+        "report_path": result.report_path,
+        "report_sha256": result.report_sha256,
+        "manifest_path": result.manifest_path,
+        "claim_count": result.claim_count,
+        "citation_count": result.citation_count,
+        "overstatements": result.overstatements,
+    }
+    if result.draft:
+        env.status = "partial"
+        env.warn("draft_report",
+                 "this is a DRAFT rendered before validation passed; it is not a published output")
+    for over in result.overstatements:
+        env.warn("claim_language_exceeds_classification", over["detail"], claim_id=over["claim_id"])
+
+    _emit(env, as_json, human="\n".join([
+        f"{'DRAFT ' if result.draft else ''}report written",
+        f"  path        {result.report_path}",
+        f"  sha256      {result.report_sha256}",
+        f"  manifest    {result.manifest_path}",
+        f"  claims      {result.claim_count}   citations {result.citation_count}",
+    ] + ([f"  flagged     {len(result.overstatements)} claim(s) whose wording may exceed their "
+          f"validated classification"] if result.overstatements else [])))
 
 
 @main.command("doctor", hidden=True)
@@ -409,8 +444,8 @@ def cmd_doctor(workspace_path: str | None, as_json: bool) -> None:
     """Report what this build can actually do. Used by the honesty test."""
     env = Envelope(command="doctor")
     implemented = ["init", "import", "index", "search", "run", "status", "inspect",
-                   "validate"]
-    pending = ["report"]
+                   "validate", "report"]
+    pending = []
     ws: dict[str, Any] | None = None
     try:
         w = load_workspace(workspace_path)

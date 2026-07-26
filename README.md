@@ -23,13 +23,13 @@ output checkable.
 
 ## Status
 
-**Phases 1–7 of 10 are implemented.** Everything else is scaffolded and honest about it: commands
+**Phases 1–8 of 10 are implemented.** All nine public commands work. Everything else is scaffolded and honest about it: commands
 for unimplemented phases exit non-zero and name the phase. They do not pretend to succeed.
 
 | Command | State |
 |---|---|
-| `init` `import` `index` `search` `run` `status` `inspect` `validate` | implemented |
-| `report` | routable; exit 1 with `not_implemented` |
+| `init` `import` `index` `search` `run` `status` `inspect` `validate` `report` | implemented |
+| — | Phases 9 (benchmark) and 10 (release) remain |
 
 - **Phase 1 (foundation)** — RFC 8785 canonical JSON, SHA-256 content addressing, the
   `artifact_hash` self-reference rule, content-derived identifiers, UUIDv7 with intra-millisecond
@@ -63,7 +63,14 @@ for unimplemented phases exit non-zero and name the phase. They do not pretend t
   `passed` / `failed` / `not_evaluated` / `not_applicable`, and **`not_evaluated` blocks publication
   exactly as `failed` does**.
 
-208 tests. A stage is complete only when its artifact exists **and** validates — never because a
+- **Phase 8 (reporting)** — deterministic Markdown rendered from validated JSON with a citation
+  index, provenance summary, and report manifest. Publication requires a passing validation result;
+  `--draft` renders a visibly-marked draft that names what is blocking it. Claim wording is checked
+  against its validated classification, and the renderer emits claim text **verbatim** plus a
+  qualifier from a fixed table — so it has no vocabulary of its own for how well-supported something
+  is.
+
+232 tests. A stage is complete only when its artifact exists **and** validates — never because a
 file appeared.
 
 ## Install

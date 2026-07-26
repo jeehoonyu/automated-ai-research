@@ -1,0 +1,186 @@
+{% if draft -%}
+> # ⚠ DRAFT — NOT VALIDATED
+>
+> This report was generated with `--draft` before validation passed. It is **not** a published
+> research output, its claims have **not** cleared the report gates, and it must not be circulated
+> as though they had.
+{% if blocking %}>
+> Publication is currently blocked by {{ blocking|length }} gate(s):
+{% for b in blocking %}> - `{{ b.check }}` — {{ b.status }}: {{ b.detail }}
+{% endfor %}{% endif %}
+
+{% endif -%}
+# {{ title }}
+
+**Research question.** {{ question }}
+
+- Run: `{{ run_id }}`
+- Profile: `{{ profile }}`
+- Status: **{{ "DRAFT (unvalidated)" if draft else "published" }}**
+- Generated from validated JSON artifacts by `research report`. This Markdown is a *view*; the JSON
+  artifacts are canonical.
+
+## Scope
+
+{{ scope or "_The plan did not record an explicit scope._" }}
+
+## Method
+
+Evidence was retrieved from a fixed local document collection, extracted with exact locators, and
+reviewed for citation support, contradictions, methodology, and independently. No web access, model
+API, or external service took part in processing. Every claim below references evidence that resolves
+to immutable source bytes.
+
+{% if insufficient_evidence_conditions %}
+The plan defined **in advance** what would count as insufficient evidence:
+{% for cond in insufficient_evidence_conditions %}
+- {{ cond }}
+{%- endfor %}
+{% endif %}
+
+## Sources
+
+{{ documents|length }} document(s) were in scope for this run.
+
+| Document | Type | Extraction | Pages |
+|---|---|---|---|
+{% for doc in documents -%}
+| {{ doc.alias }} | {{ doc.media_type }} | `{{ doc.extraction_status }}` | {{ doc.page_count or "—" }} |
+{% endfor %}
+{% if ocr_documents %}
+> {{ ocr_documents|length }} document(s) contain pages that could not be read as text and require
+> OCR or human verification. Content on those pages did not back any claim below unless a human
+> verification amendment is recorded.
+{% endif %}
+
+## Findings
+
+{% if not claims %}
+_No claims were produced for this run._
+{% endif %}
+{% for claim in claims %}
+### {{ loop.index }}. {{ claim.claim }}
+
+**{{ claim.qualifier }}**
+
+- Classification: `{{ claim.support_classification }}` · type: `{{ claim.claim_type }}` ·
+  status: `{{ claim.claim_status }}`
+- Citation review: `{{ claim.citation_status }}` · contradictions: `{{ claim.contradiction_status }}`
+- Independent review: `{{ claim.independent_review_status }}`
+{% if claim.scope %}- Scope: {{ claim.scope }}
+{% endif %}
+{%- if claim.assumptions %}
+- Assumptions:
+{% for a in claim.assumptions %}  - {{ a }}
+{% endfor %}
+{%- endif %}
+{%- if claim.limitations %}
+- Limitations:
+{% for lim in claim.limitations %}  - {{ lim }}
+{% endfor %}
+{%- endif %}
+
+Supporting evidence:
+{% for ev in claim.supporting %}
+- **[{{ ev.ref }}]** {{ ev.source }} — {{ ev.position }}
+  > {{ ev.quote }}
+{% endfor %}
+{%- if claim.contradicting %}
+
+Contradicting evidence:
+{% for ev in claim.contradicting %}
+- **[{{ ev.ref }}]** {{ ev.source }} — {{ ev.position }}
+  > {{ ev.quote }}
+{% endfor %}
+{%- endif %}
+{%- if claim.overstatements %}
+
+> **Wording flagged.** The claim's phrasing may outrun its classification:
+{% for o in claim.overstatements %}> - {{ o.detail }}
+{% endfor %}
+{%- endif %}
+{% endfor %}
+
+{% if insufficient_findings %}
+## Insufficient evidence
+
+The following questions could not be answered from the available sources. This is a result, not a
+failure of the process.
+{% for claim in insufficient_findings %}
+- {{ claim.claim }}
+{%- endfor %}
+{% endif %}
+
+## Contradictions and unresolved conflicts
+
+{% if unresolved %}
+{% for claim in unresolved %}
+- **{{ claim.claim }}** — contradiction status `{{ claim.contradiction_status }}`
+{%- endfor %}
+{% else %}
+No unresolved contradictions were recorded against the claims above.
+{% endif %}
+
+## Limitations
+
+{% if limitations %}
+{% for lim in limitations %}
+- {{ lim }}
+{%- endfor %}
+{% else %}
+No limitations were recorded beyond those attached to individual claims.
+{% endif %}
+
+## Review and human-review status
+
+| Review | Decision |
+|---|---|
+{% for review in reviews -%}
+| {{ review.review_type }} | `{{ review.decision }}` |
+{% endfor %}
+
+**Reviewer independence: `{{ independence_status }}`.**
+{% if independence_status == "procedurally_isolated" %}
+The independent reviewer's work packet excluded the primary agent's rationale, confidence, and prior
+review conclusions, but the host environment did not confirm a technically fresh context. Independence
+is therefore procedural, not guaranteed.
+{% elif independence_status == "confirmed_independent" %}
+The host confirmed a fresh reviewer context with the required exclusions applied.
+{% else %}
+Independence could not be established. Treat agreement between reviewers as weak corroboration.
+{% endif %}
+
+{% if human_review_required %}
+> **Human review is outstanding.**
+{% for reason in human_review_reasons %}> - {{ reason }}
+{% endfor %}
+{% endif %}
+
+## Validation summary
+
+| Check | Result |
+|---|---|
+{% for check in checks -%}
+| {{ check.check }} | `{{ check.status }}` |
+{% endfor %}
+
+Report eligible: **{{ report_eligible }}**. A check recorded as `not_evaluated` blocks publication
+exactly as a failure does — "could not be checked" is not "fine".
+
+## References
+
+{% for ev in citation_index %}
+**[{{ ev.ref }}]** {{ ev.source }} — {{ ev.position }}
+`{{ ev.evidence_id }}` · document `{{ ev.document_id }}` · version `{{ ev.document_version_id }}`
+{% endfor %}
+
+## Provenance
+
+- Workflow version: `{{ workflow_version }}`
+- Configuration hash: `{{ config_hash }}`
+- Index hash: `{{ index_hash or "—" }}`
+- Validation result hash: `{{ validation_result_hash or "— (draft)" }}`
+- Schema versions: {% for name, ver in schema_versions.items() %}`{{ name }}@{{ ver }}`{% if not loop.last %}, {% endif %}{% endfor %}
+- Source documents: {% for doc in documents %}`{{ doc.document_id }}`{% if not loop.last %}, {% endif %}{% endfor %}
+
+_Generated by `research report`. The canonical artifacts for this run are under `runs/{{ run_id }}/`._
