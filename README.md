@@ -23,13 +23,11 @@ output checkable.
 
 ## Status
 
-**Phases 1–9 of 10 are implemented.** All nine public commands work. Everything else is scaffolded and honest about it: commands
-for unimplemented phases exit non-zero and name the phase. They do not pretend to succeed.
+**All ten phases of the MVP specification are implemented.** All nine public commands work.
 
 | Command | State |
 |---|---|
 | `init` `import` `index` `search` `run` `status` `inspect` `validate` `report` | implemented |
-| — | Phase 10 (release preparation) remains |
 
 - **Phase 1 (foundation)** — RFC 8785 canonical JSON, SHA-256 content addressing, the
   `artifact_hash` self-reference rule, content-derived identifiers, UUIDv7 with intra-millisecond
@@ -76,12 +74,23 @@ for unimplemented phases exit non-zero and name the phase. They do not pretend t
   an image-only page, and a prompt-injection document. Ten cases each name the **specific** gate
   that must catch them.
 
-249 tests. A stage is complete only when its artifact exists **and** validates — never because a
+- **Phase 10 (release)** — canonical workflow shipped into every generated workspace, research
+  profiles, architecture / security-model / validation-rules documentation, `SECURITY.md`,
+  `CONTRIBUTING.md`, a changelog, CI across Linux/macOS/Windows, and a release checklist that lists
+  what is **not** met.
+
+278 tests. A stage is complete only when its artifact exists **and** validates — never because a
 file appeared.
 
-**Not yet established:** spec §37 requires that Codex and Claude Code both complete the benchmark
-against the same packets. The benchmark exercises the deterministic contract with simulated agent
-artifacts; cross-host conformance sessions are an outstanding release gate.
+### What is not established
+
+Spec §37 requires that Codex and Claude Code both complete the benchmark against the same packets.
+The benchmark exercises the deterministic contract with simulated agent artifacts, so **neither host
+has been run against it**. That is the one unmet release gate; see `docs/release-checklist.md`.
+
+Contradiction *detection* is also only partly demonstrated: a seeded contradiction attached to a
+claim is surfaced and blocks, but the platform does not discover contradictions itself — that is the
+contradiction-review agent's job.
 
 ## Install
 
@@ -127,7 +136,12 @@ instructions from untrusted document content explicitly.
 - `PROJECT_GOAL.md` — the full specification (authoritative)
 - `docs/lessons-carried-forward.md` — failures from a predecessor project and where each is now
   enforced. Worth reading before changing any gate.
-- `docs/architecture.md`, `docs/security-model.md`, `docs/validation-rules.md` — Phase 10
+- [`docs/architecture.md`](docs/architecture.md) — trust boundaries, authority model, determinism
+- [`docs/security-model.md`](docs/security-model.md) — threat model, and what is *not* protected
+- [`docs/validation-rules.md`](docs/validation-rules.md) — the 18 checks and why `not_evaluated` blocks
+- [`docs/release-checklist.md`](docs/release-checklist.md) — gate status, including the unmet one
+- [`benchmark/README.md`](benchmark/README.md) — the corpus and the ten cases
+- [`CONTRIBUTING.md`](CONTRIBUTING.md), [`SECURITY.md`](SECURITY.md), [`CHANGELOG.md`](CHANGELOG.md)
 
 ## Development
 

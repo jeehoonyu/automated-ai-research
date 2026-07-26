@@ -1,0 +1,33 @@
+# High-risk profile. Same workflow, stricter gates.
+name: medicine
+description: Clinical and biomedical questions, where an overstated conclusion can cause harm.
+
+risk: high
+
+# Procedural isolation is NOT enough here: the host must confirm a fresh reviewer context.
+reviewer_independence:
+  minimum: confirmed_independent
+  disclose_when_below: confirmed_independent
+
+# No broader conclusion may be labelled verified in this domain, and the schema already refuses
+# it for causal claims; this makes the refusal explicit for the profile.
+prohibited_confidence:
+  - verified
+
+contradiction_review:
+  required: true
+  must_search_for_disagreement: true
+
+methodology_review:
+  require_sample_size: true
+  require_controls: true
+  require_preregistration_check: true
+
+human_review_triggers:
+  - unresolved_contradiction_on_material_claim
+  - citation_failed_or_partial
+  - uncertain_visual_interpretation
+  - evidence_depends_on_ocr_required_page
+  - causal_claim_from_correlational_evidence
+  - source_independence_unestablished
+  - any_claim_bearing_on_patient_care

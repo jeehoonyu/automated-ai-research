@@ -1,0 +1,40 @@
+# Default research profile.
+#
+# A profile customises VALIDATION RULES, never the artifact model or the stage order (spec 27).
+# The workflow is identical across profiles so two runs remain comparable.
+name: default
+description: General-purpose research over a local document collection.
+
+risk: normal
+
+# procedurally_isolated is accepted here, but the report must disclose it.
+reviewer_independence:
+  minimum: procedurally_isolated
+  disclose_when_below: confirmed_independent
+
+# Classifications this profile refuses outright, whatever the evidence.
+prohibited_confidence: []
+
+contradiction_review:
+  required: true
+  must_search_for_disagreement: true
+
+human_review_triggers:
+  - unresolved_contradiction_on_material_claim
+  - citation_failed_or_partial
+  - uncertain_visual_interpretation
+  - evidence_depends_on_ocr_required_page
+  - causal_claim_from_correlational_evidence
+  - source_independence_unestablished
+
+report_sections:
+  - scope
+  - method
+  - sources
+  - findings
+  - contradictions
+  - limitations
+  - review_status
+  - validation_summary
+  - references
+  - provenance

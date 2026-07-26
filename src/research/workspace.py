@@ -95,17 +95,29 @@ def init_workspace(
         + yaml.safe_dump(config, sort_keys=True, allow_unicode=True),
         root=root)
 
+    # The canonical workflow is COPIED INTO the workspace, not merely referenced. AGENTS.md and
+    # CLAUDE.md tell every host to read it first; a workspace that ships those files without the
+    # document they point at hands the agent a dangling reference at the exact moment it is trying
+    # to learn the rules. It also means a workspace stays self-describing if moved away from the
+    # repository that created it.
+    workflow_dir = safe_join(root, "workflow")
+    workflow_dir.mkdir(parents=True, exist_ok=True)
+    canonical = Path(__file__).resolve().parent / "assets" / "canonical-workflow.md"
+
     # Written WITHOUT overwriting: --allow-non-empty must never clobber a user's existing files.
     written: list[str] = []
-    for name, body in (
-        ("AGENTS.md", _HOST_ENTRY.format(host="Codex")),
-        ("CLAUDE.md", _HOST_ENTRY.format(host="Claude Code")),
-    ):
-        dest = safe_join(root, name)
+    files: list[tuple[Path, str]] = [
+        (safe_join(root, "AGENTS.md"), _HOST_ENTRY.format(host="Codex")),
+        (safe_join(root, "CLAUDE.md"), _HOST_ENTRY.format(host="Claude Code")),
+    ]
+    if canonical.is_file():
+        files.append((workflow_dir / "canonical-workflow.md",
+                      canonical.read_text(encoding="utf-8")))
+    for dest, body in files:
         if dest.exists():
             continue
         atomic_write_text(dest, body, root=root)
-        written.append(name)
+        written.append(str(dest.relative_to(root)).replace("\\", "/"))
 
     return {
         "workspace": str(root),
