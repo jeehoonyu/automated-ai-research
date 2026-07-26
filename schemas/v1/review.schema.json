@@ -1,0 +1,244 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.automated-ai-research.org/v1/review.schema.json",
+  "title": "Review",
+  "description": "A typed review artifact. The CLI enforces review decisions but never makes them: judging whether a passage supports a claim requires reading, which is the host agent's job.",
+  "type": "object",
+  "required": [
+    "schema_name",
+    "schema_version",
+    "artifact_id",
+    "artifact_hash",
+    "created_at",
+    "created_by",
+    "review_id",
+    "review_type",
+    "run_id",
+    "reviewed_artifact_ids",
+    "reviewer",
+    "decision"
+  ],
+  "properties": {
+    "schema_name": {
+      "type": "string"
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "artifact_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "artifact_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_by": {
+      "type": "object",
+      "required": [
+        "actor_type"
+      ],
+      "properties": {
+        "actor_type": {
+          "enum": [
+            "cli",
+            "host_agent",
+            "human"
+          ]
+        },
+        "host": {
+          "type": "string"
+        },
+        "model_identifier": {
+          "type": "string"
+        }
+      },
+      "not": {
+        "required": [
+          "reasoning_trace"
+        ]
+      }
+    },
+    "review_id": {
+      "type": "string",
+      "pattern": "^REV-[0-9a-fA-F-]{36}$"
+    },
+    "review_type": {
+      "enum": [
+        "citation_review",
+        "methodology_review",
+        "contradiction_review",
+        "independent_review",
+        "human_review"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^RUN-[0-9a-fA-F-]{36}$"
+    },
+    "reviewed_artifact_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "reviewer": {
+      "type": "object",
+      "required": [
+        "actor_type"
+      ],
+      "properties": {
+        "actor_type": {
+          "enum": [
+            "host_agent",
+            "human"
+          ]
+        },
+        "host": {
+          "type": "string"
+        },
+        "model_identifier": {
+          "type": "string"
+        }
+      }
+    },
+    "review_independence": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "primary_rationale_excluded": {
+          "type": "boolean"
+        },
+        "primary_confidence_excluded": {
+          "type": "boolean"
+        },
+        "prior_review_conclusions_excluded": {
+          "type": "boolean"
+        },
+        "fresh_agent_context_requested": {
+          "type": "boolean"
+        },
+        "host_confirmed_fresh_context": {
+          "type": "boolean"
+        },
+        "status": {
+          "enum": [
+            "confirmed_independent",
+            "procedurally_isolated",
+            "not_confirmed",
+            "not_independent"
+          ]
+        }
+      }
+    },
+    "decision": {
+      "enum": [
+        "passed",
+        "passed_with_warnings",
+        "failed",
+        "incomplete",
+        "human_review_required"
+      ]
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "blocking_issues": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "required_amendments": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "per_claim": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "claim_id",
+          "assessment"
+        ],
+        "properties": {
+          "claim_id": {
+            "type": "string",
+            "pattern": "^CLM-[0-9a-fA-F-]{36}$"
+          },
+          "assessment": {
+            "type": "string"
+          },
+          "citation_support": {
+            "enum": [
+              "not_checked",
+              "passed",
+              "partially_supported",
+              "related_not_supporting",
+              "failed"
+            ]
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$comment": "Spec §13: an independent review must declare its independence status, so the claim of independence is auditable rather than assumed.",
+      "if": {
+        "properties": {
+          "review_type": {
+            "const": "independent_review"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "review_independence"
+        ]
+      }
+    },
+    {
+      "$comment": "A failed review must say what blocked it.",
+      "if": {
+        "properties": {
+          "decision": {
+            "const": "failed"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "blocking_issues": {
+            "minItems": 1
+          }
+        },
+        "required": [
+          "blocking_issues"
+        ]
+      }
+    }
+  ]
+}

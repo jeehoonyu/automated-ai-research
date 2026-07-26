@@ -48,13 +48,22 @@ def test_rebuilding_from_identical_artifacts_gives_the_same_index_hash(indexed):
 
 
 def test_index_hash_matches_across_independent_workspaces(tmp_path: Path, sources):
-    """Reproducibility is a property of the canonical inputs, not of one machine's database file."""
+    """Reproducibility is a property of the canonical inputs, not of one machine's clock or file.
+
+    The sleep is load-bearing. `artifact_hash` covers `created_at`, so an earlier implementation
+    that fed artifact hashes into index_hash produced DIFFERENT hashes for identical bytes — and
+    this test passed anyway, because both workspaces happened to be built inside the same second.
+    Forcing a second boundary is what makes the assertion mean what it says.
+    """
+    import time
+
     hashes = []
     for name in ("a", "b"):
         init_workspace(tmp_path / name)
         ws = load_workspace(tmp_path / name)
         import_paths(ws, [sources["text_pdf"], sources["markdown"]])
         hashes.append(build_index(ws).index_hash)
+        time.sleep(1.1)
     assert hashes[0] == hashes[1]
 
 

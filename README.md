@@ -23,7 +23,7 @@ output checkable.
 
 ## Status
 
-**Phases 1–5 of 10 are implemented.** Everything else is scaffolded and honest about it: commands
+**Phases 1–6 of 10 are implemented.** Everything else is scaffolded and honest about it: commands
 for unimplemented phases exit non-zero and name the phase. They do not pretend to succeed.
 
 | Command | State |
@@ -50,7 +50,14 @@ for unimplemented phases exit non-zero and name the phase. They do not pretend t
   (`phase` + `disposition`) with enforced one-step transitions, stage work packets carrying the
   independence exclusions, append-only lifecycle events, `research status`, and `research inspect`.
 
-150 tests. A stage is complete only when its artifact exists **and** validates — never because a
+- **Phase 6 (research artifacts)** — 13 versioned JSON schemas covering every canonical artifact,
+  a schema registry, and validation on **write** so an invalid artifact cannot reach disk. Spec rules
+  are encoded as constraints, not prose: `verified` is refused for causal claims,
+  `strongly_supported` requires two evidence records, numeric confidence scores are forbidden
+  outright, OCR-dependent evidence must demand human review, and an independent review must declare
+  its independence.
+
+183 tests. A stage is complete only when its artifact exists **and** validates — never because a
 file appeared.
 
 ## Install

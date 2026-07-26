@@ -1,0 +1,344 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.automated-ai-research.org/v1/evidence.schema.json",
+  "title": "Evidence",
+  "description": "An exact passage pinned to immutable source bytes. exact_text is copied verbatim, never paraphrased: citation review compares a report's paraphrase against this field, so if this field is already a paraphrase there is nothing left to check against.",
+  "type": "object",
+  "required": [
+    "schema_name",
+    "schema_version",
+    "artifact_id",
+    "artifact_hash",
+    "created_at",
+    "created_by",
+    "evidence_id",
+    "document_id",
+    "document_version_id",
+    "evidence_type",
+    "locator",
+    "extraction_status",
+    "human_review_required"
+  ],
+  "properties": {
+    "schema_name": {
+      "type": "string"
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "artifact_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "artifact_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_by": {
+      "type": "object",
+      "required": [
+        "actor_type"
+      ],
+      "properties": {
+        "actor_type": {
+          "enum": [
+            "cli",
+            "host_agent",
+            "human"
+          ]
+        },
+        "host": {
+          "type": "string"
+        },
+        "model_identifier": {
+          "type": "string"
+        }
+      },
+      "not": {
+        "required": [
+          "reasoning_trace"
+        ]
+      }
+    },
+    "evidence_id": {
+      "type": "string",
+      "pattern": "^EVD-sha256-[0-9a-f]{64}$"
+    },
+    "document_id": {
+      "type": "string",
+      "pattern": "^DOC-sha256-[0-9a-f]{64}$"
+    },
+    "document_version_id": {
+      "type": "string",
+      "pattern": "^DVER-sha256-[0-9a-f]{64}$"
+    },
+    "evidence_type": {
+      "enum": [
+        "direct_statement",
+        "definition",
+        "experimental_result",
+        "statistical_result",
+        "method_description",
+        "limitation",
+        "table_value",
+        "figure_observation",
+        "metadata_fact",
+        "citation_relationship",
+        "expert_opinion",
+        "derived_calculation"
+      ]
+    },
+    "locator": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "start_offset",
+            "end_offset",
+            "span_sha256"
+          ],
+          "properties": {
+            "type": {
+              "const": "text_span"
+            },
+            "page": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            },
+            "section_path": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "chunk_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^CHK-sha256-[0-9a-f]{64}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "start_offset": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "end_offset": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "source_line_start": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            },
+            "source_line_end": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            },
+            "span_sha256": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "page",
+            "render_sha256",
+            "coordinate_system",
+            "bounding_box",
+            "render_width",
+            "render_height"
+          ],
+          "properties": {
+            "type": {
+              "const": "visual_region"
+            },
+            "page": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "render_sha256": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            "coordinate_system": {
+              "const": "normalized_top_left_0_to_1"
+            },
+            "bounding_box": {
+              "type": "object",
+              "required": [
+                "x",
+                "y",
+                "width",
+                "height"
+              ],
+              "properties": {
+                "x": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "y": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "width": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 1
+                },
+                "height": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 1
+                }
+              }
+            },
+            "render_width": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "render_height": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        }
+      ]
+    },
+    "exact_text": {
+      "type": "string"
+    },
+    "context_before": {
+      "type": "string"
+    },
+    "context_after": {
+      "type": "string"
+    },
+    "extraction_method": {
+      "type": "string"
+    },
+    "extraction_status": {
+      "enum": [
+        "extracted",
+        "partially_extracted",
+        "ambiguous",
+        "unsupported_format",
+        "ocr_required",
+        "processing_failed",
+        "human_review_required"
+      ]
+    },
+    "human_review_required": {
+      "type": "boolean"
+    },
+    "interpretation_status": {
+      "enum": [
+        "not_applicable",
+        "clear",
+        "uncertain",
+        "human_review_required"
+      ]
+    },
+    "caption": {
+      "type": "string"
+    },
+    "region_type": {
+      "enum": [
+        "figure",
+        "table",
+        "chart",
+        "diagram",
+        "page",
+        "other"
+      ]
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "allOf": [
+    {
+      "$comment": "Text evidence must carry the exact passage.",
+      "if": {
+        "properties": {
+          "locator": {
+            "properties": {
+              "type": {
+                "const": "text_span"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "exact_text"
+        ],
+        "properties": {
+          "exact_text": {
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
+      "$comment": "Spec §12.3 / §21: visual content may not be silently interpreted. A visual region must declare how confident the reading is.",
+      "if": {
+        "properties": {
+          "locator": {
+            "properties": {
+              "type": {
+                "const": "visual_region"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "interpretation_status"
+        ]
+      }
+    },
+    {
+      "$comment": "Spec §26: evidence from an ocr_required page cannot be used without human review. No OCR ships in v1, so its text is not readable.",
+      "if": {
+        "properties": {
+          "extraction_status": {
+            "const": "ocr_required"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "human_review_required": {
+            "const": true
+          }
+        }
+      }
+    }
+  ]
+}

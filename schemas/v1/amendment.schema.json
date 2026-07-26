@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.automated-ai-research.org/v1/amendment.schema.json",
+  "title": "Amendment",
+  "description": "A human correction. Canonical artifacts are never edited in place: an amendment records what was changed, why, and which artifact hash it replaces, so history stays intact.",
+  "type": "object",
+  "required": [
+    "schema_name",
+    "schema_version",
+    "artifact_id",
+    "artifact_hash",
+    "created_at",
+    "created_by",
+    "amendment_id",
+    "target_artifact_id",
+    "target_artifact_hash",
+    "amendment_type",
+    "changed_fields",
+    "reason",
+    "human",
+    "requires_revalidation"
+  ],
+  "properties": {
+    "schema_name": {
+      "type": "string"
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "artifact_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "artifact_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_by": {
+      "type": "object",
+      "required": [
+        "actor_type"
+      ],
+      "properties": {
+        "actor_type": {
+          "enum": [
+            "cli",
+            "host_agent",
+            "human"
+          ]
+        },
+        "host": {
+          "type": "string"
+        },
+        "model_identifier": {
+          "type": "string"
+        }
+      },
+      "not": {
+        "required": [
+          "reasoning_trace"
+        ]
+      }
+    },
+    "amendment_id": {
+      "type": "string",
+      "pattern": "^AMD-[0-9a-fA-F-]{36}$"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^RUN-[0-9a-fA-F-]{36}$"
+    },
+    "target_artifact_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "target_artifact_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "amendment_type": {
+      "enum": [
+        "metadata_correction",
+        "locator_correction",
+        "claim_rewording",
+        "evidence_reclassification",
+        "human_visual_verification",
+        "human_ocr_verification",
+        "review_override",
+        "withdrawal"
+      ]
+    },
+    "changed_fields": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "human": {
+      "type": "object",
+      "required": [
+        "identifier"
+      ],
+      "properties": {
+        "identifier": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        }
+      }
+    },
+    "replacement_artifact_id": {
+      "type": "string"
+    },
+    "replacement_artifact_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "requires_revalidation": {
+      "type": "boolean"
+    }
+  },
+  "allOf": [
+    {
+      "$comment": "Spec §31: an amendment that replaces content must name the replacement, and any amendment touching published content forces revalidation.",
+      "if": {
+        "properties": {
+          "amendment_type": {
+            "not": {
+              "const": "withdrawal"
+            }
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "replacement_artifact_id",
+          "replacement_artifact_hash"
+        ]
+      }
+    }
+  ]
+}

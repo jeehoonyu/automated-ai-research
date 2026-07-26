@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.automated-ai-research.org/v1/source-relationship.schema.json",
+  "title": "SourceRelationship",
+  "description": "Spec §24: multiple documents are not automatically multiple independent sources. Unknown independence can never be promoted to independent.",
+  "type": "object",
+  "required": [
+    "schema_name",
+    "schema_version",
+    "artifact_id",
+    "artifact_hash",
+    "created_at",
+    "created_by",
+    "source_document_id",
+    "related_document_id",
+    "relationship_type",
+    "confidence",
+    "detected_by"
+  ],
+  "properties": {
+    "schema_name": {
+      "type": "string"
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "artifact_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "artifact_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_by": {
+      "type": "object",
+      "required": [
+        "actor_type"
+      ],
+      "properties": {
+        "actor_type": {
+          "enum": [
+            "cli",
+            "host_agent",
+            "human"
+          ]
+        },
+        "host": {
+          "type": "string"
+        },
+        "model_identifier": {
+          "type": "string"
+        }
+      },
+      "not": {
+        "required": [
+          "reasoning_trace"
+        ]
+      }
+    },
+    "source_document_id": {
+      "type": "string",
+      "pattern": "^DOC-sha256-[0-9a-f]{64}$"
+    },
+    "related_document_id": {
+      "type": "string",
+      "pattern": "^DOC-sha256-[0-9a-f]{64}$"
+    },
+    "relationship_type": {
+      "enum": [
+        "duplicate",
+        "republication",
+        "revision_of",
+        "translation_of",
+        "summarizes",
+        "cites",
+        "derived_from",
+        "shares_primary_dataset",
+        "shares_experimental_result",
+        "unknown"
+      ]
+    },
+    "evidence_for_relationship": {
+      "type": "string"
+    },
+    "confidence": {
+      "enum": [
+        "high",
+        "medium",
+        "low",
+        "unknown",
+        "not_applicable"
+      ]
+    },
+    "human_review_status": {
+      "enum": [
+        "not_required",
+        "required",
+        "completed"
+      ]
+    },
+    "detected_by": {
+      "enum": [
+        "hash_identity",
+        "metadata_identifier",
+        "heuristic",
+        "agent_review",
+        "human"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "$comment": "A heuristic relationship is not definitive; only hash identity and explicit metadata identifiers are.",
+      "if": {
+        "properties": {
+          "detected_by": {
+            "const": "heuristic"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "confidence": {
+            "enum": [
+              "medium",
+              "low",
+              "unknown"
+            ]
+          },
+          "human_review_status": {
+            "enum": [
+              "required",
+              "completed"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.automated-ai-research.org/v1/validation-result.schema.json",
+  "title": "ValidationResult",
+  "description": "The outcome of `research validate`. Records which checks RAN, not only which failed: 'not evaluated' and 'passed' must never be the same value.",
+  "type": "object",
+  "required": [
+    "schema_name",
+    "schema_version",
+    "artifact_id",
+    "artifact_hash",
+    "created_at",
+    "created_by",
+    "run_id",
+    "report_eligible",
+    "checks",
+    "human_review_required"
+  ],
+  "properties": {
+    "schema_name": {
+      "type": "string"
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "artifact_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "artifact_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_by": {
+      "type": "object",
+      "required": [
+        "actor_type"
+      ],
+      "properties": {
+        "actor_type": {
+          "enum": [
+            "cli",
+            "host_agent",
+            "human"
+          ]
+        },
+        "host": {
+          "type": "string"
+        },
+        "model_identifier": {
+          "type": "string"
+        }
+      },
+      "not": {
+        "required": [
+          "reasoning_trace"
+        ]
+      }
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^RUN-[0-9a-fA-F-]{36}$"
+    },
+    "validated_at": {
+      "type": "string"
+    },
+    "report_eligible": {
+      "type": "boolean"
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "check",
+          "status"
+        ],
+        "properties": {
+          "check": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "passed",
+              "failed",
+              "not_evaluated",
+              "not_applicable"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          },
+          "artifact_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "minItems": 1
+    },
+    "blocking_errors": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "human_review_required": {
+      "type": "boolean"
+    },
+    "human_review_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "schema_versions_used": {
+      "type": "object"
+    }
+  },
+  "allOf": [
+    {
+      "$comment": "Report eligibility requires no blocking errors and no outstanding human review. The schema refuses the contradiction outright.",
+      "if": {
+        "properties": {
+          "report_eligible": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "blocking_errors": {
+            "maxItems": 0
+          },
+          "human_review_required": {
+            "const": false
+          }
+        }
+      }
+    }
+  ]
+}

@@ -7,9 +7,13 @@ passage someone pinned with a locator that resolves against the original bytes.
 
 TWO HASHES, ON PURPOSE.
 
-  index_hash       computed from the sorted LOGICAL rows plus schema, configuration, and input
-                   artifact hashes. This is the reproducibility claim: the same canonical inputs and
-                   the same configuration produce the same index_hash on any machine.
+  index_hash       computed from the sorted LOGICAL rows plus schema, configuration, and the
+                   CONTENT identity of the inputs (document_version_id, normalized-text hash,
+                   chunking-config hash). Nothing wall-clock enters it, so two people who imported
+                   the same bytes can compare index hashes and learn something. Note what is
+                   deliberately absent: the documents' `artifact_hash` values cover `created_at`,
+                   so including them would make this differ between two workspaces built from
+                   identical bytes at different moments.
   sqlite_file_hash recorded separately and NOT used for reproducibility, because SQLite database
                    bytes legitimately differ across library versions, page sizes, and vacuum state.
 
@@ -111,11 +115,22 @@ def build_index(ws: Workspace) -> IndexResult:
 
     rows: list[dict[str, Any]] = []
     skipped = 0
-    input_hashes: list[dict[str, str]] = []
+    input_hashes: list[dict[str, str]] = []      # tamper-evidence, recorded in the manifest
+    content_inputs: list[dict[str, str]] = []    # CONTENT identity, fed into index_hash
 
     for doc in sorted(documents, key=lambda d: d["document_id"]):
         input_hashes.append({"document_id": doc["document_id"],
                              "artifact_hash": doc["artifact_hash"]})
+        # `artifact_hash` covers `created_at`, so it differs between two workspaces built from the
+        # SAME bytes at different moments. Feeding it into index_hash made the reproducibility claim
+        # false — and only looked true because a test happened to build both workspaces inside one
+        # second. index_hash is therefore computed from content-derived identity alone.
+        content_inputs.append({
+            "document_id": doc["document_id"],
+            "document_version_id": doc["document_version_id"],
+            "normalized_text_sha256": doc.get("normalized_text_sha256", ""),
+            "extraction_status": doc.get("extraction_status", ""),
+        })
         rel = doc.get("chunk_set_path")
         if not rel:
             warnings.append(f"{doc['document_id']}: no chunk set (extraction status "
@@ -124,6 +139,10 @@ def build_index(ws: Workspace) -> IndexResult:
         chunk_set = read_artifact(ws.root / rel, expect_schema="ChunkSet")
         input_hashes.append({"chunk_set_of": doc["document_id"],
                              "artifact_hash": chunk_set["artifact_hash"]})
+        content_inputs.append({
+            "chunk_set_of": doc["document_id"],
+            "chunking_config_hash": chunk_set.get("chunking_config_hash", ""),
+        })
 
         for chunk in chunk_set["chunks"]:
             if not chunk["index_eligible"]:
@@ -185,7 +204,7 @@ def build_index(ws: Workspace) -> IndexResult:
         "extraction_toolchain_version": ws.get("extraction.toolchain_version"),
         "normalization_version": ws.get("extraction.normalization_version"),
     }
-    index_hash = _compute_index_hash(rows, config, input_hashes)
+    index_hash = _compute_index_hash(rows, config, content_inputs)
     file_hash = sha256_file(db_path)
 
     manifest = make_artifact(
@@ -226,11 +245,13 @@ def _document_type(doc: dict[str, Any]) -> str:
 
 
 def _compute_index_hash(rows: list[dict[str, Any]], config: dict[str, Any],
-                        input_hashes: list[dict[str, str]]) -> str:
-    """Hash the logical content, not the database file.
+                        content_inputs: list[dict[str, str]]) -> str:
+    """Hash the logical content, not the database file and not any timestamp.
 
-    Only fields that affect retrieval are included. `text` is represented by its hash so a very
-    large corpus does not have to be re-serialized in full to verify the index.
+    Only fields that affect retrieval are included, and every one of them is content-derived. `text`
+    is represented by its hash so a large corpus need not be re-serialized in full to verify the
+    index. Nothing wall-clock enters this hash, which is what lets two people who imported the same
+    bytes compare index hashes and learn something.
     """
     logical = [
         {
@@ -248,7 +269,7 @@ def _compute_index_hash(rows: list[dict[str, Any]], config: dict[str, Any],
     return sha256_text(canonical_json({
         "index_schema_version": INDEX_SCHEMA_VERSION,
         "config": config,
-        "inputs": sorted(input_hashes, key=lambda h: canonical_json(h)),
+        "inputs": sorted(content_inputs, key=lambda h: canonical_json(h)),
         "rows": logical,
     }))
 

@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.automated-ai-research.org/v1/index-manifest.schema.json",
+  "title": "IndexManifest",
+  "description": "Everything needed to reproduce the index. index_hash covers the logical rows; the SQLite file hash is recorded separately because database bytes vary across builds.",
+  "type": "object",
+  "required": [
+    "schema_name",
+    "schema_version",
+    "artifact_id",
+    "artifact_hash",
+    "created_at",
+    "created_by",
+    "index_hash",
+    "sqlite_file_hash",
+    "sqlite_version",
+    "config",
+    "chunk_count",
+    "result_ordering"
+  ],
+  "properties": {
+    "schema_name": {
+      "type": "string"
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "artifact_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "artifact_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_by": {
+      "type": "object",
+      "required": [
+        "actor_type"
+      ],
+      "properties": {
+        "actor_type": {
+          "enum": [
+            "cli",
+            "host_agent",
+            "human"
+          ]
+        },
+        "host": {
+          "type": "string"
+        },
+        "model_identifier": {
+          "type": "string"
+        }
+      },
+      "not": {
+        "required": [
+          "reasoning_trace"
+        ]
+      }
+    },
+    "index_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "sqlite_file_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "sqlite_version": {
+      "type": "string"
+    },
+    "config": {
+      "type": "object",
+      "required": [
+        "index_schema_version",
+        "tokenizer",
+        "ranking"
+      ],
+      "properties": {
+        "index_schema_version": {
+          "type": "string"
+        },
+        "tokenizer": {
+          "type": "string"
+        },
+        "tokenizer_args": {
+          "type": "string"
+        },
+        "ranking": {
+          "type": "string"
+        },
+        "chunking": {
+          "type": "object"
+        }
+      }
+    },
+    "document_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "chunk_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "skipped_ineligible_chunks": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "input_artifact_hashes": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "result_ordering": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "sqlite_file_hash_note": {
+      "type": "string"
+    }
+  }
+}

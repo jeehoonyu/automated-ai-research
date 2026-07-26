@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.automated-ai-research.org/v1/run-manifest.schema.json",
+  "title": "RunManifest",
+  "description": "Run state. `phase` is progress; `disposition` is whether it may advance.",
+  "type": "object",
+  "required": [
+    "schema_name",
+    "schema_version",
+    "artifact_id",
+    "artifact_hash",
+    "created_at",
+    "created_by",
+    "run_id",
+    "research_question",
+    "profile",
+    "phase",
+    "disposition",
+    "config_hash",
+    "source_collection"
+  ],
+  "properties": {
+    "schema_name": {
+      "type": "string"
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "artifact_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "artifact_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_by": {
+      "type": "object",
+      "required": [
+        "actor_type"
+      ],
+      "properties": {
+        "actor_type": {
+          "enum": [
+            "cli",
+            "host_agent",
+            "human"
+          ]
+        },
+        "host": {
+          "type": "string"
+        },
+        "model_identifier": {
+          "type": "string"
+        }
+      },
+      "not": {
+        "required": [
+          "reasoning_trace"
+        ]
+      }
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^RUN-[0-9a-fA-F-]{36}$"
+    },
+    "research_question": {
+      "type": "string",
+      "minLength": 1
+    },
+    "profile": {
+      "type": "string"
+    },
+    "phase": {
+      "enum": [
+        "initialized",
+        "planned",
+        "retrieved",
+        "evidence_extracted",
+        "synthesized",
+        "contradiction_reviewed",
+        "citation_reviewed",
+        "methodology_reviewed",
+        "independently_reviewed",
+        "validation_passed",
+        "report_eligible",
+        "published"
+      ]
+    },
+    "disposition": {
+      "enum": [
+        "active",
+        "blocked",
+        "review_pending",
+        "human_review_required",
+        "validation_failed",
+        "superseded",
+        "cancelled"
+      ]
+    },
+    "workflow_version": {
+      "type": "string"
+    },
+    "config_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "host": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source_collection": {
+      "type": "object",
+      "required": [
+        "document_count",
+        "documents"
+      ],
+      "properties": {
+        "document_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "documents": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "index_hash": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "packet_paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "started_at": {
+      "type": "string"
+    },
+    "updated_at": {
+      "type": "string"
+    }
+  }
+}

@@ -56,12 +56,20 @@ def make_artifact(
     return stamp_artifact_hash(artifact)
 
 
-def write_artifact(path: str | Path, artifact: dict[str, Any], *, root: str | Path | None = None) -> Path:
-    """Write pretty-printed for humans; the hash is over the canonical form, so formatting is free.
+def write_artifact(path: str | Path, artifact: dict[str, Any], *,
+                   root: str | Path | None = None, validate: bool = True) -> Path:
+    """Validate, stamp, and atomically write a canonical artifact.
 
-    Storing indented JSON while hashing the canonical form is the whole point of canonicalization:
-    the file stays readable and reviewable in a diff without its identity depending on layout.
+    Validation happens BEFORE the write. Once an artifact is on disk it has been counted — reported
+    in a summary, possibly consumed by the index — and rejecting it later leaves a workspace that is
+    internally inconsistent rather than one that never accepted the bad data.
+
+    Storing indented JSON while hashing the canonical form is the point of canonicalization: the
+    file stays readable in a diff without its identity depending on layout.
     """
+    if validate:
+        from .registry import validate_artifact
+        validate_artifact(artifact, path=path)
     if not verify_artifact_hash(artifact):
         artifact = stamp_artifact_hash(artifact)
     import json

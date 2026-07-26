@@ -1,0 +1,336 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.automated-ai-research.org/v1/claim.schema.json",
+  "title": "Claim",
+  "description": "A statement the report may make. Claims and evidence are separate objects: a claim references evidence ids, and can therefore be checked against them.",
+  "type": "object",
+  "required": [
+    "schema_name",
+    "schema_version",
+    "artifact_id",
+    "artifact_hash",
+    "created_at",
+    "created_by",
+    "claim_id",
+    "claim",
+    "claim_type",
+    "claim_status",
+    "support_classification",
+    "supporting_evidence_ids",
+    "citation_status",
+    "contradiction_status",
+    "human_review_required"
+  ],
+  "properties": {
+    "schema_name": {
+      "type": "string"
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "artifact_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "artifact_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_by": {
+      "type": "object",
+      "required": [
+        "actor_type"
+      ],
+      "properties": {
+        "actor_type": {
+          "enum": [
+            "cli",
+            "host_agent",
+            "human"
+          ]
+        },
+        "host": {
+          "type": "string"
+        },
+        "model_identifier": {
+          "type": "string"
+        }
+      },
+      "not": {
+        "required": [
+          "reasoning_trace"
+        ]
+      }
+    },
+    "claim_id": {
+      "type": "string",
+      "pattern": "^CLM-[0-9a-fA-F-]{36}$"
+    },
+    "claim_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "claim": {
+      "type": "string",
+      "minLength": 1
+    },
+    "claim_type": {
+      "enum": [
+        "direct_fact",
+        "definition",
+        "descriptive_result",
+        "comparative_result",
+        "methodological_claim",
+        "causal_claim",
+        "correlational_claim",
+        "interpretation",
+        "hypothesis",
+        "recommendation",
+        "insufficient_evidence_finding"
+      ]
+    },
+    "claim_status": {
+      "enum": [
+        "draft",
+        "evidence_linked",
+        "citation_checked",
+        "methodology_reviewed",
+        "independently_reviewed",
+        "accepted",
+        "rejected",
+        "superseded"
+      ]
+    },
+    "support_classification": {
+      "enum": [
+        "verified",
+        "strongly_supported",
+        "moderately_supported",
+        "weakly_supported",
+        "conflicting_evidence",
+        "unsupported",
+        "unable_to_determine"
+      ]
+    },
+    "supporting_evidence_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^EVD-sha256-[0-9a-f]{64}$"
+      }
+    },
+    "contradicting_evidence_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^EVD-sha256-[0-9a-f]{64}$"
+      }
+    },
+    "confidence_factors": {
+      "type": "object",
+      "propertyNames": {
+        "enum": [
+          "evidence_directness",
+          "source_quality",
+          "source_independence",
+          "methodology_quality",
+          "contradictory_evidence",
+          "evidence_coverage",
+          "citation_validity",
+          "reviewer_agreement",
+          "reviewer_independence",
+          "visual_certainty",
+          "ocr_dependency"
+        ]
+      },
+      "additionalProperties": {
+        "enum": [
+          "high",
+          "medium",
+          "low",
+          "unknown",
+          "not_applicable"
+        ]
+      },
+      "description": "Categorical factor ratings. Spec §23 forbids an aggregate numeric confidence score in v1."
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "scope": {
+      "type": "string"
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "citation_status": {
+      "enum": [
+        "not_checked",
+        "passed",
+        "partially_supported",
+        "related_not_supporting",
+        "failed"
+      ]
+    },
+    "contradiction_status": {
+      "enum": [
+        "none_found",
+        "resolved",
+        "unresolved",
+        "not_checked"
+      ]
+    },
+    "methodology_status": {
+      "type": "string"
+    },
+    "independent_review_status": {
+      "enum": [
+        "confirmed_independent",
+        "procedurally_isolated",
+        "not_confirmed",
+        "not_independent",
+        "not_yet_reviewed"
+      ]
+    },
+    "human_review_required": {
+      "type": "boolean"
+    },
+    "supersedes": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^CLM-[0-9a-fA-F-]{36}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^RUN-[0-9a-fA-F-]{36}$"
+    }
+  },
+  "$comment": "A numeric confidence score is forbidden outright, not merely discouraged.",
+  "not": {
+    "anyOf": [
+      {
+        "required": [
+          "confidence_score"
+        ]
+      },
+      {
+        "required": [
+          "confidence"
+        ]
+      },
+      {
+        "required": [
+          "certainty_score"
+        ]
+      }
+    ]
+  },
+  "allOf": [
+    {
+      "$comment": "Spec §38.5: every claim except an explicit insufficient-evidence finding must reference evidence.",
+      "if": {
+        "properties": {
+          "claim_type": {
+            "not": {
+              "const": "insufficient_evidence_finding"
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "supporting_evidence_ids": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "$comment": "Spec §23.1: `verified` is reserved for directly checkable facts. A causal, interpretive, or generalising claim can never be verified, no matter how much evidence accumulates.",
+      "if": {
+        "properties": {
+          "support_classification": {
+            "const": "verified"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "claim_type": {
+            "enum": [
+              "direct_fact",
+              "definition",
+              "descriptive_result"
+            ]
+          },
+          "citation_status": {
+            "const": "passed"
+          },
+          "contradiction_status": {
+            "enum": [
+              "none_found",
+              "resolved"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "$comment": "Spec §23.2: strongly_supported requires MULTIPLE evidence records and citations that passed review.",
+      "if": {
+        "properties": {
+          "support_classification": {
+            "const": "strongly_supported"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "supporting_evidence_ids": {
+            "minItems": 2
+          },
+          "citation_status": {
+            "enum": [
+              "passed",
+              "partially_supported"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "$comment": "An insufficient-evidence finding must not also claim support.",
+      "if": {
+        "properties": {
+          "claim_type": {
+            "const": "insufficient_evidence_finding"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "support_classification": {
+            "const": "unable_to_determine"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.automated-ai-research.org/v1/research-plan.schema.json",
+  "title": "ResearchPlan",
+  "description": "The plan produced by the planning stage. It must state, before any evidence is gathered, what would count as insufficient — otherwise 'unable_to_determine' becomes a judgement made after seeing how thin the evidence turned out to be.",
+  "type": "object",
+  "required": [
+    "schema_name",
+    "schema_version",
+    "artifact_id",
+    "artifact_hash",
+    "created_at",
+    "created_by",
+    "run_id",
+    "main_question",
+    "subquestions",
+    "insufficient_evidence_conditions"
+  ],
+  "properties": {
+    "schema_name": {
+      "type": "string"
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "artifact_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "artifact_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_by": {
+      "type": "object",
+      "required": [
+        "actor_type"
+      ],
+      "properties": {
+        "actor_type": {
+          "enum": [
+            "cli",
+            "host_agent",
+            "human"
+          ]
+        },
+        "host": {
+          "type": "string"
+        },
+        "model_identifier": {
+          "type": "string"
+        }
+      },
+      "not": {
+        "required": [
+          "reasoning_trace"
+        ]
+      }
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^RUN-[0-9a-fA-F-]{36}$"
+    },
+    "main_question": {
+      "type": "string",
+      "minLength": 1
+    },
+    "subquestions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "definitions": {
+      "type": "object"
+    },
+    "scope": {
+      "type": "string"
+    },
+    "inclusion_criteria": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "exclusion_criteria": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "search_terms": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "evidence_requirements": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "validation_criteria": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "expected_limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "high_risk": {
+      "type": "boolean"
+    },
+    "insufficient_evidence_conditions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "description": "Stated up front. Spec §12.1."
+    }
+  }
+}

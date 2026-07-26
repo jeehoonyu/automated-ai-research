@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.automated-ai-research.org/v1/document.schema.json",
+  "title": "Document",
+  "description": "An immutable original plus one normalized extraction of it.",
+  "type": "object",
+  "required": [
+    "schema_name",
+    "schema_version",
+    "artifact_id",
+    "artifact_hash",
+    "created_at",
+    "created_by",
+    "document_id",
+    "document_version_id",
+    "source_sha256",
+    "media_type",
+    "original_filename_aliases",
+    "stored_original",
+    "extraction_status"
+  ],
+  "properties": {
+    "schema_name": {
+      "type": "string"
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "artifact_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "artifact_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_by": {
+      "type": "object",
+      "required": [
+        "actor_type"
+      ],
+      "properties": {
+        "actor_type": {
+          "enum": [
+            "cli",
+            "host_agent",
+            "human"
+          ]
+        },
+        "host": {
+          "type": "string"
+        },
+        "model_identifier": {
+          "type": "string"
+        }
+      },
+      "not": {
+        "required": [
+          "reasoning_trace"
+        ]
+      }
+    },
+    "document_id": {
+      "type": "string",
+      "pattern": "^DOC-sha256-[0-9a-f]{64}$"
+    },
+    "document_version_id": {
+      "type": "string",
+      "pattern": "^DVER-sha256-[0-9a-f]{64}$"
+    },
+    "source_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "media_type": {
+      "type": "string"
+    },
+    "file_size_bytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "original_filename_aliases": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "stored_original": {
+      "type": "string"
+    },
+    "extraction_status": {
+      "enum": [
+        "extracted",
+        "partially_extracted",
+        "ambiguous",
+        "unsupported_format",
+        "ocr_required",
+        "processing_failed",
+        "human_review_required"
+      ]
+    },
+    "extraction_toolchain": {
+      "type": "object"
+    },
+    "extraction_warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "ocr_required_pages": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 1
+      }
+    },
+    "page_count": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "normalized_text_path": {
+      "type": "string"
+    },
+    "normalized_text_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "normalization_not_performed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "page_map": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "chunk_set_path": {
+      "type": "string"
+    },
+    "chunk_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "index_eligible_chunk_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "pages": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "sections": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "links": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "links_followed": {
+      "const": false,
+      "description": "Spec §5/§18: links are recorded, never fetched."
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "tables_status": {
+      "type": "string"
+    },
+    "figures_status": {
+      "type": "string"
+    }
+  }
+}

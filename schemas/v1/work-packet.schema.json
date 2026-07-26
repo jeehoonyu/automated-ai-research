@@ -1,0 +1,203 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.automated-ai-research.org/v1/work-packet.schema.json",
+  "title": "WorkPacket",
+  "description": "The contract handed to a host agent for one stage.",
+  "type": "object",
+  "required": [
+    "schema_name",
+    "schema_version",
+    "artifact_id",
+    "artifact_hash",
+    "created_at",
+    "created_by",
+    "packet_id",
+    "run_id",
+    "stage",
+    "workflow_version",
+    "allowed_inputs",
+    "excluded_inputs",
+    "required_outputs",
+    "completion_criteria",
+    "validation_command",
+    "trusted_instructions_header",
+    "untrusted_content_header"
+  ],
+  "properties": {
+    "schema_name": {
+      "type": "string"
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "artifact_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "artifact_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_by": {
+      "type": "object",
+      "required": [
+        "actor_type"
+      ],
+      "properties": {
+        "actor_type": {
+          "enum": [
+            "cli",
+            "host_agent",
+            "human"
+          ]
+        },
+        "host": {
+          "type": "string"
+        },
+        "model_identifier": {
+          "type": "string"
+        }
+      },
+      "not": {
+        "required": [
+          "reasoning_trace"
+        ]
+      }
+    },
+    "packet_id": {
+      "type": "string",
+      "pattern": "^PKT-[0-9a-fA-F-]{36}$"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^RUN-[0-9a-fA-F-]{36}$"
+    },
+    "stage": {
+      "type": "string"
+    },
+    "workflow_version": {
+      "type": "string"
+    },
+    "schema_versions": {
+      "type": "object"
+    },
+    "research_question": {
+      "type": "string"
+    },
+    "profile": {
+      "type": "string"
+    },
+    "allowed_inputs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "excluded_inputs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "required_outputs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "completion_criteria": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "failure_conditions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "human_review_triggers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "validation_command": {
+      "type": "string",
+      "minLength": 1
+    },
+    "trusted_instructions_header": {
+      "const": "TRUSTED WORKFLOW INSTRUCTIONS"
+    },
+    "untrusted_content_header": {
+      "const": "UNTRUSTED DOCUMENT CONTENT"
+    },
+    "untrusted_content_policy": {
+      "type": "string"
+    },
+    "performed_by": {
+      "enum": [
+        "host_agent",
+        "cli"
+      ]
+    },
+    "acceptance_note": {
+      "type": "string"
+    },
+    "insufficient_evidence_note": {
+      "type": "string"
+    },
+    "requires_fresh_context": {
+      "type": "boolean"
+    },
+    "independence_note": {
+      "type": "string"
+    }
+  },
+  "allOf": [
+    {
+      "$comment": "Spec §13: the independent-review packet must exclude the primary agent's reasoning and confidence, or the review is not independent.",
+      "if": {
+        "properties": {
+          "stage": {
+            "const": "independent_review"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "excluded_inputs": {
+            "allOf": [
+              {
+                "contains": {
+                  "const": "primary_rationale"
+                }
+              },
+              {
+                "contains": {
+                  "const": "primary_confidence"
+                }
+              },
+              {
+                "contains": {
+                  "const": "previous_review_conclusions"
+                }
+              }
+            ]
+          },
+          "requires_fresh_context": {
+            "const": true
+          }
+        }
+      }
+    }
+  ]
+}
