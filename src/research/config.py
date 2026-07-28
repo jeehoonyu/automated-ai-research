@@ -117,7 +117,8 @@ def find_workspace_root(start: str | Path | None = None) -> Path | None:
     return None
 
 
-def load_workspace(explicit: str | Path | None = None, *, start: str | Path | None = None) -> Workspace:
+def load_workspace(explicit: str | Path | None = None, *,
+                   start: str | Path | None = None) -> Workspace:
     """Resolve and load a workspace, or raise with an actionable message."""
     if explicit is not None:
         root = Path(explicit).resolve()
@@ -153,5 +154,6 @@ def load_workspace(explicit: str | Path | None = None, *, start: str | Path | No
 def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     out = dict(base)
     for k, v in override.items():
-        out[k] = _deep_merge(base[k], v) if isinstance(v, dict) and isinstance(base.get(k), dict) else v
+        nested = isinstance(v, dict) and isinstance(base.get(k), dict)
+        out[k] = _deep_merge(base[k], v) if nested else v
     return out

@@ -74,8 +74,8 @@ def safe_join(root: str | Path, *parts: str) -> Path:
     #
     # An earlier version walked up to the deepest *existing* ancestor and checked that instead. That
     # was wrong in a way worth recording: when the root itself did not exist yet — creating
-    # `runs/<run-id>/packets/` under a fresh run directory — the walk climbed ABOVE the root, and the
-    # containment test then failed on a perfectly legitimate path. A security check that rejects
+    # `runs/<run-id>/packets/` under a fresh run directory — the walk climbed ABOVE the root, and
+    # the containment test then failed on a perfectly legitimate path. A security check that rejects
     # correct behaviour gets relaxed or removed, so a false positive here is not a safe failure.
     if not contains(root_r, candidate):
         raise UnsafePathError(

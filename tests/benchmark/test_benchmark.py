@@ -142,7 +142,8 @@ def _evidence_from(ws, doc, run_dir, *, page: int | None = None, status: str = "
     return eid
 
 
-def _reviews(ws, run_dir, rid, cid, *, citation_support="passed", independence="procedurally_isolated"):
+def _reviews(ws, run_dir, rid, cid, *, citation_support="passed",
+             independence="procedurally_isolated"):
     for rtype, extra in (
         ("contradiction_review", {}),
         ("citation_review", {"per_claim": [{"claim_id": cid, "assessment": "assessed",
@@ -321,7 +322,7 @@ def test_B10_verified_is_refused_for_a_broader_conclusion_at_the_schema_layer(wo
 
 
 def test_every_declared_case_has_a_test():
-    """The case table is the contract; a case with no test is a claim of coverage that is not one."""
+    """The case table is the contract; a case with no test is a coverage claim that is not one."""
     declared = {c["id"] for c in CASES["cases"]}
     exercised = {"B1", "B9", "B10"} | set(
         test_each_seeded_defect_is_caught_by_its_own_mechanism.pytestmark[0].args[1])

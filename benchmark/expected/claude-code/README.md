@@ -70,6 +70,33 @@ leak. A host that declares `confirmed_independent` while quietly leaking the pri
 would pass every gate. The mitigation is the packet's explicit exclusion list — and it failed on its
 first real use, by the author of the packet.
 
+## These two runs have since been downgraded
+
+That finding became the next goal (`GOAL.md`), and the platform now has
+`check_independence_attested`: `confirmed_independent` requires a `ReviewContext` artifact recording
+the text the host attests it gave the reviewer, which validation scans for excluded material.
+
+**Both runs below declare `confirmed_independent` and attest no context**, because attestation did
+not exist when they ran. Under the current validator that is `not_evaluated`, which blocks. The
+honest description of these artifacts today is:
+
+| | as recorded | under the current rule |
+|---|---|---|
+| independence status | `confirmed_independent` | not established — no attested context |
+| run A outcome | blocked on `contradictions_disclosed` | blocked, on that gate **and** this one |
+| run B outcome | published | **would not publish** |
+
+They are kept unmodified and marked down rather than re-run or exempted. A `workflow_version`
+carve-out for "runs made before the rule" is how a gate becomes decorative, and this repository
+already carries three write-ups of that exact pattern. `tests/unit/test_docs.py` pins the downgrade
+so it cannot quietly lapse.
+
+**What this does not change.** The evidence for gate 38.6 — that the contradiction was *discovered*
+by searching for disagreement rather than handed to the agent — does not depend on the reviewer's
+independence tier and still stands. Nor do the two runs' verdicts about the corpus. What no longer
+stands is the claim that the reviews were demonstrably independent; that claim was always a
+declaration, and it is now visibly one.
+
 ## Reproducing
 
 ```bash

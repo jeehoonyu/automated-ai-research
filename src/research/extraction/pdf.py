@@ -52,7 +52,7 @@ def _toolchain_versions() -> dict[str, str]:
     """Recorded into document_version_id: a parser upgrade produces a NEW version rather than
     silently moving text under an existing citation."""
     import pypdf
-    import pypdfium2
+    import pypdfium2  # type: ignore[import-untyped]  # ships no py.typed marker
 
     versions = {"pypdf": getattr(pypdf, "__version__", "unknown"),
                 "pypdfium2": getattr(pypdfium2, "V_PYPDFIUM2", "unknown")}
@@ -208,8 +208,8 @@ def _render_pages(source: Path, pages: list[PageResult], render_dir: Path, *,
     finally:
         try:
             doc.close()
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception:  # noqa: BLE001,S110 — closing a doc we are done with; the
+            pass       # extraction result is already built and a close error cannot affect it
 
 
 def page_text_sha256(text: str) -> str:

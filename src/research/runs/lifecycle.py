@@ -13,9 +13,9 @@ So a blocked run is `phase=synthesized, disposition=human_review_required`. Prog
 the block is explicit, and resuming is unambiguous.
 
 WHY ADVANCEMENT IS ONE STEP AT A TIME. The spec's invalid-transition examples (`initialized` →
-`published`, `retrieved` → `independently_reviewed`) are all skips. Permitting a jump would let a run
-reach `published` without the stages in between ever producing an artifact — which is the difference
-between a report that passed review and one that merely says it did.
+`published`, `retrieved` → `independently_reviewed`) are all skips. Permitting a jump would let a
+run reach `published` without the stages in between ever producing an artifact — which is the
+difference between a report that passed review and one that merely says it did.
 """
 
 from __future__ import annotations

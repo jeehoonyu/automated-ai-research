@@ -90,7 +90,8 @@ def make_text_locator(
 def resolve_text_locator(locator: dict[str, Any], normalized_text: str) -> ResolutionResult:
     """Resolve a text locator against the normalized text it was built from."""
     if locator.get("type") != "text_span":
-        return ResolutionResult(Resolution.INVALID, detail=f"not a text_span: {locator.get('type')!r}")
+        return ResolutionResult(Resolution.INVALID,
+                                detail=f"not a text_span: {locator.get('type')!r}")
     try:
         start = int(locator["start_offset"])
         end = int(locator["end_offset"])

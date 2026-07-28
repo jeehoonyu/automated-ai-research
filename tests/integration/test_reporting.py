@@ -13,12 +13,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from research.artifacts.io import read_artifact  # noqa: E402
 from research.artifacts.registry import validate_artifact  # noqa: E402
 from research.errors import ReportGatingError  # noqa: E402
-from research.reporting.language import check_claim_language, scan_claims  # noqa: E402
+from research.reporting.language import check_claim_language  # noqa: E402
 from research.reporting.renderer import render_report  # noqa: E402
 from research.validation.validator import validate_run  # noqa: E402
-
-# reuse the complete-run fixture from the validation suite
-from .test_validation import complete_run  # noqa: E402,F401
 
 
 def _read(path: str) -> str:

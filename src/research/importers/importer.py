@@ -55,12 +55,15 @@ def discover_sources(paths: list[str | Path]) -> tuple[list[Path], list[ImportOu
         p = Path(raw)
         if p.is_dir():
             for child in sorted(p.rglob("*")):
-                if child.is_file():
-                    (found if child.suffix.lower() in MEDIA_TYPES else skipped).append(
-                        child if child.suffix.lower() in MEDIA_TYPES
-                        else ImportOutcome(path=str(child),
-                                           extraction_status=ExtractionStatus.UNSUPPORTED_FORMAT,
-                                           error=f"unsupported extension {child.suffix!r}"))
+                if not child.is_file():
+                    continue
+                if child.suffix.lower() in MEDIA_TYPES:
+                    found.append(child)
+                else:
+                    skipped.append(ImportOutcome(
+                        path=str(child),
+                        extraction_status=ExtractionStatus.UNSUPPORTED_FORMAT,
+                        error=f"unsupported extension {child.suffix!r}"))
         elif p.is_file():
             if p.suffix.lower() in MEDIA_TYPES:
                 found.append(p)

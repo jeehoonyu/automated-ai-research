@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.automated-ai-research.org/v1/review-context.schema.json",
+  "title": "ReviewContext",
+  "description": "The context a host attests it handed to a reviewer. `reviewer_independence_sufficient` otherwise decides by reading a boolean the host wrote about itself; this artifact is the thing it can actually inspect. It records what was sent, not what should have been sent.",
+  "type": "object",
+  "required": [
+    "schema_name",
+    "schema_version",
+    "artifact_id",
+    "artifact_hash",
+    "created_at",
+    "created_by",
+    "context_id",
+    "run_id",
+    "review_id",
+    "content",
+    "content_sha256",
+    "attestation"
+  ],
+  "properties": {
+    "schema_name": {
+      "type": "string"
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "artifact_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "artifact_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_by": {
+      "type": "object",
+      "required": [
+        "actor_type"
+      ],
+      "properties": {
+        "actor_type": {
+          "enum": [
+            "cli",
+            "host_agent",
+            "human"
+          ]
+        },
+        "host": {
+          "type": "string"
+        },
+        "model_identifier": {
+          "type": "string"
+        }
+      },
+      "not": {
+        "required": [
+          "reasoning_trace"
+        ]
+      }
+    },
+    "context_id": {
+      "type": "string",
+      "pattern": "^CTX-sha256-[0-9a-f]{64}$"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^RUN-[0-9a-fA-F-]{36}$"
+    },
+    "review_id": {
+      "type": "string",
+      "pattern": "^REV-[0-9a-fA-F-]{36}$"
+    },
+    "stage": {
+      "type": "string",
+      "minLength": 1
+    },
+    "content": {
+      "type": "string"
+    },
+    "content_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "transmitted_to": {
+      "type": "object",
+      "required": [
+        "actor_type"
+      ],
+      "properties": {
+        "actor_type": {
+          "enum": [
+            "host_agent",
+            "human"
+          ]
+        },
+        "host": {
+          "type": "string"
+        },
+        "model_identifier": {
+          "type": "string"
+        }
+      }
+    },
+    "attestation": {
+      "type": "object",
+      "required": [
+        "complete",
+        "method"
+      ],
+      "properties": {
+        "complete": {
+          "type": "boolean"
+        },
+        "method": {
+          "enum": [
+            "verbatim_transcript",
+            "reconstructed",
+            "partial"
+          ]
+        },
+        "note": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$comment": "A context attested as COMPLETE must be the verbatim transcript. A reconstructed or partial record cannot support the claim that nothing else was sent, and a clean scan of a partial record proves nothing.",
+      "if": {
+        "properties": {
+          "attestation": {
+            "properties": {
+              "complete": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "attestation": {
+            "properties": {
+              "method": {
+                "const": "verbatim_transcript"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

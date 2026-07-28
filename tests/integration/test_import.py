@@ -1,6 +1,7 @@
 """Phase 2 integration tests: import, extraction, deduplication, and honest statuses.
 
-These exercise the release gates in spec §38.1 (import determinism) and §38.2 (extraction integrity).
+These exercise the release gates in spec §38.1 (import determinism) and §38.2 (extraction
+integrity).
 """
 
 from __future__ import annotations
@@ -37,7 +38,7 @@ def sources(tmp_path: Path) -> dict[str, Path]:
 
 def test_same_bytes_produce_the_same_document_id(ws, sources, tmp_path: Path):
     a = import_paths(ws, [sources["markdown"]])
-    other = init_workspace(tmp_path / "ws2")
+    init_workspace(tmp_path / "ws2")
     ws2 = load_workspace(tmp_path / "ws2")
     b = import_paths(ws2, [sources["markdown"]])
     assert a["document_ids"] == b["document_ids"]
@@ -80,7 +81,8 @@ def test_originals_are_stored_content_addressed_and_unmodified(ws, sources):
 def test_import_events_are_append_only(ws, sources):
     import_paths(ws, [sources["markdown"]])
     import_paths(ws, [sources["markdown"]])
-    lines = (ws.root / "imports" / "import-events.jsonl").read_text(encoding="utf-8").strip().split("\n")
+    log = ws.root / "imports" / "import-events.jsonl"
+    lines = log.read_text(encoding="utf-8").strip().split("\n")
     assert len(lines) == 2
     assert json.loads(lines[1])["duplicate"] is True
 

@@ -5,7 +5,8 @@ special-casing. The exit codes are part of the public contract (spec section 34)
 stable across releases.
 
 DESIGN NOTE - fail closed. `human_review_required` and `unable_to_determine` are *successful*
-research outcomes, not failures (spec sections 23.3, 44), but they still get distinct machine-readable
+research outcomes, not failures (spec sections 23.3, 44), but they still get distinct
+machine-readable
 statuses so automation can branch on them. The inverse mistake - a gate that cannot return the bad
 verdict - is the failure mode this whole platform exists to prevent, so "not measurable" is never
 allowed to read as "passed".

@@ -7,11 +7,12 @@ lexical overlap, and letting a retrieval score leak into an evidence-quality fie
 "the search ranked it first" becomes "the source supports the claim".
 
 QUERY SAFETY. FTS5 has its own expression language — `AND`, `OR`, `NOT`, `NEAR`, `*`, `^`, `:`,
-column filters, and quoted phrases. Passing user text straight to `MATCH` means a query containing an
-apostrophe or a stray quote is a syntax error, and one containing `NOT` silently means something the
-user did not ask for. Worse, imported document text can reach a query through an agent, and document
-content is untrusted (spec §3.9). Every query is therefore reduced to quoted literal terms; the exact
-transformation is returned in `query_normalization` so a retrieval log is reproducible and auditable.
+column filters, and quoted phrases. Passing user text straight to `MATCH` means a query containing
+an apostrophe or a stray quote is a syntax error, and one containing `NOT` silently means something
+the user did not ask for. Worse, imported document text can reach a query through an agent, and
+document content is untrusted (spec §3.9). Every query is therefore reduced to quoted literal terms;
+the exact transformation is returned in `query_normalization` so a retrieval log is reproducible and
+auditable.
 """
 
 from __future__ import annotations
@@ -142,6 +143,8 @@ def search(
     # DETERMINISTIC ORDERING. SQLite's bm25() returns NEGATIVE scores where a lower (more negative)
     # value is a better match, so best-first is ASC. Ties are broken by document_id, then page, then
     # chunk_id — all total orders — so two runs over the same index cannot disagree.
+    # S608 is suppressed deliberately: `where` holds only literal fragments built above, and every
+    # user-supplied value is a bound parameter in `params`. No caller text reaches the SQL string.
     sql = f"""
         SELECT c.*, bm25(chunks_fts) AS bm25_score,
                snippet(chunks_fts, 0, '', '', '…', 24) AS snip
@@ -153,7 +156,7 @@ def search(
                  CASE WHEN c.page IS NULL THEN -1 ELSE c.page END ASC,
                  c.chunk_id ASC
         LIMIT ?
-    """
+    """  # noqa: S608
     params.append(limit)
 
     conn = open_index(ws)

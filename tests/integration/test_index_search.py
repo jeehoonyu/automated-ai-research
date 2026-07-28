@@ -18,8 +18,8 @@ from research.artifacts.io import read_artifact  # noqa: E402
 from research.artifacts.locators import resolve_text_locator  # noqa: E402
 from research.config import load_workspace  # noqa: E402
 from research.errors import InvalidArguments, SourceProcessingError  # noqa: E402
-from research.indexing.builder import DB_RELPATH, build_index  # noqa: E402
 from research.importers.importer import import_paths  # noqa: E402
+from research.indexing.builder import DB_RELPATH, build_index  # noqa: E402
 from research.search.engine import normalize_query, search  # noqa: E402
 from research.workspace import init_workspace  # noqa: E402
 
@@ -77,7 +77,8 @@ def test_index_hash_changes_when_the_corpus_changes(tmp_path: Path, sources):
 
 
 def test_sqlite_file_hash_is_recorded_separately_from_the_index_hash(indexed):
-    """Database bytes vary across SQLite builds, so they must not carry the reproducibility claim."""
+    """Database bytes vary across SQLite builds, so they must not carry the reproducibility
+    claim."""
     ws, result = indexed
     manifest = read_artifact(ws.root / "indexes" / "index-manifest.json",
                              expect_schema="IndexManifest")

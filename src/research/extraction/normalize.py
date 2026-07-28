@@ -1,8 +1,8 @@
 """Normalization: one canonical text per document version, with a page map.
 
 THE CONTRACT. Every text locator in this platform is a pair of **Python Unicode code-point offsets
-into the exact normalized text stored for that document version** (spec §20). That text is written to
-disk and hashed. Resolving a citation is therefore a slice, not a search — which is what makes
+into the exact normalized text stored for that document version** (spec §20). That text is written
+to disk and hashed. Resolving a citation is therefore a slice, not a search — which is what makes
 "does this quote actually appear at this location" a decidable question rather than a fuzzy one.
 
 Two consequences that drive the design:
@@ -104,8 +104,8 @@ def normalize_text(raw: str) -> str:
 
     NFC composition means a quote copied from a rendered page compares equal to the stored text even
     when one side used decomposed accents. Line endings are unified so an offset does not depend on
-    whether the source used CRLF. Trailing whitespace is stripped per line because it is invisible in
-    a quote and would otherwise cause spurious mismatches.
+    whether the source used CRLF. Trailing whitespace is stripped per line because it is invisible
+    in a quote and would otherwise cause spurious mismatches.
     """
     text = raw.replace("\x00", "")
     text = text.replace("\r\n", "\n").replace("\r", "\n")

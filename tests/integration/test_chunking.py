@@ -26,7 +26,6 @@ from research.artifacts.locators import (  # noqa: E402
 from research.config import load_workspace  # noqa: E402
 from research.extraction.chunking import chunk_document  # noqa: E402
 from research.extraction.normalize import (  # noqa: E402
-    normalize_pdf,
     normalize_text,
 )
 from research.importers.importer import import_paths  # noqa: E402
@@ -86,7 +85,7 @@ def test_page_map_covers_every_page_without_overlap(ws, sources):
     manifest = read_artifact(out["manifest_paths"][0], expect_schema="Document")
     spans = sorted(manifest["page_map"], key=lambda s: s["start_offset"])
     assert [s["page_number"] for s in spans] == [1, 2]
-    for a, b in zip(spans, spans[1:]):
+    for a, b in zip(spans, spans[1:], strict=False):
         assert a["end_offset"] <= b["start_offset"], "page spans must not overlap"
 
 
@@ -172,13 +171,12 @@ def test_smaller_target_produces_more_chunks(ws, sources):
 
 def test_chunks_cover_the_page_text_without_gaps(ws, sources):
     out = import_paths(ws, [sources["text_pdf"]])
-    manifest = read_artifact(out["manifest_paths"][0], expect_schema="Document")
     by_page: dict[int, list[dict]] = {}
     for chunk in _chunks(ws, out)["chunks"]:
         by_page.setdefault(chunk["page"], []).append(chunk)
-    for page, chunks in by_page.items():
+    for chunks in by_page.values():
         chunks.sort(key=lambda c: c["start_offset"])
-        for a, b in zip(chunks, chunks[1:]):
+        for a, b in zip(chunks, chunks[1:], strict=False):
             assert b["start_offset"] == a["end_offset"], "chunks must tile their page contiguously"
 
 

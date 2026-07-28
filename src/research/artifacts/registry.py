@@ -16,7 +16,7 @@ never accepted the bad data.
 from __future__ import annotations
 
 import json
-from functools import lru_cache
+from functools import cache
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +33,7 @@ SCHEMA_FILES: dict[str, str] = {
     "Evidence": "evidence",
     "Claim": "claim",
     "Review": "review",
+    "ReviewContext": "review-context",
     "ValidationResult": "validation-result",
     "Amendment": "amendment",
     "SourceRelationship": "source-relationship",
@@ -43,7 +44,7 @@ SCHEMA_FILES: dict[str, str] = {
 }
 
 
-@lru_cache(maxsize=None)
+@cache
 def _load(schema_name: str, major: int = SUPPORTED_MAJOR) -> dict[str, Any]:
     stem = SCHEMA_FILES.get(schema_name)
     if stem is None:
@@ -55,11 +56,12 @@ def _load(schema_name: str, major: int = SUPPORTED_MAJOR) -> dict[str, Any]:
         raise SchemaValidationError(f"schema file is missing: {path}",
                                     detail={"schema_name": schema_name, "path": str(path)})
     with open(path, encoding="utf-8") as fh:
-        return json.load(fh)
+        loaded: dict[str, Any] = json.load(fh)
+    return loaded
 
 
-@lru_cache(maxsize=None)
-def _validator(schema_name: str, major: int = SUPPORTED_MAJOR):
+@cache
+def _validator(schema_name: str, major: int = SUPPORTED_MAJOR) -> Any:
     import jsonschema
 
     return jsonschema.Draft202012Validator(_load(schema_name, major))
@@ -72,8 +74,8 @@ def known_schemas() -> list[str]:
 def _nearest_rule(schema_doc: dict[str, Any], error: Any) -> str | None:
     """Find the `$comment` on the closest enclosing subschema.
 
-    The constraint that actually fails is usually a leaf (`enum`, `minItems`), while the spec rule it
-    encodes is written on the `if/then` wrapper above it. Reporting only the leaf gives an agent
+    The constraint that actually fails is usually a leaf (`enum`, `minItems`), while the spec rule
+    it encodes is written on the `if/then` wrapper above it. Reporting only the leaf gives an agent
     "'causal_claim' is not one of ['direct_fact', ...]" with no hint that the rule is "`verified` is
     reserved for directly checkable facts" — so walk outward until a rule is found.
     """

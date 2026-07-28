@@ -23,6 +23,7 @@ EVIDENCE_ID = {"type": "string", "pattern": "^EVD-sha256-[0-9a-f]{64}$"}
 CLAIM_ID = {"type": "string", "pattern": "^CLM-[0-9a-fA-F-]{36}$"}
 REVIEW_ID = {"type": "string", "pattern": "^REV-[0-9a-fA-F-]{36}$"}
 RUN_ID = {"type": "string", "pattern": "^RUN-[0-9a-fA-F-]{36}$"}
+CONTEXT_ID = {"type": "string", "pattern": "^CTX-sha256-[0-9a-f]{64}$"}
 
 EXTRACTION_STATUS = ["extracted", "partially_extracted", "ambiguous", "unsupported_format",
                      "ocr_required", "processing_failed", "human_review_required"]
@@ -664,6 +665,50 @@ SCHEMAS["report-manifest"] = schema(
             "if": {"properties": {"draft": {"const": False}}},
             "then": {"required": ["validation_result_hash"],
                      "properties": {"validation_result_hash": SHA}},
+        }]
+    })
+
+
+SCHEMAS["review-context"] = schema(
+    "review-context", "ReviewContext",
+    "The context a host attests it handed to a reviewer. `reviewer_independence_sufficient` "
+    "otherwise decides by reading a boolean the host wrote about itself; this artifact is the thing "
+    "it can actually inspect. It records what was sent, not what should have been sent.",
+    {
+        "context_id": CONTEXT_ID,
+        "run_id": RUN_ID,
+        "review_id": REVIEW_ID,
+        "stage": {"type": "string", "minLength": 1},
+        "content": {"type": "string"},
+        "content_sha256": SHA,
+        "transmitted_to": {
+            "type": "object",
+            "required": ["actor_type"],
+            "properties": {
+                "actor_type": {"enum": ["host_agent", "human"]},
+                "host": {"type": "string"},
+                "model_identifier": {"type": "string"},
+            },
+        },
+        "attestation": {
+            "type": "object",
+            "required": ["complete", "method"],
+            "properties": {
+                "complete": {"type": "boolean"},
+                "method": {"enum": ["verbatim_transcript", "reconstructed", "partial"]},
+                "note": {"type": "string"},
+            },
+        },
+    },
+    ["context_id", "run_id", "review_id", "content", "content_sha256", "attestation"],
+    {
+        "allOf": [{
+            "$comment": "A context attested as COMPLETE must be the verbatim transcript. A "
+                        "reconstructed or partial record cannot support the claim that nothing "
+                        "else was sent, and a clean scan of a partial record proves nothing.",
+            "if": {"properties": {"attestation": {"properties": {"complete": {"const": True}}}}},
+            "then": {"properties": {"attestation": {"properties": {
+                "method": {"const": "verbatim_transcript"}}}}},
         }]
     })
 

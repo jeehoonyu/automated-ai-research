@@ -10,8 +10,8 @@ THREE RULES THAT MATTER
    citation derived from it is ambiguous about which page to name.
 
 2. **Offsets are absolute into the normalized document text.** A chunk records where it came from,
-   so evidence inside it resolves without needing the chunk itself. Chunk boundaries must not destroy
-   the ability to resolve evidence back to the source (spec §19).
+   so evidence inside it resolves without needing the chunk itself. Chunk boundaries must not
+   destroy the ability to resolve evidence back to the source (spec §19).
 
 3. **A chunk from an `ocr_required` page is stored but NOT index-eligible.** No OCR ships in v1, so
    that page's text is whatever the extractor scraped from an image — usually noise. Letting it into
@@ -110,6 +110,7 @@ def chunk_document(
     statuses = page_statuses or {}
 
     # Segment by page for PDFs; a single whole-document segment for Markdown.
+    segments: list[tuple[int, int, int | None]]
     if doc.page_map:
         segments = [(p.start_offset, p.end_offset, p.page_number) for p in doc.page_map]
     else:

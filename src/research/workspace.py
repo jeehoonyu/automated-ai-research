@@ -8,7 +8,7 @@ two different standards of evidence (spec section 10).
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -85,7 +85,7 @@ def init_workspace(
 
     config = dict(DEFAULT_CONFIG)
     config["default_profile"] = profile
-    config["created_at"] = datetime.now(timezone.utc).isoformat()
+    config["created_at"] = datetime.now(UTC).isoformat()
     atomic_write_text(
         root / WORKSPACE_FILE,
         "# Automated AI Research workspace configuration.\n"

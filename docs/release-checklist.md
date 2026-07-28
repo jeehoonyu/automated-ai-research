@@ -13,7 +13,7 @@ a checklist that only records successes is a marketing document.
 | **38.4 Citation resolution** | met | every emitted citation resolves; `span_mismatch` distinguishes a moved quote from a missing one; dangling references block |
 | **38.5 Claim support** | met | claims without evidence rejected; related-but-non-supporting citations rejected (benchmark B3); `verified` refused for causal claims at the schema layer |
 | **38.6 Contradiction detection** | met | a seeded contradiction attached to a claim is surfaced and blocks (B4), **and** the Claude Code conformance run *discovered* the contradiction by searching for disagreement rather than being handed it — see `benchmark/expected/claude-code/` |
-| **38.7 Independent review** | met | packet excludes the prohibited context; status recorded; insufficient independence blocks; high-risk profiles require `confirmed_independent` |
+| **38.7 Independent review** | met | packet excludes the prohibited context; status recorded; insufficient independence blocks; high-risk profiles require `confirmed_independent`, which now additionally requires an attested reviewer context that validation scans for leaks (`independence_context_attested`) |
 | **38.8 Artifact validation** | met | all artifacts validate without manual repair; hashes verified on read; invalid lifecycle transitions rejected; unsupported schema versions fail clearly |
 | **38.9 Report gating** | met | invalid citations and missing reviews block; disclosures emitted; report language checked against validated classification |
 | **38.10 Cross-host benchmark** | **half met** | **Claude Code has completed the benchmark** — two runs, artifacts committed under `benchmark/expected/claude-code/`, one correctly blocked and one published, zero `not_evaluated` in either. **Codex has not been run.** The gate requires both. |
@@ -43,6 +43,12 @@ The run exposed two defects, both recorded in that directory's README: a validat
 `verified` to correctly-scoped single-source facts (now fixed, with regression tests), and an
 independence violation by the primary agent — the first review packet leaked the primary's
 classification, which nothing in the CLI could have detected.
+
+**Both runs have since been downgraded.** `check_independence_attested` now requires a `ReviewContext`
+artifact behind any `confirmed_independent` declaration. These runs declare it and attest nothing,
+so under the current validator they are `not_evaluated` on that check — which blocks. They are kept
+unmodified and marked down rather than exempted; `tests/unit/test_docs.py` pins the downgrade. Gate
+38.6's discovery evidence and both runs' verdicts are unaffected.
 
 ### Remaining — Codex
 
@@ -100,9 +106,22 @@ Finally, wire that command into CI.
 - [x] Research profiles (`default`, `medicine`)
 - [x] Redistributable benchmark with no copyrighted material
 - [x] Test suite green
+- [x] `ruff check src tests` clean — **it had never been run.** Triggering CI for the first time on
+  2026-07-28 exposed 102 findings, including three security lints (`S608` SQL construction, `S701`
+  Jinja autoescape, `S110` swallowed exception) that were correct but undocumented, and one shared
+  fixture imported across test modules. All fixed or annotated with the reason.
+- [x] `mypy --strict src/research` clean — **also never run**; 17 errors. Two were worth having:
+  `rel` was bound twice in `check_source_independence` (once as the relationship artifact, once as
+  its type string), and `discover_sources` chose its destination list and its value in two separate
+  ternaries. Both were runtime-correct and both were confusing.
 - [~] Cross-host conformance runs — Claude Code done, Codex outstanding
 - [x] CI configuration (`.github/workflows/ci.yml`) — Linux, macOS, Windows
-- [ ] Verified on Linux and macOS — CI covers all three, but no run has executed yet
+- [ ] Verified on Linux and macOS — **still not met, and the reason has changed.** The workflow has
+  now been triggered once (2026-07-28). Every job was cancelled by GitHub before starting:
+  *"recent account payments have failed or your spending limit needs to be increased"*. Private
+  repositories bill Actions minutes; this repository is private. Fixing it is an account setting —
+  raise the Actions spending limit, or run CI from a public mirror. Until a run completes, the
+  suite has only ever executed on Windows.
 - [x] `pip install` from a built wheel verified in a clean environment (package data ships)
 
 ## Known limitations to state in release notes

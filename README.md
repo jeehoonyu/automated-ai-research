@@ -55,7 +55,7 @@ output checkable.
   outright, OCR-dependent evidence must demand human review, and an independent review must declare
   its independence.
 
-- **Phase 7 (validation and gating)** — 17 checks covering source hashes, locator resolution,
+- **Phase 7 (validation and gating)** — 19 checks covering source hashes, locator resolution,
   claim-evidence links, review completeness, reviewer independence, OCR and visual certainty,
   contradiction disclosure, support classifications, and lifecycle replay. Each check reports
   `passed` / `failed` / `not_evaluated` / `not_applicable`, and **`not_evaluated` blocks publication
@@ -79,7 +79,7 @@ output checkable.
   `CONTRIBUTING.md`, a changelog, CI across Linux/macOS/Windows, and a release checklist that lists
   what is **not** met.
 
-278 tests. A stage is complete only when its artifact exists **and** validates — never because a
+302 tests. A stage is complete only when its artifact exists **and** validates — never because a
 file appeared.
 
 ### What is not established
@@ -94,8 +94,23 @@ discovered contradiction and one published, with zero `not_evaluated` checks in 
 That run also exposed two defects worth knowing about: a validator bug that refused `verified` to
 correctly-scoped single-source facts (fixed), and an independence violation by the primary agent —
 the first review packet leaked the primary's own classification, which **nothing in the CLI could
-have detected**. Independence is self-declared; the platform enforces the consequences of the
-declaration, not its truthfulness.
+have detected**.
+
+The second one became the next goal, and is now partly closed: `confirmed_independent` requires a
+`ReviewContext` artifact recording the text the host attests it gave the reviewer, which validation
+scans for excluded material. See [`GOAL.md`](GOAL.md) and
+[`docs/validation-rules.md`](docs/validation-rules.md). This catches an *accidental* leak and makes a
+deliberate one require falsifying a hashed record — it does not make independence verifiable. A host
+that sends a leaky context and attests a clean one still passes.
+
+Applying that rule to our own evidence, **both committed conformance runs are downgraded**: they
+declare `confirmed_independent`, attest no context, and would now be blocked rather than
+grandfathered.
+
+**CI has still never executed.** The first run on this repository was cancelled by GitHub before any
+job started — private repositories bill Actions minutes, and the account's billing is blocked. That
+is an account setting rather than a code defect, but "Verified on Linux and macOS" remains
+unchecked either way.
 
 ## Install
 
@@ -139,11 +154,12 @@ instructions from untrusted document content explicitly.
 ## Documentation
 
 - `PROJECT_GOAL.md` — the full specification (authoritative)
+- [`GOAL.md`](GOAL.md) — the current working goal against it, and what would count as meeting it
 - `docs/lessons-carried-forward.md` — failures from a predecessor project and where each is now
   enforced. Worth reading before changing any gate.
 - [`docs/architecture.md`](docs/architecture.md) — trust boundaries, authority model, determinism
 - [`docs/security-model.md`](docs/security-model.md) — threat model, and what is *not* protected
-- [`docs/validation-rules.md`](docs/validation-rules.md) — the 18 checks and why `not_evaluated` blocks
+- [`docs/validation-rules.md`](docs/validation-rules.md) — the 19 checks and why `not_evaluated` blocks
 - [`docs/release-checklist.md`](docs/release-checklist.md) — gate status, including the unmet one
 - [`benchmark/README.md`](benchmark/README.md) — the corpus and the ten cases
 - [`CONTRIBUTING.md`](CONTRIBUTING.md), [`SECURITY.md`](SECURITY.md), [`CHANGELOG.md`](CHANGELOG.md)

@@ -7,8 +7,8 @@ halfway through and leave nine pages of twenty.
 
 The single most dangerous outcome in this platform is an empty extraction silently presenting as a
 document with no relevant content, because "we found nothing" and "there is nothing to find" then
-become indistinguishable to every downstream stage. Every document and every page therefore carries an
-explicit status, and only one of the seven means the text can be trusted as evidence.
+become indistinguishable to every downstream stage. Every document and every page therefore carries
+an explicit status, and only one of the seven means the text can be trusted as evidence.
 """
 
 from __future__ import annotations
@@ -92,7 +92,8 @@ def worst(statuses: list[ExtractionStatus]) -> ExtractionStatus:
         if candidate in statuses:
             # "all pages extracted" only when every page is; otherwise the worst present status,
             # except that a mix of extracted and ocr_required is PARTIALLY extracted overall.
-            if candidate is ExtractionStatus.OCR_REQUIRED and ExtractionStatus.EXTRACTED in statuses:
+            if (candidate is ExtractionStatus.OCR_REQUIRED
+                    and ExtractionStatus.EXTRACTED in statuses):
                 return ExtractionStatus.PARTIALLY_EXTRACTED
             return candidate
     return ExtractionStatus.PROCESSING_FAILED

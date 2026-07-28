@@ -11,7 +11,8 @@ Rendering it faithfully then publishes an overstatement while every gate reports
 precisely the failure recorded in docs/lessons-carried-forward.md §5, where a script computed a
 refutation and printed the opposite.
 
-So the wording is checked against the classification. This is a lexical heuristic, not comprehension:
+So the wording is checked against the classification. This is a lexical heuristic, not
+comprehension:
 it catches the common absolutes and hedges and will miss a subtle one. It is deliberately tuned to
 flag for disclosure rather than to silently rewrite — the renderer never edits an agent's words.
 """
@@ -20,9 +21,11 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from typing import Any
 
 # Strength tiers. A word from a tier above the claim's classification is an overstatement.
-_ABSOLUTE = r"\b(prove[sdn]?|proof|definitively|conclusively|establishes?|demonstrates conclusively|" \
+_ABSOLUTE = r"\b(prove[sdn]?|proof|definitively|conclusively|establishes?" \
+            r"|demonstrates conclusively|" \
             r"beyond doubt|certainly|undeniably|always|never|all cases|guarantees?|confirms?)\b"
 _STRONG = r"\b(shows?|demonstrates?|establishes|clearly|strongly indicates?|significant(?:ly)?|" \
           r"substantial(?:ly)?)\b"
@@ -66,7 +69,7 @@ class Overstatement:
     matched: list[str]
 
 
-def check_claim_language(claim: dict) -> list[Overstatement]:
+def check_claim_language(claim: dict[str, Any]) -> list[Overstatement]:
     """Flag wording that outruns the claim's classification or type."""
     text = str(claim.get("claim", ""))
     cid = str(claim.get("claim_id", "?"))
@@ -102,5 +105,5 @@ def check_claim_language(claim: dict) -> list[Overstatement]:
     return out
 
 
-def scan_claims(claims: list[dict]) -> list[Overstatement]:
+def scan_claims(claims: list[dict[str, Any]]) -> list[Overstatement]:
     return [o for claim in claims for o in check_claim_language(claim)]

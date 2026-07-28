@@ -75,8 +75,8 @@ def test_canonical_json_sorts_by_utf16_code_unit_not_code_point():
     """RFC 8785 orders keys by UTF-16 code unit, which differs from code-point order above the BMP.
 
     U+1F600 encodes as the surrogate pair D83D DE00; U+FFFD is FFFD. Under UTF-16, D83D < FFFD, so
-    the emoji sorts FIRST \u2014 the opposite of what comparing code points (0x1F600 > 0xFFFD) gives.
-    Getting this backwards would silently produce a different artifact_hash than any other
+    the emoji sorts FIRST \u2014 the opposite of what comparing code points (0x1F600 > 0xFFFD)
+    gives. Getting this backwards would silently produce a different artifact_hash than any other
     conforming implementation.
     """
     out = canonical_json({"\U0001F600": 1, "\uFFFD": 2})
@@ -263,7 +263,8 @@ def test_envelope_partial_is_not_success():
 
 
 def test_envelope_blocked_maps_to_report_gating():
-    assert Envelope(command="report", status="blocked").exit_code() == ExitCode.REPORT_GATING_FAILURE
+    assert (Envelope(command="report", status="blocked").exit_code()
+            == ExitCode.REPORT_GATING_FAILURE)
 
 
 # --------------------------------------------------------------------- workspace
@@ -317,7 +318,9 @@ def test_config_hash_is_stable_across_loads(tmp_path: Path):
 
 
 def _run_cli(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
+    # S603: the argv is built here from literals and test-controlled strings; nothing external
+    # reaches it, and running the real CLI is the point of these tests.
+    return subprocess.run(  # noqa: S603
         [sys.executable, "-m", "research.cli", *args],
         capture_output=True, text=True, cwd=cwd,
         env={**os.environ, "PYTHONIOENCODING": "utf-8"},

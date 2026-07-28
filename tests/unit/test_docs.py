@@ -4,9 +4,9 @@ Docs drift ahead of code — that is the failure recorded in docs/lessons-carrie
 a predecessor's append-only ledger asserted a determinism result no code had ever computed, and then
 seeded the next research cycle with it.
 
-These tests do not check prose quality. They check the two things that are mechanically checkable and
-that actually bite: that a document the docs point at exists, and that a capability the docs claim is
-present in code.
+These tests do not check prose quality. They check the two things that are mechanically checkable
+and that actually bite: that a document the docs point at exists, and that a capability the docs
+claim is present in code.
 """
 
 from __future__ import annotations
@@ -83,7 +83,7 @@ def test_the_host_entry_files_point_at_a_document_that_ships(tmp_path: Path):
 
 
 def test_the_canonical_workflow_is_identical_in_repo_and_package():
-    """One source of truth. A drifted copy is worse than no copy — a host would read the stale one."""
+    """One source of truth. A drifted copy is worse than none — a host reads the stale one."""
     repo_copy = (REPO / "workflow" / "canonical-workflow.md").read_text(encoding="utf-8")
     shipped = (REPO / "src" / "research" / "assets" /
                "canonical-workflow.md").read_text(encoding="utf-8")
@@ -164,3 +164,36 @@ def test_the_claude_code_conformance_artifacts_are_present_and_honest():
     assert False in results.values(), \
         "the correctly-blocked run must be kept too — a benchmark that only shows successes is a " \
         "demo, not evidence"
+
+
+def test_the_committed_conformance_runs_no_longer_earn_confirmed_independent():
+    """GOAL.md G5. The rule is applied to our own evidence, not only to future runs.
+
+    Both committed runs declare `confirmed_independent` and attest no reviewer context, because
+    attestation did not exist when they ran. Under `check_independence_attested` that is
+    `not_evaluated`, which blocks — so those runs would not pass today's validator on this check.
+
+    They are recorded as downgraded rather than grandfathered. A `workflow_version` exemption for
+    "runs made before the rule" is how a gate becomes decorative, and this repository already
+    carries three write-ups of that pattern (docs/lessons-carried-forward.md).
+
+    This test fails the moment someone attests those contexts or re-runs the benchmark — which is
+    the correct time to revisit both the README and the release checklist.
+    """
+    import json
+
+    root = REPO / "benchmark" / "expected" / "claude-code"
+    downgraded = []
+    for run in sorted(p for p in root.iterdir() if p.is_dir()):
+        review = json.loads((run / "reviews" / "independent_review.json")
+                            .read_text(encoding="utf-8"))
+        status = (review.get("review_independence") or {}).get("status")
+        attested = list((run / "review-contexts").glob("*.json")) \
+            if (run / "review-contexts").is_dir() else []
+        if status == "confirmed_independent" and not attested:
+            downgraded.append(run.name)
+
+    assert downgraded, "if the runs are now attested, update the README and release checklist"
+    text = " ".join((root / "README.md").read_text(encoding="utf-8").split()).lower()
+    assert "downgrad" in text, \
+        "the conformance README must record that these runs no longer earn confirmed_independent"

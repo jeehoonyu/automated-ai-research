@@ -7,6 +7,37 @@ All notable changes to this project are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- **Attested reviewer independence.** `confirmed_independent` now requires a `ReviewContext`
+  artifact recording the verbatim text the host attests it gave the independent reviewer. The new
+  `independence_context_attested` check scans it for excluded material drawn from the run's own
+  artifacts: a labelled support classification, an excluded field in key position, or a prior
+  review's conclusion repeated near-verbatim. Closes the gap found by the Claude Code conformance
+  run, where the primary agent leaked its own classification into a review packet and **nothing in
+  the CLI could detect it**. See `GOAL.md`.
+- `ReviewContext` schema (14 total) and `CTX-sha256-` content-derived identifiers.
+
+### Changed
+- The independent-review packet now allows `claim_statements` rather than `claims`, and explicitly
+  excludes the primary agent's grading fields. The previous contract allowed `claims` while
+  excluding `primary_confidence` — and a stored `Claim` carries `support_classification`, so handing
+  over raw claim JSON satisfied the allow-list and defeated the exclusion in the same act.
+
+### Deprecated / downgraded
+- Both committed Claude Code conformance runs declare `confirmed_independent` with no attested
+  context and are **recorded as downgraded**, not grandfathered. Under the current validator they
+  are `not_evaluated` on the new check, which blocks. Gate 38.6's discovery evidence and both runs'
+  verdicts are unaffected. Pinned by `tests/unit/test_docs.py`.
+
+### Fixed
+- `ruff check src tests` (102 findings) and `mypy --strict src/research` (17 errors) both pass.
+  Neither had ever executed — CI was configured but never billed a minute — so the pipeline would
+  have failed at the lint step on its first successful run. Two of the type errors were real
+  readability defects: a doubly-bound `rel` in `check_source_independence`, and a two-ternary
+  destination/value choice in `discover_sources`.
+- The shared `complete_run` fixture moved to `tests/integration/conftest.py` instead of being
+  imported across test modules, where every use shadowed the import.
+
+### Added (earlier in Unreleased)
 - Canonical workflow document, now copied into every generated workspace so `AGENTS.md` and
   `CLAUDE.md` do not point at a file the workspace lacks.
 - Research profiles (`default`, `medicine`) — profiles customise validation rules, never the

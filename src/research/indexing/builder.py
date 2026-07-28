@@ -44,25 +44,14 @@ MANIFEST_RELPATH = "indexes/index-manifest.json"
 
 _SCHEMA = """
 CREATE TABLE chunks (
-    rowid                INTEGER PRIMARY KEY,
-    chunk_id             TEXT NOT NULL UNIQUE,
-    document_id          TEXT NOT NULL,
-    document_version_id  TEXT NOT NULL,
-    page                 INTEGER,
-    line_start           INTEGER,
-    line_end             INTEGER,
-    section_path         TEXT NOT NULL,
-    start_offset         INTEGER NOT NULL,
-    end_offset           INTEGER NOT NULL,
-    text_sha256          TEXT NOT NULL,
-    extraction_status    TEXT NOT NULL,
-    media_type           TEXT NOT NULL,
-    title                TEXT,
-    document_type        TEXT,
-    text                 TEXT NOT NULL
-);
-CREATE INDEX idx_chunks_document ON chunks(document_id);
-CREATE INDEX idx_chunks_type ON chunks(document_type);
+    rowid                INTEGER PRIMARY KEY, chunk_id             TEXT NOT NULL UNIQUE, document_id
+    TEXT NOT NULL, document_version_id  TEXT NOT NULL, page                 INTEGER, line_start
+    INTEGER, line_end             INTEGER, section_path         TEXT NOT NULL, start_offset
+    INTEGER NOT NULL, end_offset           INTEGER NOT NULL, text_sha256          TEXT NOT NULL,
+    extraction_status    TEXT NOT NULL, media_type           TEXT NOT NULL, title
+    TEXT, document_type        TEXT, text                 TEXT NOT NULL
+); CREATE INDEX idx_chunks_document ON chunks(document_id); CREATE INDEX idx_chunks_type ON
+chunks(document_type);
 """
 
 
@@ -221,7 +210,7 @@ def build_index(ws: Workspace) -> IndexResult:
             "chunk_count": len(rows),
             "skipped_ineligible_chunks": skipped,
             "input_artifact_hashes": input_hashes,
-            "result_ordering": ["bm25 ASC (SQLite returns negative scores; lower is a better match)",
+            "result_ordering": ["bm25 ASC (SQLite returns negative scores; lower is better)",
                                 "document_id ASC", "page ASC", "chunk_id ASC"],
             "warnings": warnings,
         })

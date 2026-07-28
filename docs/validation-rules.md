@@ -66,12 +66,55 @@ wrong gate fired.
 | `methodology_review_complete` | as above |
 | `independent_review_complete` | as above |
 | `reviewer_independence_sufficient` | independence declared and meeting the profile's bar |
+| `independence_context_attested` | `confirmed_independent` is backed by an attested reviewer context containing no excluded material |
 | `ocr_evidence_human_verified` | OCR-dependent evidence has a recorded human verification amendment |
 | `visual_interpretation_certain` | uncertain visual readings were human-verified |
 | `contradictions_disclosed` | no claim carries an unresolved contradiction |
 | `support_classifications_earned` | `verified` has a passed independent review; `strongly_supported` has multiple evidence records |
 | `source_independence_established` | strongly-supported claims rest on genuinely independent sources; unknown independence is never promoted |
 | `lifecycle_transitions_valid` | the event log replays as a legal sequence |
+
+## Attested independence, and what it is worth
+
+`reviewer_independence_sufficient` reads a boolean the host wrote about itself. Every other check
+here decides by inspecting something. That gap was not theoretical: during the Claude Code
+conformance run the primary agent leaked its own `support_classification` into the independent-review
+packet, and nothing in the CLI could have detected it.
+
+So the strongest status now costs something. To declare `confirmed_independent`, a host writes a
+`ReviewContext` artifact to `runs/<run-id>/review-contexts/` holding the **verbatim** text it gave
+the reviewer, with `attestation.complete = true`. `check_independence_attested` then scans it, using
+material drawn from the run's own artifacts, under three rules:
+
+1. **A labelled grade** — `support classification: conflicting_evidence`, the shape of the real leak
+   and the shape raw claim JSON takes.
+2. **An excluded field in key position** — `"primary_rationale": "…"`. Skipped where the surrounding
+   lines are prohibition language, so a packet that *lists* its own exclusions is not flagged.
+3. **A prior review's conclusion, near-verbatim** — eight-token containment against the citation,
+   methodology and contradiction reviews.
+
+`procedurally_isolated` is unchanged: it needs no attestation, is accepted by non-high-risk profiles,
+and must be disclosed in the report. It was always the honest option for a host that cannot prove
+more.
+
+### What a pass does not mean
+
+It means the host's account of what it sent contains no leak of a detectable shape. A host that sends
+a leaky context and attests a clean one passes, and no local artifact can prevent that. Stated
+precisely:
+
+- **Before** — a leak was undetectable, and an honest host had no way to demonstrate it had not
+  leaked.
+- **After** — an accidental leak is caught mechanically, and a deliberate one requires falsifying a
+  hashed record rather than merely omitting one.
+
+Known gaps, each pinned by a test in `tests/unit/test_independence.py` so they stay honest:
+
+- a grade disclosed **without a label** ("the team already thinks the sources conflict") is missed —
+  flagging bare words like *verified* would make the check unusable;
+- a prior-review conclusion shorter than eight tokens, or paraphrased, is missed;
+- prefixing a leak with prohibition language suppresses rule 2 — bounded by rule 1, which has no
+  such exemption.
 
 ## Human review
 

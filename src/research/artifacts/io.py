@@ -8,7 +8,7 @@ something to repair silently.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -20,7 +20,7 @@ SUPPORTED_SCHEMA_MAJOR = 1
 
 
 def now_rfc3339() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+    return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
 def make_artifact(
@@ -36,8 +36,8 @@ def make_artifact(
     """Build a canonical artifact with its envelope and a correct hash.
 
     `created_by` records who produced this. `actor_type` "cli" means deterministic code produced it;
-    "host_agent" means a model did. That distinction is what lets validation apply different trust to
-    a locator this package computed versus a rationale an agent wrote (spec §43).
+    "host_agent" means a model did. That distinction is what lets validation apply different trust
+    to a locator this package computed versus a rationale an agent wrote (spec §43).
     """
     created_by: dict[str, Any] = {"actor_type": actor_type}
     if host:
@@ -74,7 +74,8 @@ def write_artifact(path: str | Path, artifact: dict[str, Any], *,
         artifact = stamp_artifact_hash(artifact)
     import json
 
-    return atomic_write_text(path, json.dumps(artifact, indent=2, ensure_ascii=False) + "\n", root=root)
+    return atomic_write_text(
+        path, json.dumps(artifact, indent=2, ensure_ascii=False) + "\n", root=root)
 
 
 def read_artifact(path: str | Path, *, expect_schema: str | None = None,
@@ -83,7 +84,7 @@ def read_artifact(path: str | Path, *, expect_schema: str | None = None,
     import json
 
     with open(path, encoding="utf-8") as fh:
-        artifact = json.load(fh)
+        artifact: dict[str, Any] = json.load(fh)
 
     version = artifact.get("schema_version", "")
     major = version.split(".")[0] if version else ""
@@ -106,7 +107,8 @@ def read_artifact(path: str | Path, *, expect_schema: str | None = None,
     return artifact
 
 
-def append_event(path: str | Path, event: dict[str, Any], *, root: str | Path | None = None) -> None:
+def append_event(path: str | Path, event: dict[str, Any], *,
+                 root: str | Path | None = None) -> None:
     """Append one canonical JSON line to an append-only log.
 
     Import events and lifecycle events are append-only (spec §11, §8.2). Written as JSONL and never

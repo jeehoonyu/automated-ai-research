@@ -85,6 +85,12 @@ The independent reviewer must **not** receive:
 - previous reviewers' conclusions
 - suggested final wording
 - any persuasive summary produced by the primary agent
+- the primary agent's **grading** of a claim — `support_classification`, `claim_status`,
+  `citation_status`, `methodology_status`, `independent_review_status`, `confidence_factors`
+
+That last line is the one hosts get wrong. The reviewer is given claim *statements*; a stored `Claim`
+artifact carries the primary's classification, so pasting raw claim JSON hands over the answer key
+while technically supplying an allowed input.
 
 Request a **fresh agent context** for this stage. If your host can delegate to a subagent with a
 clean context, do that.
@@ -100,6 +106,30 @@ Then record honestly which of these held:
 
 **Do not claim `confirmed_independent` unless your host actually confirmed it.** The default profile
 accepts `procedurally_isolated` and discloses it in the report; high-risk profiles do not.
+
+### Attesting the context
+
+`confirmed_independent` also requires **evidence**, not only a declaration. Write a `ReviewContext`
+artifact to `runs/<run-id>/review-contexts/` containing the verbatim text you gave the reviewer:
+
+```json
+{
+  "schema_name": "ReviewContext", "schema_version": "1.0.0",
+  "context_id": "CTX-sha256-…", "run_id": "RUN-…", "review_id": "REV-…",
+  "stage": "independent_review",
+  "content": "…exactly what the reviewer received…",
+  "content_sha256": "sha256:…",
+  "attestation": { "complete": true, "method": "verbatim_transcript" }
+}
+```
+
+Validation scans that text for the excluded material above, drawn from this run's own artifacts.
+Without it, `confirmed_independent` reports `not_evaluated`, which blocks publication.
+
+Two things follow, and both are deliberate. Attesting an **incomplete** context does not help — a
+clean scan of a partial record establishes nothing. And `procedurally_isolated` remains available
+with no attestation at all: if you cannot produce a transcript, that status is the honest answer, not
+a penalty.
 
 ---
 

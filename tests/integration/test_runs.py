@@ -27,7 +27,13 @@ from research.runs.lifecycle import (  # noqa: E402
     is_valid_transition,
     pending_stages,
 )
-from research.runs.manager import RunNotFound, create_run, load_run, status, transition  # noqa: E402
+from research.runs.manager import (  # noqa: E402
+    RunNotFound,
+    create_run,
+    load_run,
+    status,
+    transition,
+)
 from research.runs.packets import INDEPENDENCE_EXCLUSIONS  # noqa: E402
 from research.workspace import init_workspace  # noqa: E402
 
@@ -221,7 +227,8 @@ def test_every_transition_appends_an_event_with_the_required_fields(run):
     rid = created["run_id"]
     transition(ws, rid, to_phase=Phase.PLANNED, triggered_by="research validate",
                reason="planning validated", validation_result="passed")
-    lines = (ws.root / "runs" / rid / "events.jsonl").read_text(encoding="utf-8").strip().split("\n")
+    log = ws.root / "runs" / rid / "events.jsonl"
+    lines = log.read_text(encoding="utf-8").strip().split("\n")
     assert len(lines) == 2
     event = json.loads(lines[-1])
     for field in ("previous_phase", "new_phase", "previous_disposition", "new_disposition",
@@ -237,7 +244,8 @@ def test_events_are_append_only(run):
     rid = created["run_id"]
     for phase in (Phase.PLANNED, Phase.RETRIEVED, Phase.EVIDENCE_EXTRACTED):
         transition(ws, rid, to_phase=phase, triggered_by="test", reason=f"reached {phase}")
-    lines = (ws.root / "runs" / rid / "events.jsonl").read_text(encoding="utf-8").strip().split("\n")
+    log = ws.root / "runs" / rid / "events.jsonl"
+    lines = log.read_text(encoding="utf-8").strip().split("\n")
     assert len(lines) == 4       # creation + 3 transitions; nothing rewritten
     assert json.loads(lines[1])["new_phase"] == Phase.PLANNED
 

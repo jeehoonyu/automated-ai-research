@@ -1,10 +1,10 @@
 """`research validate` — the gate.
 
-THE CENTRAL RULE (spec §44). A statement is publishable only when it is a claim, referencing evidence
-ids, resolving to immutable source bytes, whose citation genuinely supports it, whose contradictions
-were considered, whose reviews completed, and whose human-review conditions were resolved or
-disclosed. This module is where that is decided, and it decides by CHECKING rather than by trusting
-what an artifact says about itself.
+THE CENTRAL RULE (spec §44). A statement is publishable only when it is a claim, referencing
+evidence ids, resolving to immutable source bytes, whose citation genuinely supports it, whose
+contradictions were considered, whose reviews completed, and whose human-review conditions were
+resolved or disclosed. This module is where that is decided, and it decides by CHECKING rather than
+by trusting what an artifact says about itself.
 
 THREE OUTCOMES PER CHECK, NOT TWO
     passed          the check ran and the property holds
@@ -12,14 +12,14 @@ THREE OUTCOMES PER CHECK, NOT TWO
     not_evaluated   the check could NOT run — inputs missing, artifact unreadable
     not_applicable  the check does not apply to this run
 
-`not_evaluated` blocks report eligibility exactly as `failed` does. This is the single most important
-line in the file. An empty finding list is indistinguishable from a clean bill of health, and a
-validator that silently skips what it cannot inspect reports "no problems found" for a run it never
-looked at. (docs/lessons-carried-forward.md §6b, learned the hard way.)
+`not_evaluated` blocks report eligibility exactly as `failed` does. This is the single most
+important line in the file. An empty finding list is indistinguishable from a clean bill of health,
+and a validator that silently skips what it cannot inspect reports "no problems found" for a run it
+never looked at. (docs/lessons-carried-forward.md §6b, learned the hard way.)
 
-CANDIDATE VS CANONICAL. Agents write to `responses/`. Nothing there is canonical. Validation promotes
-a response into `evidence/`, `claims/`, `reviews/` only after it validates — so a file is never
-authoritative merely because an agent created it (spec §28).
+CANDIDATE VS CANONICAL. Agents write to `responses/`. Nothing there is canonical. Validation
+promotes a response into `evidence/`, `claims/`, `reviews/` only after it validates — so a file is
+never authoritative merely because an agent created it (spec §28).
 """
 
 from __future__ import annotations
@@ -30,14 +30,15 @@ from pathlib import Path
 from typing import Any, Literal
 
 from ..artifacts.io import make_artifact, read_artifact, write_artifact
-from ..artifacts.locators import Resolution, resolve_text_locator, resolve_visual_locator
+from ..artifacts.locators import resolve_text_locator, resolve_visual_locator
 from ..artifacts.registry import validate_artifact
 from ..config import SCHEMA_VERSION, Workspace
 from ..errors import ResearchError
-from ..hashing import sha256_file
+from ..hashing import sha256_file, sha256_text
 from ..runs.lifecycle import Disposition, Phase, Stage, is_valid_transition
 from ..runs.manager import load_run
 from ..security.paths import safe_join
+from .independence import scan_context
 
 Status = Literal["passed", "failed", "not_evaluated", "not_applicable"]
 
@@ -87,6 +88,7 @@ class RunContext:
     evidence: list[dict[str, Any]] = field(default_factory=list)
     claims: list[dict[str, Any]] = field(default_factory=list)
     reviews: list[dict[str, Any]] = field(default_factory=list)
+    review_contexts: list[dict[str, Any]] = field(default_factory=list)
     documents: dict[str, dict[str, Any]] = field(default_factory=dict)
     load_errors: list[str] = field(default_factory=list)
 
@@ -139,9 +141,10 @@ def build_context(ws: Workspace, run_id: str) -> RunContext:
     run_dir = safe_join(ws.root, "runs", run_id)
     ctx = RunContext(ws=ws, run_id=run_id, manifest=manifest)
 
-    for name, target in (("evidence", "evidence"), ("claims", "claims"), ("reviews", "reviews")):
+    for name, target in (("evidence", "evidence"), ("claims", "claims"), ("reviews", "reviews"),
+                         ("review_contexts", "review-contexts")):
         items, errors = _load_json_dir(run_dir / target)
-        setattr(ctx, name if name != "claims" else "claims", items)
+        setattr(ctx, name, items)
         ctx.load_errors.extend(f"{target}/{e}" for e in errors)
 
     plan_path = run_dir / "plan.json"
@@ -166,7 +169,8 @@ def build_context(ws: Workspace, run_id: str) -> RunContext:
 
 def check_artifacts_conform(ctx: RunContext) -> CheckResult:
     bad: list[str] = []
-    for artifact in [*ctx.evidence, *ctx.claims, *ctx.reviews, *( [ctx.plan] if ctx.plan else [])]:
+    for artifact in [*ctx.evidence, *ctx.claims, *ctx.reviews, *ctx.review_contexts,
+                     *([ctx.plan] if ctx.plan else [])]:
         try:
             validate_artifact(artifact)
         except ResearchError as exc:
@@ -370,6 +374,96 @@ def check_independence(ctx: RunContext) -> CheckResult:
                        [rid for rid, _ in statuses])
 
 
+def check_independence_attested(ctx: RunContext) -> CheckResult:
+    """`confirmed_independent` must be shown, not declared.
+
+    `check_independence` above reads a status the host wrote about itself. That was the platform's
+    one purely self-reported gate, and a real conformance run leaked `primary_confidence` into an
+    independent-review packet without a single check noticing.
+
+    So the strongest status now costs something: a `ReviewContext` artifact recording the text the
+    host attests it handed the reviewer, which this check scans for excluded material drawn from the
+    run's own artifacts (see validation/independence.py).
+
+    The weaker statuses are unchanged. `procedurally_isolated` claims only that a fresh context was
+    requested, needs no attestation, and must be disclosed in the report — it was always the honest
+    option for a host that cannot prove more, and it still is.
+
+    WHAT A PASS MEANS. The host's account of what it sent contains no leak of a shape this can
+    detect. It does not mean the review was independent; a host that sends a leaky context and
+    attests a clean one passes. The gain is that omitting evidence is no longer free and an
+    accidental leak is now caught.
+    """
+    name = "independence_context_attested"
+    reviews = [r for r in ctx.reviews if r["review_type"] == "independent_review"]
+    if not reviews:
+        return CheckResult(name, "not_applicable", "no independent review to attest")
+
+    contexts_by_review: dict[str, list[dict[str, Any]]] = {}
+    for context in ctx.review_contexts:
+        contexts_by_review.setdefault(str(context.get("review_id")), []).append(context)
+
+    unattested: list[str] = []
+    incomplete: list[str] = []
+    leaking: list[str] = []
+    checked: list[str] = []
+
+    for review in reviews:
+        rid = review["review_id"]
+        status = (review.get("review_independence") or {}).get("status")
+        attached = contexts_by_review.get(rid, [])
+
+        if not attached:
+            # Only the strongest status requires proof. Anything weaker is already telling the
+            # truth about how much it knows.
+            if status == "confirmed_independent":
+                unattested.append(rid)
+            continue
+
+        for context in attached:
+            content = context.get("content", "")
+            recorded = context.get("content_sha256")
+            if recorded and sha256_text(content) != recorded:
+                leaking.append(f"{rid}: attested content does not match its recorded "
+                               f"content_sha256")
+                continue
+            attestation = context.get("attestation") or {}
+            leaks = scan_context(content, reviews=ctx.reviews)
+            if leaks:
+                leaking.append(f"{rid}: " + "; ".join(leak.describe() for leak in leaks[:3]))
+            elif not attestation.get("complete"):
+                # A clean scan of a partial record proves nothing: the leak may be in the part that
+                # was not recorded. Reporting this as a pass is the fail-open shape exactly.
+                incomplete.append(f"{rid}: context is attested as incomplete "
+                                  f"({attestation.get('method', 'unspecified')}), so a clean scan "
+                                  f"establishes nothing")
+            else:
+                checked.append(rid)
+
+    if leaking:
+        return CheckResult(name, "failed",
+                           "excluded material found in the attested reviewer context: "
+                           + "; ".join(leaking[:3])
+                           + " — this review is not independent, whatever it declares",
+                           [r.split(":")[0] for r in leaking], human_review=True)
+    if unattested:
+        return CheckResult(
+            name, "not_evaluated",
+            "`confirmed_independent` was declared without a ReviewContext artifact, so nothing was "
+            "checked. Attest the context the reviewer received, or declare "
+            "`procedurally_isolated`, which does not assert a verified context.",
+            unattested)
+    if incomplete:
+        return CheckResult(name, "not_evaluated", "; ".join(incomplete[:3]),
+                           [i.split(":")[0] for i in incomplete])
+    if checked:
+        return CheckResult(name, "passed",
+                           f"{len(checked)} attested context(s) scanned, no excluded material of a "
+                           f"detectable shape", checked)
+    return CheckResult(name, "not_applicable",
+                       "no review declares `confirmed_independent`, so no attestation is required")
+
+
 def check_ocr_evidence(ctx: RunContext) -> CheckResult:
     """OCR-required material may back a claim only through a recorded human verification."""
     ocr = [e for e in ctx.evidence if e.get("extraction_status") == "ocr_required"]
@@ -495,13 +589,13 @@ def check_source_independence(ctx: RunContext) -> CheckResult:
             continue
         for i, a in enumerate(docs):
             for b in docs[i + 1:]:
-                rel = pairs.get(frozenset({a, b}))
-                if rel is None:
+                kind = pairs.get(frozenset({a, b}))
+                if kind is None:
                     unassessed.append(f"{claim['claim_id']}: independence of {a[:24]}… and "
                                       f"{b[:24]}… was never assessed")
-                elif rel in DEPENDENT_RELATIONSHIPS:
-                    dependent.append(f"{claim['claim_id']}: its sources are related by '{rel}', so "
-                                     f"they are not independent corroboration")
+                elif kind in DEPENDENT_RELATIONSHIPS:
+                    dependent.append(f"{claim['claim_id']}: its sources are related by "
+                                     f"'{kind}', so they are not independent corroboration")
 
     if dependent:
         return CheckResult("source_independence_established", "failed", "; ".join(dependent[:5]),
@@ -562,6 +656,7 @@ CHECKS = [
     lambda ctx: _review_check(ctx, "methodology_review"),
     lambda ctx: _review_check(ctx, "independent_review"),
     check_independence,
+    check_independence_attested,
     check_ocr_evidence,
     check_visual_certainty,
     check_contradictions_disclosed,

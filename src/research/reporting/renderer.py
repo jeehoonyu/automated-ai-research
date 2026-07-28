@@ -2,9 +2,9 @@
 
 THE REPORT IS A VIEW (spec §3.3). Every sentence about a claim comes from one of two places: the
 claim's own text, copied verbatim, or a qualifier looked up in a fixed table keyed by the validated
-classification. The renderer has no vocabulary of its own for describing how well-supported something
-is, which is how spec §32 — *"must not strengthen the language of a claim beyond its validated
-classification"* — is satisfied structurally rather than by care.
+classification. The renderer has no vocabulary of its own for describing how well-supported
+something is, which is how spec §32 — *"must not strengthen the language of a claim beyond its
+validated classification"* — is satisfied structurally rather than by care.
 
 GATING. Publication requires a validation result with `report_eligible: true`. `--draft` renders
 anyway, and the draft is marked in the first line of the file, in the manifest, and in the status
@@ -282,7 +282,7 @@ def _disclosures(context: dict[str, Any], overstatements: list[Any]) -> list[str
 
 
 def _render(context: dict[str, Any]) -> str:
-    """Jinja2 with autoescape OFF (this is Markdown, not HTML) but trim/lstrip on for determinism."""
+    """Jinja2 with autoescape OFF (Markdown, not HTML), trim/lstrip on for determinism."""
     from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
     env = Environment(
@@ -291,7 +291,11 @@ def _render(context: dict[str, Any]) -> str:
         trim_blocks=True,
         lstrip_blocks=True,
         keep_trailing_newline=True,
-        autoescape=False,
+        # noqa: S701 — the output is Markdown, not HTML. HTML-escaping would corrupt every
+        # quoted passage (`&` -> `&amp;`) and silently alter evidence text, which matters far
+        # more here than XSS in a file that is never served. Claim text is emitted verbatim by
+        # design; see reporting/language.py.
+        autoescape=False,  # noqa: S701
     )
     try:
         return env.get_template("report.md.j2").render(**context)

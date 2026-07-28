@@ -5,14 +5,15 @@ reproducibility, and the tamper-evidence of the whole audit trail. It is deliber
 heavily tested.
 
 WHY CANONICALIZATION. `artifact_hash` must be a property of an artifact's *content*, not of how it
-happened to be serialized. If pretty-printing, key order, or an inserted space changed the hash, then
-two byte-identical-in-meaning artifacts would get different identities and the immutability guarantee
-(spec section 3.4) would be unenforceable. RFC 8785 fixes key ordering, string escaping, and number
-formatting so the mapping from content to bytes is unique.
+happened to be serialized. If pretty-printing, key order, or an inserted space changed the hash,
+then two byte-identical-in-meaning artifacts would get different identities and the immutability
+guarantee (spec section 3.4) would be unenforceable. RFC 8785 fixes key ordering, string escaping,
+and number formatting so the mapping from content to bytes is unique.
 
-THE SELF-REFERENCE RULE. `artifact_hash` is computed over the artifact with the `artifact_hash` field
-OMITTED. Hashing an object that contains its own hash is impossible; omitting the field (rather than
-blanking it) keeps the operation well-defined and lets verification recompute it exactly.
+THE SELF-REFERENCE RULE. `artifact_hash` is computed over the artifact with the `artifact_hash`
+field OMITTED. Hashing an object that contains its own hash is impossible; omitting the field
+(rather than blanking it) keeps the operation well-defined and lets verification recompute it
+exactly.
 """
 
 from __future__ import annotations

@@ -1,7 +1,7 @@
 """Run creation, state transitions, status, and artifact inspection.
 
-A run's state lives in `runs/<run-id>/manifest.json`, and every change to it also appends an event to
-`runs/<run-id>/events.jsonl`. The manifest answers "where is this run now"; the event log answers
+A run's state lives in `runs/<run-id>/manifest.json`, and every change to it also appends an event
+to `runs/<run-id>/events.jsonl`. The manifest answers "where is this run now"; the event log answers
 "how did it get here", and the second question is the one an auditor asks.
 
 `research run` does NOT perform reasoning (spec §8.5). It records the question, pins the source
@@ -11,6 +11,7 @@ validates — never because a file appeared.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from ..artifacts.io import append_event, make_artifact, now_rfc3339, read_artifact, write_artifact
@@ -30,15 +31,15 @@ from .lifecycle import (
 )
 from .packets import all_packets
 
-RUN_DIRS = ("packets", "responses", "evidence", "claims", "reviews", "validation",
-            "amendments", "relationships", "report")
+RUN_DIRS = ("packets", "responses", "evidence", "claims", "reviews", "review-contexts",
+            "validation", "amendments", "relationships", "report")
 
 
 class RunNotFound(ResearchError):
     category = "run_not_found"
 
 
-def _run_dir(ws: Workspace, run_id: str):
+def _run_dir(ws: Workspace, run_id: str) -> Path:
     return safe_join(ws.root, "runs", run_id)
 
 
@@ -128,7 +129,8 @@ def load_run(ws: Workspace, run_id: str) -> dict[str, Any]:
     path = _run_dir(ws, run_id) / "manifest.json"
     if not path.is_file():
         raise RunNotFound(f"no run {run_id!r} in this workspace",
-                          detail={"expected": str(path), "hint": "run `research run --question ...`"})
+                          detail={"expected": str(path),
+                                  "hint": "run `research run --question ...`"})
     return read_artifact(path, expect_schema="RunManifest")
 
 
@@ -236,7 +238,7 @@ def status(ws: Workspace, run_id: str) -> dict[str, Any]:
 
 
 def list_runs(ws: Workspace) -> list[dict[str, Any]]:
-    out = []
+    out: list[dict[str, Any]] = []
     runs_dir = ws.root / "runs"
     if not runs_dir.is_dir():
         return out

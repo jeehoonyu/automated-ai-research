@@ -20,10 +20,11 @@ import click
 
 from . import __version__
 from .config import load_workspace
-from .errors import Envelope, ExitCode, ResearchError
+from .errors import Envelope, ResearchError
 from .workspace import init_workspace
 
-_JSON_OPT = click.option("--json", "as_json", is_flag=True, help="Emit the machine-readable envelope.")
+_JSON_OPT = click.option("--json", "as_json", is_flag=True,
+                         help="Emit the machine-readable envelope.")
 _WS_OPT = click.option("--workspace", "workspace_path", type=click.Path(),
                        help="Workspace root. Defaults to the nearest parent research.yaml.")
 
@@ -148,7 +149,8 @@ def cmd_import(paths: tuple[str, ...], workspace_path: str | None, as_json: bool
         lines.append(f"needs human review  {d['needs_human_review_count']}")
     for doc in d["documents"]:
         mark = "dup " if doc["duplicate"] else ("ERR " if doc["error"] else "    ")
-        lines.append(f"  {mark}{Path(doc['path']).name}  {doc['extraction_status'] or doc['error']}")
+        detail = doc["extraction_status"] or doc["error"]
+        lines.append(f"  {mark}{Path(doc['path']).name}  {detail}")
     _emit(env, as_json, human="\n".join(lines))
 
 
@@ -214,7 +216,8 @@ def cmd_search(query: str, document_type: str | None, document_id: str | None, l
     for r in d["results"]:
         where = f"p{r['page']}" if r["page"] is not None else f"L{r['line_start']}"
         section = " › ".join(r["section_path"]) if r["section_path"] else "-"
-        lines.append(f"  {r['rank']:2d}. {(r['source']['title'] or '?')[:34]:34s} {where:>6s}  {section}")
+        title = (r["source"]["title"] or "?")[:34]
+        lines.append(f"  {r['rank']:2d}. {title:34s} {where:>6s}  {section}")
         lines.append(f"      {r['snippet'][:96]}")
         lines.append(f"      {r['chunk_id']}")
     _emit(env, as_json, human="\n".join(lines))
@@ -222,7 +225,8 @@ def cmd_search(query: str, document_type: str | None, document_id: str | None, l
 
 @main.command("run")
 @click.option("--question", required=True, help="The research question.")
-@click.option("--profile", default=None, help="Research profile. Defaults to the workspace default.")
+@click.option("--profile", default=None,
+              help="Research profile. Defaults to the workspace default.")
 @_WS_OPT
 @_JSON_OPT
 def cmd_run(question: str, profile: str | None, workspace_path: str | None, as_json: bool) -> None:
@@ -318,7 +322,7 @@ def cmd_inspect(artifact_id: str, workspace_path: str | None, as_json: bool) -> 
                      f"this chunk's locator does not resolve: {d['resolution_status']}")
         lines += [
             f"  document     {d['document_id']}",
-            f"  position     " + (f"page {d['page']}" if d["page"] is not None
+            "  position     " + (f"page {d['page']}" if d["page"] is not None
                                   else f"lines {d['line_start']}-{d['line_end']}"),
             f"  section      {' > '.join(d['section_path']) or '-'}",
             f"  resolves     {d['resolution_status']}",
@@ -445,7 +449,7 @@ def cmd_doctor(workspace_path: str | None, as_json: bool) -> None:
     env = Envelope(command="doctor")
     implemented = ["init", "import", "index", "search", "run", "status", "inspect",
                    "validate", "report"]
-    pending = []
+    pending: list[str] = []
     ws: dict[str, Any] | None = None
     try:
         w = load_workspace(workspace_path)

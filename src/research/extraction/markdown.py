@@ -121,7 +121,8 @@ def extract_markdown(source: str | Path, *, min_usable_chars: int = 1) -> Markdo
 
     usable = len(text.strip())
     if usable < min_usable_chars:
-        status = ExtractionStatus.OCR_REQUIRED if usable == 0 else ExtractionStatus.PARTIALLY_EXTRACTED
+        status = (ExtractionStatus.OCR_REQUIRED if usable == 0
+                  else ExtractionStatus.PARTIALLY_EXTRACTED)
         warns.append(f"only {usable} usable characters in the file")
     else:
         status = ExtractionStatus.EXTRACTED
