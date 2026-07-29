@@ -5,7 +5,49 @@ built now and what would count as having built it. It changes; the specification
 
 ---
 
-## Goal 2 — make the shipped thing be the thing the docs describe
+## Goal 3 — close the gates that report "no problems" for what they never inspected
+
+> **A twelve-agent audit across five independent lenses produced 37 findings; six survived
+> adversarial refutation. All six are the same shape: a check that passes without establishing the
+> property it names.**
+
+Three are fixed. Three remain, and they are the goal.
+
+### Fixed
+
+| | The gate | What it did |
+|---|---|---|
+| **A** | `artifacts_conform_to_schema` | Validation loaded evidence, claims, reviews, relationships and amendments through a bare `json.load`. `read_artifact` verifies hashes; **this loader is the one validation uses, and it did not.** A hand edit that stayed schema-valid was invisible — one word in a citation review flipped the run to publishable. Now verified on load; a mismatch is a blocking load error. |
+| **B** | `contradictions_disclosed` | Asked only whether any claim was `unresolved`, so a run whose every claim said `not_checked` returned **passed, "none unresolved"** — a clean bill of health for a question nobody asked. `not_checked` is in the enum and is a claim's initial state. Now `not_evaluated`. |
+| **C** | `source_independence_established` | Recording **`unknown`** cleared the gate that recording **nothing** correctly blocked — the same statement, passing or blocking depending on whether it was written down. There was no enum value meaning `independent`, so the passing verdict was unearnable honestly. `independent` now exists and is the only thing that clears it. |
+
+C is the sharpest: the docstring said *"`unknown` independence is never promoted to independent …
+returns `not_evaluated`, which blocks, rather than passing by default"*, directly above code doing
+the opposite.
+
+A also corrected something shipped hours earlier. The reviewer-context attestation claimed a
+deliberate leak "requires falsifying a hashed record"; because `content_sha256` was a field of an
+artifact whose own hash was never checked, a **two-field edit** defeated it for the cost of one
+plain `sha256`. It holds now — in the sense a hash can hold it. See the note below.
+
+### The three still open
+
+| | Requirement | Why it matters |
+|---|---|---|
+| **G1** | Re-hash the bytes a citation actually resolves against | `source_hashes_match` re-hashes the *original*, which nothing cites. Evidence resolves through `normalized_text_path` — a mutable file — and page renders are trusted by path, not digest. `locators.py`'s own docstring claims a re-hash that does not happen, and `report.md.j2` prints "resolves to immutable source bytes" into every published report. |
+| **G2** | Make the OCR / visual human-verification gate mean something | It fires on a label the agent writes about itself, and when it does fire a two-key JSON blob clears it. |
+| **G3** | Make `research report` gate on *these* artifacts | It gates on a stored `ValidationResult` that names nothing, then renders whatever is on disk — a claim written after `validate` is published unvalidated. |
+
+### What no fix here can claim
+
+**An artifact hash is an integrity check, not a signature.** It detects an edit made outside the
+process — a stray script, a partial write, a re-extraction, a hand fix. It cannot detect a host that
+writes a false artifact and stamps it correctly, because the host holds no key and nothing here
+does. Every tamper-detection statement in this repository means the first thing.
+
+---
+
+## Goal 2 — make the shipped thing be the thing the docs describe *(complete)*
 
 > **Three interfaces this project documents were not implemented: the installed package, the
 > research profiles, and half the exit codes. Implement them, and make the acceptance tests capable

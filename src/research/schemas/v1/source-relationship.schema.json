@@ -73,6 +73,7 @@
     },
     "relationship_type": {
       "enum": [
+        "independent",
         "duplicate",
         "republication",
         "revision_of",

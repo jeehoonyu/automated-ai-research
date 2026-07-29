@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from research.artifacts.io import read_artifact  # noqa: E402
 from research.artifacts.registry import validate_artifact  # noqa: E402
 from research.errors import ReportGatingError  # noqa: E402
+from research.hashing import stamp_artifact_hash  # noqa: E402
 from research.reporting.language import check_claim_language  # noqa: E402
 from research.reporting.renderer import render_report  # noqa: E402
 from research.validation.validator import validate_run  # noqa: E402
@@ -110,7 +111,7 @@ def test_an_overstated_claim_is_disclosed_in_the_report_not_silently_rendered(co
     path = meta["run_dir"] / "claims" / "c1.json"
     claim = json.loads(path.read_text(encoding="utf-8"))
     claim["claim"] = "This definitively proves that data movement always falls."
-    path.write_text(json.dumps(claim), encoding="utf-8")
+    path.write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
     validate_run(ws, rid)
 
     result = render_report(ws, rid, draft=True)
@@ -138,7 +139,7 @@ def test_the_qualifier_comes_from_a_fixed_table(complete_run):
     path = meta["run_dir"] / "claims" / "c1.json"
     claim = json.loads(path.read_text(encoding="utf-8"))
     claim["support_classification"] = "weakly_supported"
-    path.write_text(json.dumps(claim), encoding="utf-8")
+    path.write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
     validate_run(ws, rid)
 
     body = _read(render_report(ws, rid, draft=True).report_path)

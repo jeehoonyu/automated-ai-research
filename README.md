@@ -79,8 +79,9 @@ output checkable.
   `CONTRIBUTING.md`, a changelog, CI across Linux/macOS/Windows, and a release checklist that lists
   what is **not** met.
 
-340 tests. A stage is complete only when its artifact exists **and** validates — never because a
-file appeared.
+348 tests. A stage is complete only when its artifact exists **and** validates — never because a
+file appeared, and never because an artifact says so about itself: every artifact validation loads
+is checked against its own `artifact_hash`.
 
 ### What is not established
 

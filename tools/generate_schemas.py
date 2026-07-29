@@ -50,9 +50,13 @@ INDEPENDENCE = ["confirmed_independent", "procedurally_isolated", "not_confirmed
 AMENDMENT_TYPES = ["metadata_correction", "locator_correction", "claim_rewording",
                    "evidence_reclassification", "human_visual_verification",
                    "human_ocr_verification", "review_override", "withdrawal"]
-RELATIONSHIPS = ["duplicate", "republication", "revision_of", "translation_of", "summarizes",
-                 "cites", "derived_from", "shares_primary_dataset", "shares_experimental_result",
-                 "unknown"]
+# `independent` was missing, which made `source_independence_established` unearnable honestly: the
+# only way to reach `passed` was to record every pair as `cites` or `unknown`, neither of which
+# asserts independence. Recording nothing correctly blocked, so the gate rewarded the shrug and
+# punished the honest answer.
+RELATIONSHIPS = ["independent", "duplicate", "republication", "revision_of", "translation_of",
+                 "summarizes", "cites", "derived_from", "shares_primary_dataset",
+                 "shares_experimental_result", "unknown"]
 FACTORS = ["evidence_directness", "source_quality", "source_independence", "methodology_quality",
            "contradictory_evidence", "evidence_coverage", "citation_validity", "reviewer_agreement",
            "reviewer_independence", "visual_certainty", "ocr_dependency"]

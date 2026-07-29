@@ -20,7 +20,8 @@ from fixtures.make_fixtures import build  # noqa: E402
 from research.artifacts.io import make_artifact, write_artifact  # noqa: E402
 from research.artifacts.registry import validate_artifact  # noqa: E402
 from research.config import load_workspace  # noqa: E402
-from research.identifiers import amendment_id  # noqa: E402
+from research.hashing import sha256_text, stamp_artifact_hash  # noqa: E402
+from research.identifiers import amendment_id, evidence_id  # noqa: E402
 from research.importers.importer import import_paths  # noqa: E402
 from research.indexing.builder import build_index  # noqa: E402
 from research.runs.manager import create_run  # noqa: E402
@@ -88,7 +89,9 @@ def test_a_claim_without_evidence_blocks_publication(complete_run):
     path = meta["run_dir"] / "claims" / "c1.json"
     claim = json.loads(path.read_text(encoding="utf-8"))
     claim["supporting_evidence_ids"] = []
-    path.write_text(json.dumps(claim), encoding="utf-8")   # bypass write validation deliberately
+    # Re-stamped, not tampered: this simulates a run an agent legitimately produced in this
+    # state, rather than a hand edit — which validation now catches as tampering.
+    path.write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
 
     result = validate_run(ws, rid)
     assert result["report_eligible"] is False
@@ -100,7 +103,7 @@ def test_a_dangling_evidence_reference_blocks_publication(complete_run):
     path = meta["run_dir"] / "claims" / "c1.json"
     claim = json.loads(path.read_text(encoding="utf-8"))
     claim["supporting_evidence_ids"] = ["EVD-sha256-" + "f" * 64]
-    path.write_text(json.dumps(claim), encoding="utf-8")
+    path.write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
 
     result = validate_run(ws, rid)
     assert _status(result, "claims_reference_evidence") == "failed"
@@ -114,7 +117,7 @@ def test_an_unresolvable_locator_blocks_publication(complete_run):
     ev = json.loads(path.read_text(encoding="utf-8"))
     ev["locator"]["start_offset"] = 999_999
     ev["locator"]["end_offset"] = 1_000_099
-    path.write_text(json.dumps(ev), encoding="utf-8")
+    path.write_text(json.dumps(stamp_artifact_hash(ev)), encoding="utf-8")
 
     result = validate_run(ws, rid)
     assert _status(result, "text_locators_resolve") == "failed"
@@ -127,7 +130,7 @@ def test_a_paraphrased_exact_text_blocks_publication(complete_run):
     path = meta["run_dir"] / "evidence" / "e1.json"
     ev = json.loads(path.read_text(encoding="utf-8"))
     ev["exact_text"] = "a paraphrase the reviewer would have to take on trust"
-    path.write_text(json.dumps(ev), encoding="utf-8")
+    path.write_text(json.dumps(stamp_artifact_hash(ev)), encoding="utf-8")
 
     result = validate_run(ws, rid)
     assert _status(result, "text_locators_resolve") == "failed"
@@ -161,7 +164,7 @@ def test_a_failed_review_blocks_publication(complete_run):
     review = json.loads(path.read_text(encoding="utf-8"))
     review["decision"] = "failed"
     review["blocking_issues"] = ["the cited passage does not mention the claimed result"]
-    path.write_text(json.dumps(review), encoding="utf-8")
+    path.write_text(json.dumps(stamp_artifact_hash(review)), encoding="utf-8")
 
     result = validate_run(ws, rid)
     assert _status(result, "citation_review_complete") == "failed"
@@ -174,7 +177,7 @@ def test_a_related_but_non_supporting_citation_blocks_publication(complete_run):
     path = meta["run_dir"] / "reviews" / "citation_review.json"
     review = json.loads(path.read_text(encoding="utf-8"))
     review["per_claim"][0]["citation_support"] = "related_not_supporting"
-    path.write_text(json.dumps(review), encoding="utf-8")
+    path.write_text(json.dumps(stamp_artifact_hash(review)), encoding="utf-8")
 
     result = validate_run(ws, rid)
     assert _status(result, "citations_support_their_claims") == "failed"
@@ -186,7 +189,7 @@ def test_an_unassessed_claim_is_not_evaluated_rather_than_assumed_fine(complete_
     path = meta["run_dir"] / "reviews" / "citation_review.json"
     review = json.loads(path.read_text(encoding="utf-8"))
     review["per_claim"] = []
-    path.write_text(json.dumps(review), encoding="utf-8")
+    path.write_text(json.dumps(stamp_artifact_hash(review)), encoding="utf-8")
 
     result = validate_run(ws, rid)
     assert _status(result, "citations_support_their_claims") == "not_evaluated"
@@ -198,7 +201,7 @@ def test_insufficient_reviewer_independence_blocks_publication(complete_run):
     path = meta["run_dir"] / "reviews" / "independent_review.json"
     review = json.loads(path.read_text(encoding="utf-8"))
     review["review_independence"]["status"] = "not_independent"
-    path.write_text(json.dumps(review), encoding="utf-8")
+    path.write_text(json.dumps(stamp_artifact_hash(review)), encoding="utf-8")
 
     result = validate_run(ws, rid)
     assert _status(result, "reviewer_independence_sufficient") == "failed"
@@ -210,7 +213,7 @@ def test_undeclared_independence_is_not_evaluated(complete_run):
     path = meta["run_dir"] / "reviews" / "independent_review.json"
     review = json.loads(path.read_text(encoding="utf-8"))
     del review["review_independence"]
-    path.write_text(json.dumps(review), encoding="utf-8")
+    path.write_text(json.dumps(stamp_artifact_hash(review)), encoding="utf-8")
 
     result = validate_run(ws, rid)
     assert _status(result, "reviewer_independence_sufficient") == "not_evaluated"
@@ -223,7 +226,7 @@ def test_ocr_evidence_without_human_verification_blocks_publication(complete_run
     ev = json.loads(path.read_text(encoding="utf-8"))
     ev["extraction_status"] = "ocr_required"
     ev["human_review_required"] = True
-    path.write_text(json.dumps(ev), encoding="utf-8")
+    path.write_text(json.dumps(stamp_artifact_hash(ev)), encoding="utf-8")
 
     result = validate_run(ws, rid)
     assert _status(result, "ocr_evidence_human_verified") == "failed"
@@ -238,7 +241,7 @@ def test_a_recorded_human_verification_amendment_clears_the_ocr_gate(complete_ru
     ev = json.loads(path.read_text(encoding="utf-8"))
     ev["extraction_status"] = "ocr_required"
     ev["human_review_required"] = True
-    path.write_text(json.dumps(ev), encoding="utf-8")
+    path.write_text(json.dumps(stamp_artifact_hash(ev)), encoding="utf-8")
 
     aid = amendment_id()
     amendment = make_artifact(
@@ -262,7 +265,7 @@ def test_an_unresolved_contradiction_blocks_publication(complete_run):
     path = meta["run_dir"] / "claims" / "c1.json"
     claim = json.loads(path.read_text(encoding="utf-8"))
     claim["contradiction_status"] = "unresolved"
-    path.write_text(json.dumps(claim), encoding="utf-8")
+    path.write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
 
     result = validate_run(ws, rid)
     assert _status(result, "contradictions_disclosed") == "failed"
@@ -278,7 +281,7 @@ def test_verified_without_a_passed_independent_review_blocks_publication(complet
     claim["claim_type"] = "direct_fact"
     claim["support_classification"] = "verified"
     claim["independent_review_status"] = "not_yet_reviewed"
-    path.write_text(json.dumps(claim), encoding="utf-8")
+    path.write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
 
     result = validate_run(ws, rid)
     assert _status(result, "support_classifications_earned") == "failed"
@@ -302,7 +305,7 @@ def test_verified_does_not_require_multiple_sources(complete_run):
     claim["claim_type"] = "direct_fact"
     claim["support_classification"] = "verified"
     claim["independent_review_status"] = "confirmed_independent"
-    path.write_text(json.dumps(claim), encoding="utf-8")
+    path.write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
 
     result = validate_run(ws, rid)
     assert _status(result, "source_independence_established") == "not_applicable"
@@ -316,7 +319,7 @@ def test_strongly_supported_still_requires_more_than_one_source(complete_run):
     path = meta["run_dir"] / "claims" / "c1.json"
     claim = json.loads(path.read_text(encoding="utf-8"))
     claim["support_classification"] = "strongly_supported"
-    path.write_text(json.dumps(claim), encoding="utf-8")
+    path.write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
 
     result = validate_run(ws, rid)
     assert _status(result, "source_independence_established") == "failed"
@@ -337,7 +340,7 @@ def test_a_schema_invalid_artifact_blocks_publication(complete_run):
     path = meta["run_dir"] / "claims" / "c1.json"
     claim = json.loads(path.read_text(encoding="utf-8"))
     claim["support_classification"] = "definitely_true"       # not in the enum
-    path.write_text(json.dumps(claim), encoding="utf-8")
+    path.write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
 
     result = validate_run(ws, rid)
     assert _status(result, "artifacts_conform_to_schema") == "failed"
@@ -351,8 +354,6 @@ def test_high_risk_profiles_demand_confirmed_independence(complete_run):
     edited manifest is rejected as tampering before the profile rule is ever reached. Re-stamping
     simulates a run legitimately created under the medicine profile.
     """
-    from research.hashing import stamp_artifact_hash
-
     ws, rid, meta = complete_run
     manifest_path = meta["run_dir"] / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -396,8 +397,6 @@ CLEAN_CONTEXT = (
 
 
 def _set_independence(run_dir: Path, status: str) -> str:
-    from research.hashing import stamp_artifact_hash
-
     path = run_dir / "reviews" / "independent_review.json"
     review = json.loads(path.read_text(encoding="utf-8"))
     review["review_independence"]["status"] = status
@@ -493,3 +492,122 @@ def test_an_attested_context_that_does_not_match_its_own_hash_fails(complete_run
     result = validate_run(ws, rid)
     assert _status(result, "independence_context_attested") == "failed"
     assert result["report_eligible"] is False
+
+
+# --------------------------------------------------------------- artifacts are verified on load
+#
+# `_load_json_dir` was a bare `json.load`. `read_artifact` verifies hashes; this loader is what
+# validation actually uses, and it did not — so every artifact an untrusted host agent produces
+# could be edited after the fact with nothing noticing. Note how many tests above had to start
+# re-stamping once it did: they were all relying on the absence of this check.
+
+
+def test_a_hand_edited_review_is_caught_as_tampering(complete_run):
+    """One word, and `citations_support_their_claims` flips from failed to passed."""
+    ws, rid, meta = complete_run
+    path = meta["run_dir"] / "reviews" / "citation_review.json"
+    review = json.loads(path.read_text(encoding="utf-8"))
+    review["per_claim"][0]["citation_support"] = "related_not_supporting"
+    path.write_text(json.dumps(review), encoding="utf-8")     # hash deliberately NOT re-stamped
+
+    result = validate_run(ws, rid)
+    assert _status(result, "artifacts_conform_to_schema") == "not_evaluated"
+    assert result["report_eligible"] is False
+    assert any("artifact_hash" in e["detail"] for e in result["blocking_errors"])
+
+
+def test_a_hand_edited_claim_is_caught_as_tampering(complete_run):
+    ws, rid, meta = complete_run
+    path = meta["run_dir"] / "claims" / "c1.json"
+    claim = json.loads(path.read_text(encoding="utf-8"))
+    claim["claim"] = "Process-in-memory eliminates off-chip data movement entirely."
+    path.write_text(json.dumps(claim), encoding="utf-8")
+
+    result = validate_run(ws, rid)
+    assert result["report_eligible"] is False
+    assert _status(result, "artifacts_conform_to_schema") == "not_evaluated"
+
+
+def test_a_stray_file_in_reviews_is_reported_not_a_crash(complete_run):
+    """It used to reach a check that reads `review_type` and die with KeyError. A validator that
+    raises tells the caller nothing about the run; `not_evaluated` tells it the truth."""
+    ws, rid, meta = complete_run
+    (meta["run_dir"] / "reviews" / "notes.json").write_text(
+        json.dumps({"note": "scratch"}), encoding="utf-8")
+
+    result = validate_run(ws, rid)
+    assert _status(result, "artifacts_conform_to_schema") == "not_evaluated"
+    assert result["report_eligible"] is False
+
+
+# ------------------------------------------------ "nobody looked" is not "none found"
+
+
+def test_an_unchecked_contradiction_status_blocks(complete_run):
+    """`not_checked` used to return passed, "none unresolved" — a clean bill of health for a
+    question nobody asked, from the check whose module docstring says not_evaluated blocks."""
+    ws, rid, meta = complete_run
+    path = meta["run_dir"] / "claims" / "c1.json"
+    claim = json.loads(path.read_text(encoding="utf-8"))
+    claim["contradiction_status"] = "not_checked"
+    path.write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
+
+    result = validate_run(ws, rid)
+    assert _status(result, "contradictions_disclosed") == "not_evaluated"
+    assert result["report_eligible"] is False
+
+
+# --------------------------------------------------------------- independence must be asserted
+
+
+def _relationship(ws, run_dir, rid, docs, kind):
+    art = make_artifact(
+        schema_name="SourceRelationship", artifact_id=amendment_id(), actor_type="host_agent",
+        body=dict(source_document_id=docs[0], related_document_id=docs[1],
+                  relationship_type=kind, confidence="high",
+                  detected_by="agent_review"))
+    write_artifact(run_dir / "relationships" / "r1.json", art, root=ws.root)
+
+
+@pytest.mark.parametrize("kind,expected", [
+    ("unknown", "not_evaluated"),
+    ("cites", "not_evaluated"),
+    ("duplicate", "failed"),
+    ("independent", "passed"),
+])
+def test_only_a_positive_assertion_of_independence_clears_the_gate(
+        complete_run, kind, expected, tmp_path):
+    """The gate was inverted: recording NOTHING blocked, recording `unknown` — the same statement,
+    written down — passed. `independent` did not exist in the enum at all, so the passing verdict
+    was unearnable honestly.
+    """
+    ws, rid, meta = complete_run
+    run_dir = meta["run_dir"]
+
+    # A second document and a second evidence record, so the claim rests on two sources.
+    other_doc = next(d for d in
+                     (json.loads(p.read_text(encoding="utf-8"))
+                      for p in (ws.root / "documents" / "manifests").glob("*.json"))
+                     if d["document_id"] != meta["doc"]["document_id"])
+    text = (ws.root / other_doc["normalized_text_path"]).read_text(encoding="utf-8")
+    loc = {"type": "text_span", "start_offset": 0, "end_offset": 40,
+           "span_sha256": sha256_text(text[:40])}
+    eid = evidence_id(document_version_id_=other_doc["document_version_id"], locator=loc,
+                      exact_text=text[:40], evidence_type="direct_statement")
+    write_artifact(run_dir / "evidence" / "e2.json", make_artifact(
+        schema_name="Evidence", artifact_id=eid, actor_type="host_agent",
+        body=dict(evidence_id=eid, document_id=other_doc["document_id"],
+                  document_version_id=other_doc["document_version_id"],
+                  evidence_type="direct_statement", locator=loc, exact_text=text[:40],
+                  extraction_status="extracted", human_review_required=False)), root=ws.root)
+
+    path = run_dir / "claims" / "c1.json"
+    claim = json.loads(path.read_text(encoding="utf-8"))
+    claim["support_classification"] = "strongly_supported"
+    claim["supporting_evidence_ids"] = [meta["evidence_id"], eid]
+    path.write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
+
+    _relationship(ws, run_dir, rid, [meta["doc"]["document_id"], other_doc["document_id"]], kind)
+
+    result = validate_run(ws, rid)
+    assert _status(result, "source_independence_established") == expected

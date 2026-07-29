@@ -34,7 +34,7 @@ from ..artifacts.locators import resolve_text_locator, resolve_visual_locator
 from ..artifacts.registry import validate_artifact
 from ..config import SCHEMA_VERSION, Workspace
 from ..errors import ResearchError
-from ..hashing import sha256_file, sha256_text
+from ..hashing import sha256_file, sha256_text, verify_artifact_hash
 from ..profiles import Profile, load_profile
 from ..runs.lifecycle import Disposition, Phase, Stage, is_valid_transition
 from ..runs.manager import load_run
@@ -132,6 +132,23 @@ class RunContext:
 
 
 def _load_json_dir(directory: Path) -> tuple[list[dict[str, Any]], list[str]]:
+    """Load canonical artifacts, VERIFYING each one's `artifact_hash`.
+
+    This used to be a bare `json.load`. `read_artifact` verifies hashes; this loader did not, and
+    this loader is what validation actually uses — so every artifact an untrusted host agent
+    produces (evidence, claims, reviews, relationships, amendments) could be hand-edited after the
+    fact and no gate would notice. One word changed in a citation review flips
+    `citations_support_their_claims` from failed to passed and `report_eligible` to True.
+
+    That made three shipped statements false at once: docs/security-model.md's "Reading verifies
+    it. An artifact edited outside the amendment process is rejected, not repaired", gate 38.8's
+    "hashes verified on read", and the module docstring above, which says this file "decides by
+    CHECKING rather than by trusting what an artifact says about itself".
+
+    A mismatch is a LOAD ERROR, not a skipped file: `check_artifacts_conform` turns load errors
+    into `not_evaluated`, which blocks. Dropping a tampered artifact silently would let deleting
+    the evidence for a failing gate make the gate pass.
+    """
     items: list[dict[str, Any]] = []
     errors: list[str] = []
     if not directory.is_dir():
@@ -143,7 +160,17 @@ def _load_json_dir(directory: Path) -> tuple[list[dict[str, Any]], list[str]]:
         except Exception as exc:  # noqa: BLE001
             errors.append(f"{path.name}: unreadable ({type(exc).__name__}: {exc})")
             continue
-        items.extend(data if isinstance(data, list) else [data])
+        for artifact in (data if isinstance(data, list) else [data]):
+            if not isinstance(artifact, dict) or "artifact_hash" not in artifact:
+                # Also stops a stray blob in `reviews/` from reaching a check that reads
+                # `review_type` and dying with a KeyError instead of reporting not_evaluated.
+                errors.append(f"{path.name}: not a canonical artifact (no artifact_hash)")
+                continue
+            if not verify_artifact_hash(artifact):
+                errors.append(f"{path.name}: artifact_hash does not match its content — edited "
+                              f"outside the amendment process")
+                continue
+            items.append(artifact)
     return items, errors
 
 
@@ -575,10 +602,25 @@ def check_visual_certainty(ctx: RunContext) -> CheckResult:
 
 
 def check_contradictions_disclosed(ctx: RunContext) -> CheckResult:
+    """Unresolved contradictions block — and so does never having looked.
+
+    This asked only whether any claim was marked `unresolved`. A run whose every claim said
+    `not_checked` therefore returned **passed, "none unresolved"** — the check reporting a clean
+    bill of health for a question nobody asked. `not_checked` is a value in the schema enum and the
+    initial state of a claim, so this was not a hypothetical.
+    """
+    unchecked = [c["claim_id"] for c in ctx.claims
+                 if c.get("contradiction_status") in (None, "not_checked")]
+    if unchecked:
+        return CheckResult("contradictions_disclosed", "not_evaluated",
+                           f"{len(unchecked)} claim(s) were never checked for contradictions, so "
+                           f"whether any exist is unknown — 'none found' and 'nobody looked' are "
+                           f"not the same answer", unchecked)
     unresolved = [c["claim_id"] for c in ctx.claims
                   if c.get("contradiction_status") == "unresolved"]
     if not unresolved:
-        return CheckResult("contradictions_disclosed", "passed", "none unresolved")
+        return CheckResult("contradictions_disclosed", "passed",
+                           f"{len(ctx.claims)} claim(s) checked, none unresolved")
     return CheckResult("contradictions_disclosed", "failed",
                        f"{len(unresolved)} claim(s) carry an unresolved contradiction; these must "
                        f"be disclosed and human-reviewed before publication", unresolved,
@@ -618,6 +660,16 @@ DEPENDENT_RELATIONSHIPS = {
     "derived_from", "shares_primary_dataset", "shares_experimental_result",
 }
 
+# The only relationship that ESTABLISHES independence. Everything else — including `unknown` and
+# `cites` — leaves it unassessed, which blocks.
+#
+# There used to be no such value at all, and the check passed on anything outside
+# DEPENDENT_RELATIONSHIPS. So `unknown` cleared the gate that recording nothing correctly blocked:
+# the same claim ("we did not assess this") passed or blocked depending on whether it was written
+# down. `cites` is not independence either — a source that cites another may be repeating it, which
+# is exactly the failure spec §24 is about.
+INDEPENDENCE_ESTABLISHING = {"independent"}
+
 
 def check_source_independence(ctx: RunContext) -> CheckResult:
     """Spec §24: multiple documents are not automatically multiple independent sources.
@@ -629,6 +681,11 @@ def check_source_independence(ctx: RunContext) -> CheckResult:
 
     `unknown` independence is never promoted to independent: a multi-source claim whose sources were
     never assessed returns `not_evaluated`, which blocks, rather than passing by default.
+
+    That sentence was in this docstring while the code did the opposite. Independence must now be
+    POSITIVELY recorded as `independent`; every other value either establishes dependence (failed)
+    or leaves it unassessed (not_evaluated). Absent, `unknown` and `cites` now behave identically,
+    because they say the same thing.
     """
     # ONLY `strongly_supported` requires independent corroboration (spec §23.2). `verified` does
     # NOT: it is reserved for DIRECTLY CHECKABLE facts, and the specification's own examples — a
@@ -669,9 +726,11 @@ def check_source_independence(ctx: RunContext) -> CheckResult:
         for i, a in enumerate(docs):
             for b in docs[i + 1:]:
                 kind = pairs.get(frozenset({a, b}))
-                if kind is None:
+                if kind is None or kind not in DEPENDENT_RELATIONSHIPS \
+                        and kind not in INDEPENDENCE_ESTABLISHING:
+                    stated = "never assessed" if kind is None else f"recorded only as {kind!r}"
                     unassessed.append(f"{claim['claim_id']}: independence of {a[:24]}… and "
-                                      f"{b[:24]}… was never assessed")
+                                      f"{b[:24]}… was {stated}")
                 elif kind in DEPENDENT_RELATIONSHIPS:
                     dependent.append(f"{claim['claim_id']}: its sources are related by "
                                      f"'{kind}', so they are not independent corroboration")

@@ -82,8 +82,24 @@ discarded; it is preserved as provenance metadata.
 
 Every canonical artifact carries `artifact_hash` over its RFC 8785 canonical form, computed with the
 hash field omitted. Reading verifies it. An artifact edited outside the amendment process is rejected,
-not repaired — there is a test that hand-edits a run manifest and confirms the run refuses to
-validate.
+not repaired.
+
+**This sentence was false until 2026-07-28, for exactly the artifacts that matter most.**
+`read_artifact` verified hashes, but validation loaded evidence, claims, reviews, relationships and
+amendments through a bare `json.load` that did not — so every artifact an untrusted host agent
+produces could be hand-edited afterwards and no gate noticed. One word changed in a citation review
+flipped `citations_support_their_claims` from failed to passed and published the run. The test this
+paragraph pointed at covered run manifests, the one artifact class where it happened to hold, and
+the sentence generalised from it. Validation now verifies every artifact it loads, a mismatch is a
+load error, and load errors force a blocking `not_evaluated`.
+
+**A hash is an integrity check, not a signature.** It detects an edit made *outside* the process:
+a stray script, a partial write, a hand fix, a re-extraction. It cannot detect a host that writes a
+false artifact and stamps it correctly, because the host holds no key and nothing here does. Every
+statement in this repository about tamper detection means the first thing and not the second —
+including the reviewer-context attestation, where "a deliberate leak requires falsifying a hashed
+record rather than merely omitting one" means the forgery must be *self-consistent*, not that it is
+beyond the host.
 
 Original files are content-addressed under `originals/sha256/ab/cd/<digest>`, and validation
 re-hashes them. A tampered original fails `source_hashes_match`, which blocks publication.

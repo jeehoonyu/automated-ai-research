@@ -54,7 +54,9 @@ wrong gate fired.
 
 | Check | What it establishes |
 |---|---|
-| `artifacts_conform_to_schema` | every run artifact validates; an unreadable one is `not_evaluated`, not skipped |
+| `profile_rules_loaded` | the profile the manifest names loaded, so the rules applied are the rules stated |
+| `artifacts_conform_to_schema` | every run artifact validates **and its `artifact_hash` matches its content**; an unreadable or edited one is `not_evaluated`, not skipped |
+| `profile_confidence_permitted` | no claim carries a classification the profile forbids outright |
 | `source_hashes_match` | stored originals still hash to their recorded value |
 | `evidence_references_resolve` | evidence points at a document version this workspace holds |
 | `text_locators_resolve` | offsets re-slice to the recorded span, and `exact_text` matches it |
@@ -69,10 +71,33 @@ wrong gate fired.
 | `independence_context_attested` | `confirmed_independent` is backed by an attested reviewer context containing no excluded material |
 | `ocr_evidence_human_verified` | OCR-dependent evidence has a recorded human verification amendment |
 | `visual_interpretation_certain` | uncertain visual readings were human-verified |
-| `contradictions_disclosed` | no claim carries an unresolved contradiction |
+| `contradictions_disclosed` | every claim was actually checked, and none carries an unresolved contradiction |
 | `support_classifications_earned` | `verified` has a passed independent review; `strongly_supported` has multiple evidence records |
-| `source_independence_established` | strongly-supported claims rest on genuinely independent sources; unknown independence is never promoted |
+| `source_independence_established` | strongly-supported claims rest on sources positively recorded as `independent`; absent, `unknown` and `cites` all block |
 | `lifecycle_transitions_valid` | the event log replays as a legal sequence |
+
+## Three gates that used to fail open
+
+Found by a multi-lens audit of this repository on 2026-07-28, each confirmed by executing the check
+rather than by reading it:
+
+- **Artifacts were never hash-verified where it counted.** Validation loaded evidence, claims,
+  reviews, relationships and amendments through a bare `json.load`. `read_artifact` verifies; this
+  loader did not, and this loader is the one validation uses. A hand edit that stayed schema-valid
+  was invisible, and one word in a citation review flipped the run to publishable. Note how many
+  tests in `tests/integration/test_validation.py` now re-stamp their seeded defects — every one of
+  them was relying on the absence of this check.
+- **`contradiction_status: not_checked` returned `passed`.** The check asked only whether any claim
+  was `unresolved`, so a run where nobody had looked reported "none unresolved". `not_checked` is in
+  the schema enum and is a claim's initial state.
+- **Recording `unknown` cleared the independence gate that recording nothing blocked.** The same
+  statement — "we did not assess this" — passed or blocked depending on whether it was written down.
+  There was no enum value meaning `independent` at all, so the passing verdict was unearnable
+  honestly. `independent` now exists and is the only thing that clears the gate.
+
+The third is the sharpest: the check's own docstring said "`unknown` independence is never promoted
+to independent … returns `not_evaluated`, which blocks, rather than passing by default", directly
+above code that did the opposite.
 
 ## Attested independence, and what it is worth
 
@@ -107,6 +132,13 @@ precisely:
   leaked.
 - **After** — an accidental leak is caught mechanically, and a deliberate one requires falsifying a
   hashed record rather than merely omitting one.
+
+That second line was weaker than it read when written. The `ReviewContext`'s `content_sha256` is an
+ordinary field of an artifact whose own `artifact_hash` validation never checked, so editing two
+fields defeated it for the cost of one plain `sha256`. Hash verification on load closes that, and
+the claim now holds — but only in the sense a hash can hold it: **an artifact hash detects an edit
+made outside the process, not a host that writes a false artifact and stamps it correctly.** See
+`docs/security-model.md`.
 
 Known gaps, each pinned by a test in `tests/unit/test_independence.py` so they stay honest:
 

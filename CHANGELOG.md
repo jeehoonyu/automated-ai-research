@@ -6,6 +6,25 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed — three gates that reported "no problems" for what they never inspected
+Found by a twelve-agent audit across five independent lenses (37 findings, six survived adversarial
+refutation), each confirmed by executing the check rather than reading it.
+- **Artifacts are now hash-verified where it counts.** Validation loaded evidence, claims, reviews,
+  relationships and amendments through a bare `json.load`; `read_artifact` verifies hashes but this
+  loader is the one validation uses. A hand edit that stayed schema-valid was invisible, and one
+  word changed in a citation review flipped `citations_support_their_claims` from failed to passed
+  and `report_eligible` to True. A mismatch is now a load error, which forces a blocking
+  `not_evaluated`. This also stops a stray blob in `reviews/` from crashing `validate_run` with a
+  `KeyError` instead of reporting `not_evaluated`.
+- **`contradiction_status: not_checked` no longer passes.** The check asked only whether any claim
+  was `unresolved`, so a run where nobody had looked returned "none unresolved". Now
+  `not_evaluated`.
+- **`unknown` no longer clears the source-independence gate that recording nothing blocks.** The
+  enum had no value meaning independent, so the only way to reach `passed` was to record every pair
+  as `cites` or `unknown` — neither of which asserts independence — while the honest answer of
+  recording nothing correctly blocked. `independent` added to `SourceRelationship`; absent,
+  `unknown` and `cites` now all block.
+
 ### Fixed — the installed package did not work
 - **Canonical schemas now ship.** `SCHEMA_ROOT` was `parents[3] / "schemas"` — the repository root —
   so no wheel ever contained a schema. Because validation happens on write, an installed copy could
