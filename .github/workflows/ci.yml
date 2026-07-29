@@ -23,11 +23,11 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: pytest -q
       - name: Schemas are regenerated, not hand-edited
-        # tools/generate_schemas.py is the author of schemas/v1. If a schema was edited by hand
-        # the next regeneration would silently revert it, so the tree must already be clean.
+        # tools/generate_schemas.py is the author of src/research/schemas/v1. If a schema was
+        # hand-edited the next regeneration would revert it, so the tree must already be clean.
         run: |
           python tools/generate_schemas.py
-          git diff --exit-code schemas/
+          git diff --exit-code src/research/schemas/
       - run: ruff check src tests
       - run: mypy src/research
 
@@ -41,9 +41,38 @@ jobs:
       - run: pip install build
       - run: python -m build
       - name: Install the built wheel in a clean environment
+        # This step used to run `--version` and `init` and stop. Those were the ONLY two commands
+        # that worked: the canonical schemas lived beside the package rather than inside it, so
+        # nothing shipped them and every artifact write failed the moment a real command ran. The
+        # job passed for as long as it existed. An acceptance test whose coverage happens to equal
+        # the working subset is not evidence — so it now drives the pipeline far enough to write,
+        # validate and read back artifacts of several schemas.
         run: |
           python -m venv /tmp/clean
           /tmp/clean/bin/pip install dist/*.whl
           /tmp/clean/bin/research --version
           /tmp/clean/bin/research init /tmp/ws
           test -f /tmp/ws/workflow/canonical-workflow.md
+          test -f /tmp/ws/profiles/medicine.yaml
+          python benchmark/build_corpus.py /tmp/corpus
+          # The corpus deliberately contains an image-only page and two partial extractions, so
+          # import exits 6 (HUMAN_REVIEW_REQUIRED). That is a correct outcome, not a failure —
+          # treating every non-zero code as broken would make this step red for doing its job.
+          set +e
+          /tmp/clean/bin/research import /tmp/corpus --workspace /tmp/ws
+          code=$?
+          set -e
+          test "$code" -eq 0 -o "$code" -eq 6 || { echo "import failed with $code"; exit 1; }
+          /tmp/clean/bin/research index --workspace /tmp/ws
+          /tmp/clean/bin/research search "process-in-memory" --workspace /tmp/ws
+          RUN=$(/tmp/clean/bin/research run --workspace /tmp/ws --json \
+            --question "Does process-in-memory reduce data movement?" \
+            | python -c "import json,sys; print(json.load(sys.stdin)['data']['run_id'])")
+          # No agent has worked the packets, so validation must BLOCK. Exit 5 is the gating code.
+          # A zero here would mean the installed build publishes unsupported conclusions — the one
+          # thing this project exists to refuse — so success is the failure case.
+          set +e
+          /tmp/clean/bin/research validate "$RUN" --workspace /tmp/ws
+          code=$?
+          set -e
+          test "$code" -eq 5 || { echo "expected exit 5 (gating), got $code"; exit 1; }

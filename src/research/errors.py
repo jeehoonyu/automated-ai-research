@@ -20,7 +20,11 @@ from typing import Any, Literal
 
 ENVELOPE_VERSION = "1.0.0"
 
-Status = Literal["ok", "partial", "blocked", "failed"]
+# `human_review` is a distinct status because exit code 6 was otherwise unreachable. It is only
+# produced from `errors`, and `human_review_required` is only ever emitted as a WARNING — so a
+# spec §34 exit code that automation is told to branch on could never actually occur, and an import
+# whose summary read `failed 0` exited 4, SOURCE_PROCESSING_FAILURE.
+Status = Literal["ok", "partial", "human_review", "blocked", "failed"]
 
 
 class ExitCode(IntEnum):
@@ -153,6 +157,8 @@ class Envelope:
             return ExitCode.GENERAL_FAILURE
         if self.status == "blocked":
             return ExitCode.REPORT_GATING_FAILURE
+        if self.status == "human_review":
+            return ExitCode.HUMAN_REVIEW_REQUIRED
         if self.status == "partial":
             return ExitCode.SOURCE_PROCESSING_FAILURE
         return ExitCode.SUCCESS

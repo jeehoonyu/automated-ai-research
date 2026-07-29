@@ -22,7 +22,11 @@ from typing import Any
 
 from ..errors import SchemaValidationError, UnsupportedVersionError
 
-SCHEMA_ROOT = Path(__file__).resolve().parents[3] / "schemas"
+# INSIDE the package, not beside it. This was `parents[3] / "schemas"` — the repository root — which
+# resolves to a directory that does not exist once the wheel is installed, so every schema load
+# raised and the package could do nothing but `--version` and `init`. Package data must live under
+# `src/research/` to be shipped at all; see `[tool.setuptools.package-data]` in pyproject.toml.
+SCHEMA_ROOT = Path(__file__).resolve().parents[1] / "schemas"
 SUPPORTED_MAJOR = 1
 
 # schema_name (as written into artifacts) -> schema file stem

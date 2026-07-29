@@ -122,4 +122,41 @@ Human review is a **result**, not an error. It is recorded, disclosed in the rep
 publication until resolved through an `Amendment` — which records what changed, why, by whom, and
 which artifact hash it supersedes. Historical artifacts are never edited in place.
 
-Triggers are listed in the active research profile; see `research_profiles/`.
+Triggers are listed in the active research profile; see `src/research/profiles/`.
+
+## Profiles
+
+A profile customises validation rules, never the artifact model or the stage order (spec §27). The
+run manifest records which profile a run was created under, and validation loads that file:
+
+| Key | Effect |
+|---|---|
+| `risk: high` | tightens the independence bar and marks the run high-risk |
+| `reviewer_independence.minimum` | the weakest independence status this profile accepts |
+| `reviewer_independence.disclose_when_below` | acceptable but weaker than ideal — the report must say so |
+| `prohibited_confidence` | classifications refused outright, whatever the evidence |
+| `human_review_triggers` | which detectable conditions force human review |
+
+`src/research/schemas/` and `src/research/profiles/` ship inside the package; `research init` copies
+the profiles into the workspace, where a local edit overrides the packaged file.
+
+**A key is honoured or it is declared unimplemented, with the reason.** Loading rejects anything
+else, and a `human_review_triggers` entry no check can fire is rejected too. This exists because the
+profile files previously shipped, were documented, were a ticked release task — and **no code read
+them**; `medicine.yaml` promised `prohibited_confidence`, three methodology requirements and seven
+triggers, and delivered one hard-coded independence bar it happened to agree with.
+
+Currently declared unimplemented, and why:
+
+- `methodology_review.require_*` — judging study design means reading the source, which is the host
+  agent's job. Real enforcement needs the methodology review to record a per-item assessment whose
+  *presence* the validator can check.
+- `contradiction_review` — already required and already instructed for every profile, so these keys
+  cannot tighten anything. Kept so a profile trying to loosen them is visibly rejected.
+- `report_sections` — the report template is fixed; profile-driven sections would let a profile drop
+  `contradictions` or `limitations`.
+- `advisory_human_review_triggers` — conditions no code can detect, such as "any claim bearing on
+  patient care". Recorded so the intent survives; nothing fires them.
+
+A profile that omits a trigger is deliberately choosing not to require review for it. Both shipped
+profiles list all six detectable triggers, and a test pins that.

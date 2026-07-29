@@ -30,4 +30,10 @@ human_review_triggers:
   - evidence_depends_on_ocr_required_page
   - causal_claim_from_correlational_evidence
   - source_independence_unestablished
+
+# NOT ENFORCED. No code can detect these — deciding whether a claim bears on patient care means
+# reading the claim. They are kept so the intent survives review, and they are listed in
+# NOT_IMPLEMENTED in src/research/profiles.py so that loading the profile reports them rather than
+# appearing to honour them. A human applying this profile should read them.
+advisory_human_review_triggers:
   - any_claim_bearing_on_patient_care

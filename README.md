@@ -55,7 +55,7 @@ output checkable.
   outright, OCR-dependent evidence must demand human review, and an independent review must declare
   its independence.
 
-- **Phase 7 (validation and gating)** — 19 checks covering source hashes, locator resolution,
+- **Phase 7 (validation and gating)** — 21 checks covering source hashes, locator resolution,
   claim-evidence links, review completeness, reviewer independence, OCR and visual certainty,
   contradiction disclosure, support classifications, and lifecycle replay. Each check reports
   `passed` / `failed` / `not_evaluated` / `not_applicable`, and **`not_evaluated` blocks publication
@@ -79,7 +79,7 @@ output checkable.
   `CONTRIBUTING.md`, a changelog, CI across Linux/macOS/Windows, and a release checklist that lists
   what is **not** met.
 
-302 tests. A stage is complete only when its artifact exists **and** validates — never because a
+340 tests. A stage is complete only when its artifact exists **and** validates — never because a
 file appeared.
 
 ### What is not established
@@ -111,6 +111,12 @@ grandfathered.
 job started — private repositories bill Actions minutes, and the account's billing is blocked. That
 is an account setting rather than a code defect, but "Verified on Linux and macOS" remains
 unchecked either way.
+
+**Until 2026-07-28 the built wheel did not work.** The canonical schemas lived beside the package
+rather than inside it, so no wheel shipped them and an installed copy could run `--version` and
+`init` and nothing else; the CI job meant to verify the install ran exactly those two commands.
+Fixed, along with two more claims nothing backed — research profiles were never read by any code,
+and exit code `6 HUMAN_REVIEW_REQUIRED` was unreachable. See [`GOAL.md`](GOAL.md).
 
 ## Install
 
@@ -159,7 +165,7 @@ instructions from untrusted document content explicitly.
   enforced. Worth reading before changing any gate.
 - [`docs/architecture.md`](docs/architecture.md) — trust boundaries, authority model, determinism
 - [`docs/security-model.md`](docs/security-model.md) — threat model, and what is *not* protected
-- [`docs/validation-rules.md`](docs/validation-rules.md) — the 19 checks and why `not_evaluated` blocks
+- [`docs/validation-rules.md`](docs/validation-rules.md) — the 21 checks, the profile rules, and why `not_evaluated` blocks
 - [`docs/release-checklist.md`](docs/release-checklist.md) — gate status, including the unmet one
 - [`benchmark/README.md`](benchmark/README.md) — the corpus and the ten cases
 - [`CONTRIBUTING.md`](CONTRIBUTING.md), [`SECURITY.md`](SECURITY.md), [`CHANGELOG.md`](CHANGELOG.md)

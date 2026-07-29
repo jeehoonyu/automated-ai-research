@@ -35,6 +35,7 @@ from ..artifacts.registry import validate_artifact
 from ..config import SCHEMA_VERSION, Workspace
 from ..errors import ResearchError
 from ..hashing import sha256_file, sha256_text
+from ..profiles import Profile, load_profile
 from ..runs.lifecycle import Disposition, Phase, Stage, is_valid_transition
 from ..runs.manager import load_run
 from ..security.paths import safe_join
@@ -50,9 +51,10 @@ REQUIRED_REVIEWS = {
     "independent_review": Stage.INDEPENDENT_REVIEW,
 }
 
-# Independence the default profile will accept. High-risk profiles demand confirmed_independent.
-ACCEPTABLE_INDEPENDENCE = {"confirmed_independent", "procedurally_isolated"}
-STRICT_INDEPENDENCE = {"confirmed_independent"}
+# Human-review triggers are no longer hard-coded here. Each check names its trigger and asks the
+# run's profile whether that condition forces human review; see src/research/profiles.py. A
+# profile that omits a trigger is deliberately choosing not to require review for it — both
+# shipped profiles list all six, so today nothing is loosened.
 
 
 @dataclass
@@ -92,13 +94,23 @@ class RunContext:
     documents: dict[str, dict[str, Any]] = field(default_factory=dict)
     load_errors: list[str] = field(default_factory=list)
 
+    profile_rules: Profile | None = None
+    profile_error: str | None = None
+
     @property
     def profile(self) -> str:
         return str(self.manifest.get("profile", "default"))
 
     @property
+    def rules(self) -> Profile:
+        """The loaded profile. Falls back to the built-in defaults ONLY when nothing loaded, and
+        `check_profile_loaded` blocks in that case, so a run is never validated under rules that
+        silently differ from the ones its manifest names."""
+        return self.profile_rules or Profile(name=self.profile)
+
+    @property
     def high_risk(self) -> bool:
-        return bool((self.plan or {}).get("high_risk")) or self.profile in {"medicine", "finance"}
+        return bool((self.plan or {}).get("high_risk")) or self.rules.high_risk
 
     def evidence_by_id(self) -> dict[str, dict[str, Any]]:
         return {e["evidence_id"]: e for e in self.evidence}
@@ -146,6 +158,15 @@ def build_context(ws: Workspace, run_id: str) -> RunContext:
         items, errors = _load_json_dir(run_dir / target)
         setattr(ctx, name, items)
         ctx.load_errors.extend(f"{target}/{e}" for e in errors)
+
+    # The rules a run is judged by come from the profile its manifest names. A failure to load is
+    # NOT a fall back to the defaults — `check_profile_loaded` blocks — because validating a
+    # `medicine` run under the standard bar while the manifest records `medicine` would be a run
+    # whose stated rules and applied rules differ.
+    try:
+        ctx.profile_rules = load_profile(ctx.profile, ws.root)
+    except ResearchError as exc:
+        ctx.profile_error = exc.message
 
     plan_path = run_dir / "plan.json"
     if plan_path.is_file():
@@ -325,7 +346,8 @@ def check_citation_support(ctx: RunContext) -> CheckResult:
     return CheckResult("citations_support_their_claims", "passed",
                        f"{len(judged)} claim(s) assessed"
                        + (f"; {len(partial)} only partially supported" if partial else ""),
-                       human_review=bool(partial))
+                       human_review=bool(partial)
+                       and ctx.rules.forces_human_review("citation_failed_or_partial"))
 
 
 def _review_check(ctx: RunContext, review_type: str) -> CheckResult:
@@ -347,30 +369,84 @@ def _review_check(ctx: RunContext, review_type: str) -> CheckResult:
                        [r["review_id"] for r in matching], human_review=bool(needs_human))
 
 
+def check_profile_loaded(ctx: RunContext) -> CheckResult:
+    """The rules a run is judged by must be the rules its manifest names.
+
+    Before profiles were loaded at all, this could not fail — `medicine` meant one hard-coded
+    independence bar and nothing else, and every other rule the profile file described was inert.
+    Now that the file decides, a file that will not load has to block: validating under the built-in
+    defaults while the manifest records `medicine` produces a run whose stated rules and applied
+    rules differ, which is worse than refusing.
+    """
+    name = "profile_rules_loaded"
+    if ctx.profile_error:
+        return CheckResult(name, "not_evaluated",
+                           f"profile {ctx.profile!r} could not be loaded, so the rules this run "
+                           f"should be judged by are unknown: {ctx.profile_error}")
+    rules = ctx.rules
+    detail = f"profile {rules.name!r} (risk={rules.risk}, minimum independence "
+    detail += f"{rules.minimum_independence})"
+    if rules.unimplemented:
+        detail += f"; keys present but NOT enforced: {', '.join(rules.unimplemented)}"
+    return CheckResult(name, "passed", detail)
+
+
+def check_profile_confidence_permitted(ctx: RunContext) -> CheckResult:
+    """A profile may forbid a classification outright, whatever the evidence.
+
+    `medicine.yaml` has said `prohibited_confidence: [verified]` since it was written, and nothing
+    read it. It does now.
+    """
+    name = "profile_confidence_permitted"
+    forbidden = set(ctx.rules.prohibited_confidence)
+    if not forbidden:
+        return CheckResult(name, "not_applicable",
+                           f"profile {ctx.rules.name!r} forbids no classification outright")
+    if not ctx.claims:
+        return CheckResult(name, "not_evaluated", "no claims produced")
+    offending = [c["claim_id"] for c in ctx.claims
+                 if c.get("support_classification") in forbidden]
+    if offending:
+        return CheckResult(name, "failed",
+                           f"profile {ctx.rules.name!r} forbids "
+                           f"{sorted(forbidden)} and {len(offending)} claim(s) carry it",
+                           offending)
+    return CheckResult(name, "passed",
+                       f"no claim carries a classification this profile forbids "
+                       f"({sorted(forbidden)})")
+
+
 def check_independence(ctx: RunContext) -> CheckResult:
     """Independence must be declared, and must meet the profile's bar (spec §13)."""
     reviews = [r for r in ctx.reviews if r["review_type"] == "independent_review"]
     if not reviews:
         return CheckResult("reviewer_independence_sufficient", "not_evaluated",
                            "no independent review was produced")
-    acceptable = STRICT_INDEPENDENCE if ctx.high_risk else ACCEPTABLE_INDEPENDENCE
+    rules = ctx.rules
+    # The bar comes from the profile file now, not from a hard-coded pair of sets. `high_risk` from
+    # the plan still tightens it, because a plan may mark one question high-risk inside an
+    # otherwise standard profile.
+    minimum = ("confirmed_independent" if ctx.high_risk
+               and rules.minimum_independence != "confirmed_independent"
+               else rules.minimum_independence)
     statuses = [(r["review_id"], (r.get("review_independence") or {}).get("status"))
                 for r in reviews]
     undeclared = [rid for rid, status in statuses if not status]
     if undeclared:
         return CheckResult("reviewer_independence_sufficient", "not_evaluated",
                            "independence was not declared", undeclared)
-    insufficient = [rid for rid, status in statuses if status not in acceptable]
+    strict = Profile(name=rules.name, minimum_independence=minimum,
+                     disclose_independence_below=rules.disclose_independence_below)
+    insufficient = [rid for rid, status in statuses if not strict.accepts_independence(status)]
     if insufficient:
         return CheckResult(
             "reviewer_independence_sufficient", "failed",
-            f"independence status is below the bar for this profile "
-            f"(required: {sorted(acceptable)})", insufficient)
-    # procedurally_isolated is acceptable by default but MUST be disclosed in the report.
-    weak = [rid for rid, status in statuses if status == "procedurally_isolated"]
+            f"independence is below the bar set by profile {rules.name!r} "
+            f"(minimum: {minimum})", insufficient)
+    weak = [rid for rid, status in statuses if strict.must_disclose_independence(status)]
     return CheckResult("reviewer_independence_sufficient", "passed",
-                       "procedurally_isolated — must be disclosed in the report" if weak
-                       else "confirmed_independent",
+                       f"accepted but below {rules.disclose_independence_below} — must be "
+                       f"disclosed in the report" if weak else "meets the profile's bar",
                        [rid for rid, _ in statuses])
 
 
@@ -477,7 +553,8 @@ def check_ocr_evidence(ctx: RunContext) -> CheckResult:
         return CheckResult("ocr_evidence_human_verified", "failed",
                            f"{len(unverified)} evidence record(s) rest on an ocr_required page "
                            f"without a recorded human verification amendment", unverified,
-                           human_review=True)
+                           human_review=ctx.rules.forces_human_review(
+                               "evidence_depends_on_ocr_required_page"))
     return CheckResult("ocr_evidence_human_verified", "passed", f"{len(ocr)} verified")
 
 
@@ -492,7 +569,8 @@ def check_visual_certainty(ctx: RunContext) -> CheckResult:
     if outstanding:
         return CheckResult("visual_interpretation_certain", "failed",
                            f"{len(outstanding)} visual reading(s) are uncertain and unverified",
-                           outstanding, human_review=True)
+                           outstanding, human_review=ctx.rules.forces_human_review(
+                               "uncertain_visual_interpretation"))
     return CheckResult("visual_interpretation_certain", "passed", "all verified by a human")
 
 
@@ -504,7 +582,8 @@ def check_contradictions_disclosed(ctx: RunContext) -> CheckResult:
     return CheckResult("contradictions_disclosed", "failed",
                        f"{len(unresolved)} claim(s) carry an unresolved contradiction; these must "
                        f"be disclosed and human-reviewed before publication", unresolved,
-                       human_review=True)
+                       human_review=ctx.rules.forces_human_review(
+                           "unresolved_contradiction_on_material_claim"))
 
 
 def check_support_classifications(ctx: RunContext) -> CheckResult:
@@ -604,7 +683,9 @@ def check_source_independence(ctx: RunContext) -> CheckResult:
         return CheckResult("source_independence_established", "not_evaluated",
                            "; ".join(unassessed[:5]) +
                            " — unknown independence cannot be promoted to independent",
-                           [u.split(":")[0] for u in unassessed])
+                           [u.split(":")[0] for u in unassessed],
+                           human_review=ctx.rules.forces_human_review(
+                               "source_independence_unestablished"))
     return CheckResult("source_independence_established", "passed",
                        f"{len(needs)} strongly-supported claim(s) rest on independent sources")
 
@@ -644,6 +725,7 @@ def _amendments(ctx: RunContext) -> list[dict[str, Any]]:
 
 
 CHECKS = [
+    check_profile_loaded,
     check_artifacts_conform,
     check_source_hashes,
     check_evidence_references,
@@ -655,6 +737,7 @@ CHECKS = [
     lambda ctx: _review_check(ctx, "citation_review"),
     lambda ctx: _review_check(ctx, "methodology_review"),
     lambda ctx: _review_check(ctx, "independent_review"),
+    check_profile_confidence_permitted,
     check_independence,
     check_independence_attested,
     check_ocr_evidence,

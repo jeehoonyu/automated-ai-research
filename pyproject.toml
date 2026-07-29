@@ -53,7 +53,17 @@ Documentation = "https://github.com/jeehoonyu/automated-ai-research/tree/main/do
 where = ["src"]
 
 [tool.setuptools.package-data]
-research = ["py.typed", "reporting/templates/*.j2", "assets/*.md"]
+# Every one of these is loaded at runtime. A file listed in the repository but not
+# here is simply absent from an installed copy — which is how the canonical schemas
+# came to be missing from the wheel while the tests, run from a source checkout,
+# stayed green.
+research = [
+    "py.typed",
+    "reporting/templates/*.j2",
+    "assets/*.md",
+    "schemas/v*/*.json",
+    "profiles/*.yaml",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

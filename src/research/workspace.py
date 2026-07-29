@@ -23,6 +23,7 @@ from .config import (
     WORKSPACE_FILE,
 )
 from .errors import WorkspaceError
+from .profiles import PACKAGED_PROFILE_DIR
 from .security.paths import atomic_write_text, safe_join
 
 _HOST_ENTRY = """# {host} instructions
@@ -113,6 +114,15 @@ def init_workspace(
     if canonical.is_file():
         files.append((workflow_dir / "canonical-workflow.md",
                       canonical.read_text(encoding="utf-8")))
+
+    # The profiles the workspace will actually be validated against, copied in so they can be read
+    # and edited here rather than only inside the installed package. Until this existed, `init`
+    # created an empty `profiles/` directory while this module's docstring said it created "the
+    # default profiles" — and nothing anywhere read a profile file at all.
+    profiles_dir = safe_join(root, "profiles")
+    profiles_dir.mkdir(parents=True, exist_ok=True)
+    for source in sorted(PACKAGED_PROFILE_DIR.glob("*.yaml")):
+        files.append((profiles_dir / source.name, source.read_text(encoding="utf-8")))
     for dest, body in files:
         if dest.exists():
             continue

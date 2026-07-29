@@ -3,83 +3,98 @@
 `PROJECT_GOAL.md` is the specification. **This file is the working goal against it** — what is being
 built now and what would count as having built it. It changes; the specification does not.
 
-## The goal
+---
 
-> **Make the platform detect the one failure it is known to be blind to: an independent review that
-> was not independent.**
+## Goal 2 — make the shipped thing be the thing the docs describe
 
-### Why this and not something else
+> **Three interfaces this project documents were not implemented: the installed package, the
+> research profiles, and half the exit codes. Implement them, and make the acceptance tests capable
+> of failing.**
 
-The Claude Code conformance run (`benchmark/expected/claude-code/`) produced one finding that is
-worse than any bug it found:
+### How it was found
 
-> My first attempt at the independent-review packet included the line *"submitted with support
-> classification: conflicting_evidence"*. That is `primary_confidence`, an explicitly excluded input.
-> **Nothing in the CLI could have detected the leak.**
+Not by reading. By installing the built wheel into a clean environment and running the pipeline:
 
-That is not a defect in a check. It is a hole where a check should be. Every other gate in this
-system decides by inspecting something; `reviewer_independence_sufficient` decides by reading a
-boolean the host wrote about itself. Both committed conformance runs declare:
-
-```json
-"review_independence": { "primary_rationale_excluded": true, "…": true,
-                         "status": "confirmed_independent" }
+```
+research --version   OK
+research init        OK
+research import      schema file is missing: .../Lib/schemas/v1/chunk-set.schema.json
+research index       same
 ```
 
-Nothing on disk distinguishes that from the same JSON written by a host that pasted the primary
-agent's grade into the reviewer's prompt. The strongest status in the system is the one with the
-least evidence behind it — which is precisely the fail-open shape recorded in
-`docs/lessons-carried-forward.md` §6b.
+`SCHEMA_ROOT` was `Path(__file__).resolve().parents[3] / "schemas"` — the *repository* root. That
+resolves in a source checkout and in an editable install, so 299 tests were green while the wheel
+shipped no schemas at all. Validation happens on write, so **every command past `init` failed.**
 
-Fixing it is also the only substantial thing that is *not* blocked right now: gate 38.10 waits on
-Codex credits (Aug 1), and CI waits on the account's Actions billing. Neither is a code problem.
+The CI job meant to catch this ran `--version`, `init`, and one `test -f`. Its coverage was exactly
+equal to the working subset. It would have passed forever.
 
-## What counts as done
+Pulling that thread found two more of the same shape.
+
+### The three
+
+| | Claimed | Actually |
+|---|---|---|
+| **Installed package** | release checklist: `[x] pip install from a built wheel verified in a clean environment (package data ships)` | no schemas in the wheel; unusable past `init` |
+| **Research profiles** | README, checklist, `docs/validation-rules.md` → "triggers are listed in the active research profile" | **no code read a profile file.** One hard-coded set, `{"medicine", "finance"}`, was the entire feature |
+| **Exit codes** | spec §34 defines `6 = HUMAN_REVIEW_REQUIRED`, "an expected workflow state that automation still needs to detect" | **unreachable.** `human_review_required` was only ever a warning; `import` with `failed 0` exited **4**, `SOURCE_PROCESSING_FAILURE` |
+
+`medicine.yaml` had promised `prohibited_confidence: [verified]`, three methodology requirements and
+seven human-review triggers since the day it was written. It delivered one independence bar that the
+hard-coded set happened to agree with.
+
+### What counts as done
 
 | | Requirement | Done when |
 |---|---|---|
-| **G1** | The host can put the reviewer's actual context on the record, hashed and immutable | `ReviewContext` artifact exists, validates, is content-addressed |
-| **G2** | The CLI scans that context for material the packet excluded, derived from *this run's own artifacts* | `check_independence_attested` reports `passed` / `failed` / `not_evaluated` |
-| **G3** | `confirmed_independent` is no longer free | An unattested `confirmed_independent` blocks; `procedurally_isolated` remains available without attestation |
-| **G4** | It catches the *actual historical leak*, verbatim | A regression test containing the real leaked sentence fails the check |
-| **G5** | The rule is applied to our own committed evidence, whatever that costs | The conformance README and release checklist state the resulting downgrade, and a test pins it |
+| **G1** | An installed copy works | schemas and profiles live under `src/research/`, ship in the wheel, and the full pipeline runs from a clean install |
+| **G2** | The acceptance test can fail | the CI wheel job drives import → index → search → run → validate and asserts the gating exit code; `tests/unit/test_packaging.py` catches the class without needing CI |
+| **G3** | Profiles decide something | `risk`, `reviewer_independence`, `prohibited_confidence` and `human_review_triggers` are read from the file and applied |
+| **G4** | A profile cannot promise what nothing does | every key is honoured or declared in `NOT_IMPLEMENTED` with its reason; anything else is a load error, and a trigger no check can fire is rejected |
+| **G5** | Every declared exit code is reachable | `test_every_declared_exit_code_is_reachable` enumerates `ExitCode` and produces each one |
 
-### G5 is the point of G5
+### The rule that keeps G3 fixed
 
-The two committed runs declare `confirmed_independent` and have no attested context, because
-attestation did not exist when they ran. Under this goal they can no longer earn that status.
+A profile key must be **honoured** or **declared unimplemented, with the reason**. Loading rejects
+anything else, so a future key that nothing reads fails loudly instead of quietly meaning nothing.
+Four keys are currently declared unimplemented — `methodology_review`, `contradiction_review`,
+`report_sections`, `advisory_human_review_triggers` — each with why.
 
-**They will be recorded as downgraded, not grandfathered.** A `workflow_version` exemption for
-"runs made before the rule" is exactly how a gate becomes decorative, and this repository already
-carries three write-ups of that pattern. The evidence for gate 38.6 (contradiction *discovered* by
-search) and the blocked/published outcomes is unaffected — only the independence tier moves.
+An unimplemented key is not a lie as long as it says so. A key that silently does nothing is.
 
-## What this deliberately does not claim
+### What this deliberately does not claim
 
-Attestation checks **what the host says it sent**. A host that sends a leaky context and then attests
-a clean one defeats it completely, and no local artifact can prevent that.
+- **`methodology_review.require_*` still does nothing.** Judging study design means reading the
+  source, which is the host agent's job. Making it real needs the methodology review to record a
+  per-item assessment the validator can check for *presence* — a good next goal, not this one.
+- **Routing human-review triggers through the profile makes loosening possible.** A profile that
+  omits a trigger is choosing not to require review for it. Both shipped profiles list all six, and
+  a test pins that, so nothing is loosened today.
+- **CI still has not executed.** The wheel job is now capable of failing, but no run has proved it.
+  Every step it contains was run by hand against a real install instead.
 
-The honest description of the improvement is narrow and worth stating precisely:
+---
 
-- **Before** — a leak was undetectable, and an honest host had no way to demonstrate it had not
-  leaked.
-- **After** — an *accidental* leak is caught mechanically, and a *deliberate* one requires the host
-  to falsify a hashed record rather than merely omit one.
+## Goal 1 — attested reviewer independence *(complete)*
 
-That is the difference between no evidence and falsifiable evidence. It is not the difference
-between untrusted and trusted.
+> Make the platform detect the one failure it is known to be blind to: an independent review that was
+> not independent.
+
+`confirmed_independent` now requires a `ReviewContext` artifact recording the verbatim text the host
+attests it gave the reviewer, which `check_independence_attested` scans for excluded material drawn
+from the run's own artifacts. Both committed conformance runs were **downgraded rather than
+grandfathered**.
+
+It catches an accidental leak and makes a deliberate one require falsifying a hashed record. It does
+not make independence verifiable: a host that sends a leaky context and attests a clean one still
+passes. See `docs/validation-rules.md` and `benchmark/expected/claude-code/README.md`.
+
+---
 
 ## Not in scope
 
-- **Codex conformance** — blocked on account usage limits until 2026-08-01. Procedure is in
-  `docs/release-checklist.md`. Not simulated.
-- **CI execution** — the first run on this repository was cancelled by GitHub before any job
-  started: *"recent account payments have failed or your spending limit needs to be increased"*.
-  Private repositories bill Actions minutes. This is an account setting, not a code defect.
-
-  Running the pipeline's steps locally instead was worth doing anyway: **`ruff check src tests` and
-  `mypy --strict src/research` had never executed**, and between them reported 119 findings. Both
-  are clean now, so the "CI configuration" box on the release checklist is no longer describing a
-  pipeline that would have failed on its first green billing cycle. That is the same defect class
-  this project keeps finding in itself — a checked box with no execution behind it — and it was
-  sitting in our own checklist.
+- **Codex conformance (gate 38.10)** — blocked on account usage limits until 2026-08-01. Procedure
+  is in `docs/release-checklist.md`. Not simulated.
+- **CI execution** — GitHub cancels every job before it starts: *"recent account payments have
+  failed or your spending limit needs to be increased"*. Private repositories bill Actions minutes.
+  An account setting, not a code defect.

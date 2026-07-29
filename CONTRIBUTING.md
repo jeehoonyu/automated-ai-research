@@ -37,7 +37,7 @@ something unsupported is a regression even if every test passes.
 
 ## Adding a schema constraint
 
-Schemas live in `schemas/v1/` and are authored by `tools/generate_schemas.py`. Put the spec rule
+Schemas live in `src/research/schemas/v1/` and are authored by `tools/generate_schemas.py`. Put the spec rule
 in `$comment` — validation surfaces the nearest enclosing comment, so an agent is told *why* the
 constraint exists rather than only which leaf failed.
 

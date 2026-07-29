@@ -1,4 +1,4 @@
-"""Emit schemas/v1/*.schema.json.
+"""Emit src/research/schemas/v1/*.schema.json.
 
 The schemas are checked-in artifacts; this script is how they are authored, so the shared fragments
 (envelope, locators, id patterns) are written once rather than copied into fourteen files and drifting.
@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "schemas" / "v1"
+OUT = ROOT / "src" / "research" / "schemas" / "v1"
 BASE = "https://schemas.automated-ai-research.org/v1"
 
 SHA = {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}

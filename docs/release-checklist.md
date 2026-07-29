@@ -103,7 +103,16 @@ Finally, wire that command into CI.
 - [x] `SECURITY.md`, `CONTRIBUTING.md`, `CHANGELOG.md`
 - [x] Architecture, security-model, validation-rules documentation
 - [x] Canonical workflow shipped into generated workspaces
-- [x] Research profiles (`default`, `medicine`)
+- [x] Research profiles (`default`, `medicine`) — **this was previously ticked while no code read a
+  profile file.** The whole feature was one hard-coded set, `{"medicine", "finance"}`, and
+  `medicine.yaml`'s `prohibited_confidence`, methodology requirements and seven human-review
+  triggers were inert. `risk`, `reviewer_independence`, `prohibited_confidence` and
+  `human_review_triggers` are now loaded and applied; the four keys that still do nothing are
+  declared unimplemented with reasons, and a key that is neither is a load error.
+- [x] Every exit code in spec §34 is reachable — `6 HUMAN_REVIEW_REQUIRED` was not. It is only
+  derived from `errors`, and `human_review_required` was only ever emitted as a warning, so an
+  import reporting `failed 0` exited `4 SOURCE_PROCESSING_FAILURE`. Pinned by
+  `tests/integration/test_exit_codes.py`, which enumerates `ExitCode` and produces each one.
 - [x] Redistributable benchmark with no copyrighted material
 - [x] Test suite green
 - [x] `ruff check src tests` clean — **it had never been run.** Triggering CI for the first time on
@@ -122,7 +131,13 @@ Finally, wire that command into CI.
   repositories bill Actions minutes; this repository is private. Fixing it is an account setting —
   raise the Actions spending limit, or run CI from a public mirror. Until a run completes, the
   suite has only ever executed on Windows.
-- [x] `pip install` from a built wheel verified in a clean environment (package data ships)
+- [x] `pip install` from a built wheel verified in a clean environment (package data ships) —
+  **this was ticked while it was false.** `SCHEMA_ROOT` pointed at the *repository* root, so no
+  wheel ever contained a schema and an installed copy could run `--version` and `init` and nothing
+  else. The CI job intended to verify it ran exactly `--version` and `init`: its coverage equalled
+  the working subset, so it would have passed forever. Schemas and profiles now live under
+  `src/research/`, the job drives import → index → search → run → validate, and
+  `tests/unit/test_packaging.py` catches the class without needing CI at all.
 
 ## Known limitations to state in release notes
 

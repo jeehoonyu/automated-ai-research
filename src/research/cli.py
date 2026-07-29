@@ -136,8 +136,11 @@ def cmd_import(paths: tuple[str, ...], workspace_path: str | None, as_json: bool
                             if x["extraction_status"] in
                             {"ocr_required", "partially_extracted", "ambiguous",
                              "human_review_required"}])
+        # Not "partial": nothing failed to process. Distinguishing the two is the whole reason
+        # spec §34 has both codes — automation needs to tell "a source broke" from "a human must
+        # look at this before it can back a citation".
         if env.status == "ok":
-            env.status = "partial"
+            env.status = "human_review"
 
     lines = [
         f"imported   {d['imported_count']}",
@@ -368,7 +371,10 @@ def cmd_validate(run_id: str, stage: str | None, workspace_path: str | None, as_
 
     d = env.data
     if not d["report_eligible"]:
-        env.status = "blocked"
+        # A gate that FAILED and a run awaiting a human are different outcomes with different exit
+        # codes. Reporting both as 5 tells automation to treat "someone must read this" as "the
+        # evidence does not hold up".
+        env.status = "blocked" if d["blocking_errors"] else "human_review"
     for err in d["blocking_errors"]:
         env.warn(f"gate_{err['status']}", f"{err['check']}: {err['detail']}")
     if d["human_review_required"]:

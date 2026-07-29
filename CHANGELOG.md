@@ -6,6 +6,38 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed — the installed package did not work
+- **Canonical schemas now ship.** `SCHEMA_ROOT` was `parents[3] / "schemas"` — the repository root —
+  so no wheel ever contained a schema. Because validation happens on write, an installed copy could
+  run `--version` and `init` and **nothing else**. Schemas moved to `src/research/schemas/`, which
+  is also now their single home, so the repository copy and the packaged copy cannot drift.
+- **The CI wheel job can now fail.** It ran `--version`, `init` and one `test -f` — exactly the
+  subset that worked. It now drives import → index → search → run → validate and asserts the gating
+  exit code. `tests/unit/test_packaging.py` catches the same class without CI, a build, or a
+  network: every runtime data directory must resolve inside the package and be covered by a
+  `package-data` glob.
+
+### Fixed — research profiles were never read
+- `research_profiles/*.yaml` shipped, were documented and were a ticked release task while **no code
+  loaded them**. The entire feature was one hard-coded set, `{"medicine", "finance"}`;
+  `medicine.yaml`'s `prohibited_confidence: [verified]`, three methodology requirements and seven
+  human-review triggers did nothing. `risk`, `reviewer_independence`, `prohibited_confidence` and
+  `human_review_triggers` are now loaded and applied, profiles ship in the package, and
+  `research init` copies them into the workspace where a local edit overrides the packaged file.
+- A profile key must be honoured or declared in `NOT_IMPLEMENTED` with its reason; anything else is
+  a load error, and a `human_review_triggers` entry no check can fire is rejected. Four keys are
+  currently declared unimplemented.
+- Two new checks: `profile_rules_loaded` (a profile that will not load blocks, rather than falling
+  back to defaults the manifest does not name) and `profile_confidence_permitted`.
+
+### Fixed — exit code 6 was unreachable
+- Spec §34 defines `6 HUMAN_REVIEW_REQUIRED` as "an expected workflow state that automation still
+  needs to detect", but it was only derivable from `errors` and `human_review_required` was only
+  ever emitted as a warning. An import whose own summary read `failed 0` exited `4`,
+  `SOURCE_PROCESSING_FAILURE`. A `human_review` envelope status now distinguishes "a source broke"
+  from "a human must look at this", and `validate` separates a failed gate (5) from a run awaiting
+  review (6). `test_every_declared_exit_code_is_reachable` enumerates `ExitCode` and produces each.
+
 ### Added
 - **Attested reviewer independence.** `confirmed_independent` now requires a `ReviewContext`
   artifact recording the verbatim text the host attests it gave the independent reviewer. The new
