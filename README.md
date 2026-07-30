@@ -79,7 +79,8 @@ output checkable.
   `CONTRIBUTING.md`, a changelog, CI across Linux/macOS/Windows, and a release checklist that lists
   what is **not** met.
 
-348 tests. A stage is complete only when its artifact exists **and** validates — never because a
+351 tests (348 passing, 3 skipped). A stage is complete only when its artifact exists **and**
+validates — never because a
 file appeared, and never because an artifact says so about itself: every artifact validation loads
 is checked against its own `artifact_hash`, and the derived bytes citations resolve against are
 re-hashed too.
