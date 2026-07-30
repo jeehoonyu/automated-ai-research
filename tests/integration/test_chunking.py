@@ -276,3 +276,26 @@ def test_normalized_box_is_dpi_independent():
     at300 = make_visual_locator(page=1, render_sha256="sha256:" + "a" * 64, bounding_box=box,
                                 render_width=2550, render_height=3300)
     assert at150["bounding_box"] == at300["bounding_box"]
+
+
+def test_visual_locator_fails_when_the_render_bytes_changed(ws, sources):
+    """The render index is built FROM the manifest, so a lookup only proves the manifest claims
+    that digest. `path.is_file()` was the whole check — replacing the image left every visual
+    citation resolving cleanly, under a report that says evidence resolves to immutable bytes.
+    """
+    out = import_paths(ws, [sources["text_pdf"]])
+    manifest = read_artifact(out["manifest_paths"][0], expect_schema="Document")
+    page = manifest["pages"][0]
+    loc = make_visual_locator(
+        page=page["page_number"], render_sha256=page["render"]["sha256"],
+        bounding_box={"x": 0.1, "y": 0.2, "width": 0.5, "height": 0.3},
+        render_width=page["render"]["width"], render_height=page["render"]["height"])
+    index = {p["render"]["sha256"]: p["render"]["path"] for p in manifest["pages"] if p["render"]}
+    assert resolve_visual_locator(loc, ws.root, index).ok, "sanity: it resolves before the swap"
+
+    # Swap the image for different bytes at the same path — the citation still names it.
+    (ws.root / page["render"]["path"]).write_bytes(b"\x89PNG\r\n\x1a\n" + b"different image")
+
+    result = resolve_visual_locator(loc, ws.root, index)
+    assert result.status is Resolution.RENDER_MISMATCH, result.status
+    assert not result.ok

@@ -58,9 +58,10 @@ wrong gate fired.
 | `artifacts_conform_to_schema` | every run artifact validates **and its `artifact_hash` matches its content**; an unreadable or edited one is `not_evaluated`, not skipped |
 | `profile_confidence_permitted` | no claim carries a classification the profile forbids outright |
 | `source_hashes_match` | stored originals still hash to their recorded value |
+| `derived_text_hashes_match` | the **normalized text citations actually resolve against** still hashes to what extraction recorded |
 | `evidence_references_resolve` | evidence points at a document version this workspace holds |
 | `text_locators_resolve` | offsets re-slice to the recorded span, and `exact_text` matches it |
-| `visual_locators_resolve` | the named page render exists |
+| `visual_locators_resolve` | the named page render exists **and its bytes still hash to the cited digest** |
 | `claims_reference_evidence` | no claim without evidence; no dangling evidence id |
 | `citations_support_their_claims` | citation review judged every claim, and none rests on a related-but-non-supporting source |
 | `contradiction_review_complete` | the review exists and did not fail |
@@ -76,7 +77,7 @@ wrong gate fired.
 | `source_independence_established` | strongly-supported claims rest on sources positively recorded as `independent`; absent, `unknown` and `cites` all block |
 | `lifecycle_transitions_valid` | the event log replays as a legal sequence |
 
-## Three gates that used to fail open
+## Four gates that used to fail open
 
 Found by a multi-lens audit of this repository on 2026-07-28, each confirmed by executing the check
 rather than by reading it:
@@ -95,9 +96,22 @@ rather than by reading it:
   There was no enum value meaning `independent` at all, so the passing verdict was unearnable
   honestly. `independent` now exists and is the only thing that clears the gate.
 
+- **The bytes citations actually resolve against were never re-hashed.** `source_hashes_match`
+  re-hashes `originals/` and its docstring says "evidence rests on those bytes" — it does not. A
+  text locator is an offset pair into `normalized_text_path`, a derived, mutable file; page renders
+  were trusted by path, and `resolve_visual_locator`'s docstring claimed a re-hash it never
+  performed. `span_sha256` does not close this, because the span hash lives in the locator the
+  agent writes: an agent with workspace write access could rewrite the normalized text and mint
+  evidence agreeing with it, and every locator check passed. A test pins exactly that —
+  `text_locators_resolve` returns `passed` on the fabrication while `derived_text_hashes_match`
+  fails.
+
 The third is the sharpest: the check's own docstring said "`unknown` independence is never promoted
 to independent … returns `not_evaluated`, which blocks, rather than passing by default", directly
-above code that did the opposite.
+above code that did the opposite. The fourth is the most consequential, because
+`src/research/reporting/renderer.py` deliberately quotes *through the locator* rather than from
+`evidence["exact_text"]`, on the reasoning that validation would have caught any divergence — so the
+one defence-in-depth measure was the path that carried altered text into `report.md`.
 
 ## Attested independence, and what it is worth
 

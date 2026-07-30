@@ -611,3 +611,58 @@ def test_only_a_positive_assertion_of_independence_clears_the_gate(
 
     result = validate_run(ws, rid)
     assert _status(result, "source_independence_established") == expected
+
+
+# ------------------------------------------------ the bytes citations actually resolve against
+#
+# `source_hashes_match` re-hashes `originals/` and its docstring says "evidence rests on those
+# bytes". It does not: a text locator is an offset pair into `normalized_text_path`, a derived and
+# mutable file that nothing re-hashed. `span_sha256` does not close this, because the span hash
+# lives in the locator the agent writes — so an agent with workspace write access can alter the
+# normalized text and mint evidence that agrees with it, and every locator check passes.
+
+
+def test_a_self_consistent_fabrication_is_caught_by_the_document_hash(complete_run):
+    """The span hash cannot catch this; the document hash can.
+
+    Rewrite the cited span in the normalized text and mint evidence that matches it exactly. Every
+    locator resolves — the fabrication agrees with itself — and only re-hashing the derived text
+    against what extraction recorded shows the document is not the one that was extracted.
+    """
+    ws, rid, meta = complete_run
+    doc = meta["doc"]
+    text_path = ws.root / doc["normalized_text_path"]
+    original = text_path.read_text(encoding="utf-8")
+
+    ev_path = meta["run_dir"] / "evidence" / "e1.json"
+    ev = json.loads(ev_path.read_text(encoding="utf-8"))
+    start, end = ev["locator"]["start_offset"], ev["locator"]["end_offset"]
+
+    # Same length, so every other offset in the document still lands where it did.
+    fabricated = "X" * (end - start)
+    text_path.write_text(original[:start] + fabricated + original[end:], encoding="utf-8")
+
+    ev["exact_text"] = fabricated
+    ev["locator"]["span_sha256"] = sha256_text(fabricated)
+    ev_path.write_text(json.dumps(stamp_artifact_hash(ev)), encoding="utf-8")
+
+    result = validate_run(ws, rid)
+    assert _status(result, "text_locators_resolve") == "passed", \
+        "the fabrication is self-consistent — this is exactly why the span hash is not enough"
+    assert _status(result, "derived_text_hashes_match") == "failed"
+    assert result["report_eligible"] is False
+
+
+def test_a_document_without_a_recorded_text_digest_blocks(complete_run):
+    """An older manifest that cannot be checked must block, not pass quietly."""
+    ws, rid, meta = complete_run
+    path = next(p for p in (ws.root / "documents" / "manifests").glob("*.json")
+                if json.loads(p.read_text(encoding="utf-8"))["document_id"]
+                == meta["doc"]["document_id"])
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    del doc["normalized_text_sha256"]
+    path.write_text(json.dumps(stamp_artifact_hash(doc)), encoding="utf-8")
+
+    result = validate_run(ws, rid)
+    assert _status(result, "derived_text_hashes_match") == "not_evaluated"
+    assert result["report_eligible"] is False

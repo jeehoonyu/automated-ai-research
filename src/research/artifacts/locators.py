@@ -28,7 +28,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
-from ..hashing import sha256_text
+from ..hashing import sha256_file, sha256_text
 
 
 class Resolution(StrEnum):
@@ -37,6 +37,10 @@ class Resolution(StrEnum):
     OUT_OF_RANGE = "out_of_range"
     MISSING_DOCUMENT = "missing_document"
     MISSING_RENDER = "missing_render"
+    # The render exists at the recorded path but its bytes are not the ones cited. Distinct from
+    # MISSING_RENDER on purpose: a missing file is an accident, a changed file is a different image
+    # under someone's existing citation.
+    RENDER_MISMATCH = "render_mismatch"
     INVALID = "invalid"
 
     @property
@@ -162,6 +166,12 @@ def resolve_visual_locator(locator: dict[str, Any], workspace_root: str | Path,
     """Confirm the named render exists and still hashes to the recorded value.
 
     `render_index` maps render sha256 -> workspace-relative path.
+
+    That first sentence used to be false. The index is built FROM the document manifest, so looking
+    a digest up in it proves only that the manifest claims that digest — the bytes on disk were
+    never read, and `path.is_file()` was the whole check. Replacing a page render with a different
+    image left every visual citation resolving cleanly, under a report that tells the reader
+    evidence resolves to immutable source bytes. The file is hashed now.
     """
     if locator.get("type") != "visual_region":
         return ResolutionResult(Resolution.INVALID,
@@ -181,4 +191,10 @@ def resolve_visual_locator(locator: dict[str, Any], workspace_root: str | Path,
     path = Path(workspace_root) / rel
     if not path.is_file():
         return ResolutionResult(Resolution.MISSING_RENDER, detail=f"render file is missing: {rel}")
+    actual = sha256_file(path)
+    if actual != digest:
+        return ResolutionResult(
+            Resolution.RENDER_MISMATCH,
+            detail=f"{rel} no longer hashes to {digest!r} (found {actual!r}); the image cited is "
+                   f"not the image on disk")
     return ResolutionResult(Resolution.RESOLVED, page=locator.get("page"), detail=rel)

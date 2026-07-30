@@ -6,6 +6,17 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed — the bytes citations actually resolve against are now re-hashed
+- `source_hashes_match` re-hashes `originals/` and claims "evidence rests on those bytes". It does
+  not: a text locator is an offset pair into `normalized_text_path`, a derived and mutable file that
+  nothing re-hashed, and page renders were trusted by path while
+  `resolve_visual_locator`'s docstring claimed a re-hash it never performed. `span_sha256` did not
+  close it, because the span hash lives in the locator the agent writes — so the normalized text and
+  the evidence could be made to agree with each other and disagree with what was extracted.
+  New check `derived_text_hashes_match` (22 total); `resolve_visual_locator` now hashes the file and
+  reports a new `render_mismatch` outcome. A document recording no `normalized_text_sha256` returns
+  `not_evaluated` rather than being skipped.
+
 ### Fixed — three gates that reported "no problems" for what they never inspected
 Found by a twelve-agent audit across five independent lenses (37 findings, six survived adversarial
 refutation), each confirmed by executing the check rather than reading it.

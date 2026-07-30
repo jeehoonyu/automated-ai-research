@@ -255,6 +255,59 @@ def check_source_hashes(ctx: RunContext) -> CheckResult:
     return CheckResult("source_hashes_match", "passed", f"{len(ctx.documents)} document(s)")
 
 
+def check_derived_text_hashes(ctx: RunContext) -> CheckResult:
+    """The normalized text must still hash to what extraction recorded.
+
+    `check_source_hashes` above re-hashes `originals/` and says "evidence rests on those bytes".
+    It does not. A text locator is an offset pair into `normalized_text_path`, and `exact_text` is
+    compared against a slice of THAT file — a derived, mutable artifact that nothing re-hashed.
+    Any process with write access to the workspace could change the words a citation resolves to,
+    and every gate still passed, under a report whose Method section tells the reader the evidence
+    resolves to immutable source bytes.
+
+    Worse, the renderer deliberately quotes through the locator rather than from
+    `evidence["exact_text"]`, reasoning that validation would have caught a divergence. So the one
+    defence-in-depth measure was what carried altered text into `report.md`.
+
+    A document whose manifest records no `normalized_text_sha256` returns `not_evaluated` rather
+    than being skipped: an older manifest that cannot be checked must block, not pass quietly.
+    """
+    name = "derived_text_hashes_match"
+    relevant = [doc for doc in ctx.documents.values() if doc.get("normalized_text_path")]
+    if not relevant:
+        return CheckResult(name, "not_applicable", "no document has normalized text")
+
+    unverifiable: list[str] = []
+    missing: list[str] = []
+    mismatched: list[str] = []
+    for doc in relevant:
+        recorded = doc.get("normalized_text_sha256")
+        if not recorded:
+            unverifiable.append(doc["document_id"])
+            continue
+        path = ctx.ws.root / doc["normalized_text_path"]
+        if not path.is_file():
+            missing.append(doc["document_id"])
+            continue
+        if sha256_text(path.read_text(encoding="utf-8")) != recorded:
+            mismatched.append(doc["document_id"])
+
+    if mismatched:
+        return CheckResult(name, "failed",
+                           f"{len(mismatched)} document(s) have normalized text that no longer "
+                           f"hashes to its recorded value — every citation into them resolves to "
+                           f"different words than were extracted", mismatched)
+    if missing:
+        return CheckResult(name, "not_evaluated",
+                           f"{len(missing)} document(s) have no normalized text file, so citations "
+                           f"into them cannot be checked", missing)
+    if unverifiable:
+        return CheckResult(name, "not_evaluated",
+                           f"{len(unverifiable)} document(s) record no normalized_text_sha256, so "
+                           f"the text citations resolve against cannot be verified", unverifiable)
+    return CheckResult(name, "passed", f"{len(relevant)} document(s)")
+
+
 def check_evidence_references(ctx: RunContext) -> CheckResult:
     """Every evidence record must point at a document version this workspace actually holds."""
     if not ctx.evidence:
@@ -787,6 +840,7 @@ CHECKS = [
     check_profile_loaded,
     check_artifacts_conform,
     check_source_hashes,
+    check_derived_text_hashes,
     check_evidence_references,
     check_text_locators,
     check_visual_locators,
