@@ -388,8 +388,31 @@ SCHEMAS["validation-result"] = schema(
         "human_review_required": {"type": "boolean"},
         "human_review_reasons": {"type": "array", "items": {"type": "string"}},
         "schema_versions_used": {"type": "object"},
+        "validated_inputs": {
+            "$comment": "The artifacts this verdict was computed over. Without it `report_eligible` "
+                        "is a boolean bound to nothing: `research report` re-reads claims/ and "
+                        "evidence/ from disk, so a claim written after `validate` was published "
+                        "having never been validated.",
+            "type": "object",
+            "required": ["artifacts", "load_error_count", "inputs_hash"],
+            "properties": {
+                "artifacts": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["artifact_id", "artifact_hash"],
+                        "properties": {
+                            "artifact_id": {"type": "string"},
+                            "artifact_hash": SHA,
+                        },
+                    },
+                },
+                "load_error_count": {"type": "integer", "minimum": 0},
+                "inputs_hash": SHA,
+            },
+        },
     },
-    ["run_id", "report_eligible", "checks", "human_review_required"],
+    ["run_id", "report_eligible", "checks", "human_review_required", "validated_inputs"],
     {
         "allOf": [{
             "$comment": "Report eligibility requires no blocking errors and no outstanding human "

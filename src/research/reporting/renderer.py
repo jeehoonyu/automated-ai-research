@@ -26,7 +26,7 @@ from ..config import SCHEMA_VERSION, WORKFLOW_VERSION, Workspace
 from ..errors import ReportGatingError, ResearchError
 from ..hashing import sha256_text
 from ..security.paths import safe_join
-from ..validation.validator import build_context
+from ..validation.validator import build_context, compare_inputs, validated_inputs
 from .language import QUALIFIER, scan_claims
 
 TEMPLATE_DIR = Path(__file__).resolve().parent / "templates"
@@ -121,6 +121,34 @@ def render_report(ws: Workspace, run_id: str, *, draft: bool = False) -> ReportR
                               "detail": b.get("detail", "")} for b in blocking],
                 "hint": "fix the blocking artifacts, or use --draft for a clearly-marked draft",
             })
+
+    # THE VERDICT MUST BE ABOUT THESE ARTIFACTS.
+    #
+    # `eligible` above is a boolean read out of a file. Everything below re-reads `claims/` and
+    # `evidence/` from disk through `ctx`. Nothing connected the two, so a claim written after
+    # `research validate` was published having never been validated, and one deleted afterwards
+    # disappeared from a report that still asserted it rested on that evidence.
+    #
+    # A draft is exempt: a draft is explicitly a picture of the run as it stands now, and it is
+    # marked as one.
+    if not draft:
+        differences = compare_inputs((validation or {}).get("validated_inputs"),
+                                     validated_inputs(ctx))
+        if differences:
+            raise ReportGatingError(
+                "the artifacts on disk are not the artifacts that were validated; refusing to "
+                "publish a verdict that was computed over something else",
+                detail={
+                    "run_id": run_id,
+                    "differences": differences[:20],
+                    "hint": f"re-run `research validate {run_id}`, or use --draft",
+                })
+        if ctx.load_errors:
+            raise ReportGatingError(
+                f"{len(ctx.load_errors)} artifact(s) could not be loaded now, so the report would "
+                f"silently omit them",
+                detail={"run_id": run_id, "load_errors": ctx.load_errors[:10],
+                        "hint": f"re-run `research validate {run_id}`, or use --draft"})
 
     # ---- assemble the view -------------------------------------------------------
     evidence_by_id = ctx.evidence_by_id()
@@ -237,8 +265,7 @@ def render_report(ws: Workspace, run_id: str, *, draft: bool = False) -> ReportR
             "report_path": str(report_path.relative_to(ws.root)).replace("\\", "/"),
             "report_sha256": report_hash,
             "draft": draft,
-            "validation_result_hash": (validation or {}).get("artifact_hash") if not draft else
-                                      (validation or {}).get("artifact_hash"),
+            "validation_result_hash": (validation or {}).get("artifact_hash"),
             "claim_ids": [c["claim_id"] for c in ctx.claims],
             "evidence_ids": sorted(evidence_by_id),
             "citation_index": [{k: v for k, v in entry.items() if k != "quote"}

@@ -34,7 +34,7 @@ from ..artifacts.locators import resolve_text_locator, resolve_visual_locator
 from ..artifacts.registry import validate_artifact
 from ..config import SCHEMA_VERSION, Workspace
 from ..errors import ResearchError
-from ..hashing import sha256_file, sha256_text, verify_artifact_hash
+from ..hashing import canonical_json, sha256_file, sha256_text, verify_artifact_hash
 from ..profiles import Profile, load_profile
 from ..runs.lifecycle import Disposition, Phase, Stage, is_valid_transition
 from ..runs.manager import load_run
@@ -91,6 +91,8 @@ class RunContext:
     claims: list[dict[str, Any]] = field(default_factory=list)
     reviews: list[dict[str, Any]] = field(default_factory=list)
     review_contexts: list[dict[str, Any]] = field(default_factory=list)
+    relationships: list[dict[str, Any]] = field(default_factory=list)
+    amendments: list[dict[str, Any]] = field(default_factory=list)
     documents: dict[str, dict[str, Any]] = field(default_factory=dict)
     load_errors: list[str] = field(default_factory=list)
 
@@ -180,8 +182,12 @@ def build_context(ws: Workspace, run_id: str) -> RunContext:
     run_dir = safe_join(ws.root, "runs", run_id)
     ctx = RunContext(ws=ws, run_id=run_id, manifest=manifest)
 
+    # Relationships and amendments are loaded HERE rather than lazily, so that their load errors
+    # reach `ctx.load_errors` and so that `validated_inputs` below can name every artifact this
+    # verdict was computed over. Loading them lazily meant a malformed one was silently dropped.
     for name, target in (("evidence", "evidence"), ("claims", "claims"), ("reviews", "reviews"),
-                         ("review_contexts", "review-contexts")):
+                         ("review_contexts", "review-contexts"),
+                         ("relationships", "relationships"), ("amendments", "amendments")):
         items, errors = _load_json_dir(run_dir / target)
         setattr(ctx, name, items)
         ctx.load_errors.extend(f"{target}/{e}" for e in errors)
@@ -405,18 +411,43 @@ def check_citation_support(ctx: RunContext) -> CheckResult:
     if not reviews:
         return CheckResult("citations_support_their_claims", "not_evaluated",
                            "no citation review has been performed")
-    judged: dict[str, str] = {}
+    # COLLECT, do not overwrite. This was `judged[claim_id] = verdict` inside a loop over every
+    # citation review, so a second review saying `passed` ERASED an earlier
+    # `related_not_supporting` — and which one won depended on filename sort order in
+    # `_load_json_dir`. Re-reviewing until the answer is acceptable is precisely the behaviour a
+    # citation gate exists to prevent, and it required no tampering at all.
+    #
+    # `not_checked` is excluded here: it is a real enum value meaning "not assessed", and treating
+    # it as a verdict let an unjudged claim skip the `unjudged` path below because the dict key
+    # existed.
+    verdicts: dict[str, set[str]] = {}
+    reviewers: dict[str, list[str]] = {}
     for review in reviews:
         for entry in review.get("per_claim", []):
-            if entry.get("citation_support"):
-                judged[entry["claim_id"]] = entry["citation_support"]
+            support = entry.get("citation_support")
+            if not support or support == "not_checked":
+                continue
+            verdicts.setdefault(entry["claim_id"], set()).add(support)
+            reviewers.setdefault(entry["claim_id"], []).append(review["review_id"])
+
     unjudged = [c["claim_id"] for c in ctx.claims
                 if c.get("claim_type") != "insufficient_evidence_finding"
-                and c["claim_id"] not in judged]
+                and c["claim_id"] not in verdicts]
     if unjudged:
         return CheckResult("citations_support_their_claims", "not_evaluated",
                            f"{len(unjudged)} claim(s) were never assessed by citation review",
                            unjudged)
+
+    disputed = sorted(cid for cid, seen in verdicts.items() if len(seen) > 1)
+    if disputed:
+        detail = "; ".join(
+            f"{cid}: reviews disagree ({', '.join(sorted(verdicts[cid]))}) — "
+            f"{', '.join(reviewers[cid])}" for cid in disputed[:3])
+        return CheckResult("citations_support_their_claims", "not_evaluated",
+                           f"{len(disputed)} claim(s) have conflicting citation verdicts, so which "
+                           f"one holds is undecided: {detail}", disputed)
+
+    judged = {cid: next(iter(seen)) for cid, seen in verdicts.items()}
     bad = [cid for cid, verdict in judged.items()
            if verdict in ("related_not_supporting", "failed")]
     if bad:
@@ -803,8 +834,8 @@ def check_source_independence(ctx: RunContext) -> CheckResult:
 
 
 def _relationships(ctx: RunContext) -> list[dict[str, Any]]:
-    items, _ = _load_json_dir(safe_join(ctx.ws.root, "runs", ctx.run_id) / "relationships")
-    return [r for r in items if r.get("schema_name") == "SourceRelationship"]
+    """Read from the context, which loaded them once and kept the load errors."""
+    return [r for r in ctx.relationships if r.get("schema_name") == "SourceRelationship"]
 
 
 def check_lifecycle(ctx: RunContext) -> CheckResult:
@@ -832,8 +863,10 @@ def check_lifecycle(ctx: RunContext) -> CheckResult:
 
 
 def _amendments(ctx: RunContext) -> list[dict[str, Any]]:
-    items, _ = _load_json_dir(safe_join(ctx.ws.root, "runs", ctx.run_id) / "amendments")
-    return items
+    """Read from the context. NOTE: still unfiltered by schema_name and still not schema-validated —
+    that is Theme 2 in GOAL.md, not this change. What IS fixed here is that a malformed amendment
+    now becomes a blocking load error instead of being dropped in silence."""
+    return ctx.amendments
 
 
 CHECKS = [
@@ -862,6 +895,52 @@ CHECKS = [
 ]
 
 
+def validated_inputs(ctx: RunContext) -> dict[str, Any]:
+    """Name every artifact this verdict was computed over.
+
+    `report_eligible` was a boolean bound to nothing. `render_report` gates on the stored value and
+    then re-reads `claims/` and `evidence/` fresh from disk, so a claim written after `validate` was
+    published having never been validated — and one deleted after `validate` vanished from a report
+    that still claimed to rest on it.
+
+    The roster is content-derived and order-independent: sorted `(artifact_id, artifact_hash)` pairs
+    plus the load-error count, digested into `inputs_hash`. Re-running `build_context` at report
+    time and comparing digests answers "are these the artifacts that were judged?" exactly, and the
+    pair list makes the answer legible — added, removed, or re-stamped, by id.
+    """
+    artifacts = [*ctx.evidence, *ctx.claims, *ctx.reviews, *ctx.review_contexts,
+                 *ctx.relationships, *ctx.amendments]
+    if ctx.plan:
+        artifacts.append(ctx.plan)
+    roster = sorted({(str(a.get("artifact_id")), str(a.get("artifact_hash"))) for a in artifacts})
+    body = {
+        "artifacts": [{"artifact_id": i, "artifact_hash": h} for i, h in roster],
+        "load_error_count": len(ctx.load_errors),
+    }
+    body["inputs_hash"] = sha256_text(canonical_json(body))
+    return body
+
+
+def compare_inputs(recorded: dict[str, Any] | None,
+                   current: dict[str, Any]) -> list[str]:
+    """Differences between the artifacts a verdict was computed over and the ones on disk now."""
+    if not recorded:
+        return ["the validation result records no artifact roster, so what it judged is unknown"]
+    if recorded.get("inputs_hash") == current["inputs_hash"]:
+        return []
+
+    was = {a["artifact_id"]: a["artifact_hash"] for a in recorded.get("artifacts", [])}
+    now = {a["artifact_id"]: a["artifact_hash"] for a in current["artifacts"]}
+    diffs = [f"added since validation: {aid}" for aid in sorted(set(now) - set(was))]
+    diffs += [f"removed since validation: {aid}" for aid in sorted(set(was) - set(now))]
+    diffs += [f"re-stamped since validation: {aid}" for aid in sorted(set(was) & set(now))
+              if was[aid] != now[aid]]
+    if recorded.get("load_error_count") != current["load_error_count"]:
+        diffs.append(f"load errors changed: {recorded.get('load_error_count')} -> "
+                     f"{current['load_error_count']}")
+    return diffs or ["the artifact roster digest changed"]
+
+
 def validate_run(ws: Workspace, run_id: str) -> dict[str, Any]:
     """Run every check and decide report eligibility."""
     ctx = build_context(ws, run_id)
@@ -886,6 +965,7 @@ def validate_run(ws: Workspace, run_id: str) -> dict[str, Any]:
         "human_review_required": human_review_required,
         "human_review_reasons": human_review_reasons,
         "schema_versions_used": {"ValidationResult": SCHEMA_VERSION},
+        "validated_inputs": validated_inputs(ctx),
     }
     body.pop("validated_at")
     artifact = make_artifact(schema_name="ValidationResult", artifact_id=run_id, body=body,

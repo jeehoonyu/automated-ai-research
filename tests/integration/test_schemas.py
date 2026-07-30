@@ -231,8 +231,12 @@ def test_a_failed_review_must_say_what_blocked_it():
 
 
 def validation(**over):
+    # `validated_inputs` is required: a verdict that names no artifacts is a boolean bound to
+    # nothing, and `research report` re-reads the run from disk before publishing.
     base = dict(run_id=RUN, report_eligible=False, human_review_required=False,
-                checks=[{"check": "schema", "status": "passed"}])
+                checks=[{"check": "schema", "status": "passed"}],
+                validated_inputs={"artifacts": [], "load_error_count": 0,
+                                  "inputs_hash": "sha256:" + "0" * 64})
     base.update(over)
     return artifact("ValidationResult", **base)
 

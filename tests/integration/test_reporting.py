@@ -10,10 +10,15 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from research.artifacts.io import read_artifact  # noqa: E402
+from research.artifacts.io import (  # noqa: E402
+    make_artifact,
+    read_artifact,  # noqa: E402
+    write_artifact,
+)
 from research.artifacts.registry import validate_artifact  # noqa: E402
 from research.errors import ReportGatingError  # noqa: E402
 from research.hashing import stamp_artifact_hash  # noqa: E402
+from research.identifiers import claim_id  # noqa: E402
 from research.reporting.language import check_claim_language  # noqa: E402
 from research.reporting.renderer import render_report  # noqa: E402
 from research.validation.validator import validate_run  # noqa: E402
@@ -239,3 +244,107 @@ def test_the_citation_index_lists_every_cited_evidence_id(complete_run):
     refs = {entry["evidence_id"] for entry in manifest["citation_index"]}
     assert meta["evidence_id"] in refs
     assert manifest["claim_ids"] == [meta["claim_id"]]
+
+
+# --------------------------------------------------------------- the verdict binds to artifacts
+#
+# `report_eligible` was a boolean read out of a file while everything downstream re-read `claims/`
+# and `evidence/` from disk. Nothing connected the two.
+
+
+def _publishable(ws, rid):
+    result = validate_run(ws, rid)
+    assert result["report_eligible"] is True, result["blocking_errors"]
+    return result
+
+
+def test_a_claim_written_after_validate_is_not_published(complete_run):
+    """The defect, end to end: no tampering, no hash edit — just a new file."""
+    ws, rid, meta = complete_run
+    _publishable(ws, rid)
+
+    cid = claim_id()
+    smuggled = make_artifact(
+        schema_name="Claim", artifact_id=cid, actor_type="host_agent",
+        body=dict(claim_id=cid, claim="Process-in-memory eliminates all data movement.",
+                  claim_type="direct_fact", claim_status="independently_reviewed",
+                  support_classification="verified",
+                  supporting_evidence_ids=[meta["evidence_id"]],
+                  contradicting_evidence_ids=[], citation_status="passed",
+                  contradiction_status="none_found",
+                  independent_review_status="confirmed_independent",
+                  human_review_required=False, run_id=rid))
+    write_artifact(meta["run_dir"] / "claims" / "c2-smuggled.json", smuggled, root=ws.root)
+
+    with pytest.raises(ReportGatingError) as exc:
+        render_report(ws, rid)
+    assert any("added since validation" in d for d in exc.value.detail["differences"])
+    assert cid in " ".join(exc.value.detail["differences"])
+
+
+def test_a_claim_deleted_after_validate_is_not_published(complete_run):
+    """The mirror image: a report that quietly drops what the verdict rested on."""
+    ws, rid, meta = complete_run
+    _publishable(ws, rid)
+    (meta["run_dir"] / "claims" / "c1.json").unlink()
+
+    with pytest.raises(ReportGatingError) as exc:
+        render_report(ws, rid)
+    assert any("removed since validation" in d for d in exc.value.detail["differences"])
+
+
+def test_a_claim_re_stamped_after_validate_is_not_published(complete_run):
+    """Hash verification alone does not cover this: the edit is correctly re-stamped, so it is a
+    valid artifact — just not the one that was judged."""
+    ws, rid, meta = complete_run
+    _publishable(ws, rid)
+
+    path = meta["run_dir"] / "claims" / "c1.json"
+    claim = json.loads(path.read_text(encoding="utf-8"))
+    claim["claim"] = "Data movement is always eliminated entirely."
+    path.write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
+
+    with pytest.raises(ReportGatingError) as exc:
+        render_report(ws, rid)
+    assert any("re-stamped since validation" in d for d in exc.value.detail["differences"])
+
+
+def test_re_validating_after_the_change_restores_publication(complete_run):
+    """The gate must be a binding, not a lock: validate again and the new state can publish."""
+    ws, rid, meta = complete_run
+    _publishable(ws, rid)
+    path = meta["run_dir"] / "claims" / "c1.json"
+    claim = json.loads(path.read_text(encoding="utf-8"))
+    claim["claim"] = "The paper reports a reduction in data movement."
+    path.write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
+
+    with pytest.raises(ReportGatingError):
+        render_report(ws, rid)
+
+    _publishable(ws, rid)                       # re-validate the run as it now stands
+    assert render_report(ws, rid).draft is False
+
+
+def test_a_draft_still_renders_the_run_as_it_stands(complete_run):
+    """A draft is explicitly a picture of now, and says so, so it is exempt."""
+    ws, rid, meta = complete_run
+    _publishable(ws, rid)
+    (meta["run_dir"] / "claims" / "c1.json").unlink()
+
+    result = render_report(ws, rid, draft=True)
+    assert result.draft is True
+
+
+def test_a_validation_result_naming_no_artifacts_cannot_publish(complete_run):
+    """An older result predating input binding says nothing about what it judged."""
+    ws, rid, meta = complete_run
+    _publishable(ws, rid)
+
+    path = meta["run_dir"] / "validation" / "validation-result.json"
+    stored = json.loads(path.read_text(encoding="utf-8"))
+    del stored["validated_inputs"]
+    path.write_text(json.dumps(stamp_artifact_hash(stored)), encoding="utf-8")
+
+    with pytest.raises(ReportGatingError) as exc:
+        render_report(ws, rid)
+    assert any("no artifact roster" in d for d in exc.value.detail["differences"])

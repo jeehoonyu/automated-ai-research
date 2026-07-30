@@ -21,7 +21,11 @@ from research.artifacts.io import make_artifact, write_artifact  # noqa: E402
 from research.artifacts.registry import validate_artifact  # noqa: E402
 from research.config import load_workspace  # noqa: E402
 from research.hashing import sha256_text, stamp_artifact_hash  # noqa: E402
-from research.identifiers import amendment_id, evidence_id  # noqa: E402
+from research.identifiers import (  # noqa: E402
+    amendment_id,
+    evidence_id,
+    review_id,
+)
 from research.importers.importer import import_paths  # noqa: E402
 from research.indexing.builder import build_index  # noqa: E402
 from research.runs.manager import create_run  # noqa: E402
@@ -666,3 +670,64 @@ def test_a_document_without_a_recorded_text_digest_blocks(complete_run):
     result = validate_run(ws, rid)
     assert _status(result, "derived_text_hashes_match") == "not_evaluated"
     assert result["report_eligible"] is False
+
+
+# ------------------------------------------------ a second review cannot erase the first
+#
+# `judged[claim_id] = verdict` inside a loop over every citation review meant the LAST file in
+# filename sort order won. Re-reviewing until the answer is acceptable is exactly what a citation
+# gate exists to prevent, and it required no tampering at all.
+
+
+def _citation_review(ws, run_dir, rid, cid, verdict, filename):
+    rev = review_id()
+    art = make_artifact(
+        schema_name="Review", artifact_id=rev, actor_type="host_agent",
+        body=dict(review_id=rev, review_type="citation_review", run_id=rid,
+                  reviewed_artifact_ids=[cid], reviewer={"actor_type": "host_agent"},
+                  decision="passed",
+                  per_claim=[{"claim_id": cid, "assessment": "checked",
+                              "citation_support": verdict}]))
+    write_artifact(run_dir / "reviews" / filename, art, root=ws.root)
+
+
+@pytest.mark.parametrize("first,second", [
+    ("aaa-citation_review.json", "zzz-citation_review.json"),
+    ("zzz-citation_review.json", "aaa-citation_review.json"),
+])
+def test_conflicting_citation_verdicts_are_undecided_in_either_file_order(
+        complete_run, first, second):
+    """Order-dependence was the bug; the parametrisation is the point of the test."""
+    ws, rid, meta = complete_run
+    cid = meta["claim_id"]
+    (meta["run_dir"] / "reviews" / "citation_review.json").unlink()
+    _citation_review(ws, meta["run_dir"], rid, cid, "related_not_supporting", first)
+    _citation_review(ws, meta["run_dir"], rid, cid, "passed", second)
+
+    result = validate_run(ws, rid)
+    assert _status(result, "citations_support_their_claims") == "not_evaluated"
+    assert result["report_eligible"] is False
+
+
+def test_a_not_checked_citation_verdict_counts_as_unjudged(complete_run):
+    """`not_checked` is truthy, so it used to register as a verdict and skip the unjudged path."""
+    ws, rid, meta = complete_run
+    cid = meta["claim_id"]
+    (meta["run_dir"] / "reviews" / "citation_review.json").unlink()
+    _citation_review(ws, meta["run_dir"], rid, cid, "not_checked", "citation_review.json")
+
+    result = validate_run(ws, rid)
+    assert _status(result, "citations_support_their_claims") == "not_evaluated"
+    assert result["report_eligible"] is False
+
+
+def test_two_reviews_agreeing_still_pass(complete_run):
+    """Agreement is not a conflict — the fix must not block honest re-review."""
+    ws, rid, meta = complete_run
+    cid = meta["claim_id"]
+    (meta["run_dir"] / "reviews" / "citation_review.json").unlink()
+    _citation_review(ws, meta["run_dir"], rid, cid, "passed", "aaa-citation_review.json")
+    _citation_review(ws, meta["run_dir"], rid, cid, "passed", "zzz-citation_review.json")
+
+    result = validate_run(ws, rid)
+    assert _status(result, "citations_support_their_claims") == "passed"

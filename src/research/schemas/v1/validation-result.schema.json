@@ -14,7 +14,8 @@
     "run_id",
     "report_eligible",
     "checks",
-    "human_review_required"
+    "human_review_required",
+    "validated_inputs"
   ],
   "properties": {
     "schema_name": {
@@ -128,6 +129,44 @@
     },
     "schema_versions_used": {
       "type": "object"
+    },
+    "validated_inputs": {
+      "$comment": "The artifacts this verdict was computed over. Without it `report_eligible` is a boolean bound to nothing: `research report` re-reads claims/ and evidence/ from disk, so a claim written after `validate` was published having never been validated.",
+      "type": "object",
+      "required": [
+        "artifacts",
+        "load_error_count",
+        "inputs_hash"
+      ],
+      "properties": {
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "artifact_id",
+              "artifact_hash"
+            ],
+            "properties": {
+              "artifact_id": {
+                "type": "string"
+              },
+              "artifact_hash": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              }
+            }
+          }
+        },
+        "load_error_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "inputs_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
     }
   },
   "allOf": [

@@ -13,7 +13,7 @@ imagining what might be missing. Each names the guarantee it restores and what w
 The ordering rule is the project's own: **restoring a guarantee the documentation already asserts
 outranks adding a capability, and making an existing gate true outranks adding a gate.**
 
-### 1. Bind the publication verdict to the artifacts it was computed over — `blocks-a-release`
+### 1. Bind the publication verdict to the artifacts it was computed over — **done**
 
 *Restores: `report_eligible: true` refers to the artifacts actually published.*
 
@@ -27,11 +27,11 @@ into one dict, last-write-wins in filename order — so a second review saying `
 earlier `related_not_supporting`. And `if entry.get("citation_support")` treats the string
 `not_checked` as truthy, so an unjudged claim counts as judged.
 
-**Done when** a `ValidationResult` carries a sorted roster of every artifact `build_context` loaded
-plus the load-error count; `research report` without `--draft` exits 5 naming the added, removed or
-re-stamped artifacts when the roster differs; two citation reviews disagreeing about one claim yield
-`not_evaluated` in **both** filename orders; `not_checked` counts as unjudged; the happy path still
-publishes.
+**Done.** `ValidationResult.validated_inputs` is required and carries the sorted roster, the
+load-error count and a digest. `render_report` rebuilds it and refuses, naming what changed.
+Verdicts are collected per claim; disagreement is `not_evaluated`; `not_checked` counts as unjudged.
+Re-validating restores publication and `--draft` is exempt, both pinned. The conflict test is
+parametrised over **both** filename orders, because order-dependence was the bug.
 
 ### 2. Make the human-verification gate read the record instead of the label — `weakens-a-guarantee`
 
@@ -124,6 +124,75 @@ OCR disclosure is asserted present in one report and absent in another; and the 
 meta-schema well-formedness rather than a tautology.
 
 ---
+
+## The iteration plan — how this converges, and what it can never prove
+
+**"Flawless" is not a state this process can certify, and saying otherwise would be the exact
+failure the platform exists to refuse.** No amount of auditing shows the absence of defects. What
+the loop below *can* establish is narrower and worth stating precisely:
+
+> every defect found so far is closed and pinned by a test that fails without the fix, and repeated
+> independent adversarial sweeps find nothing new.
+
+That is a claim about the *search*, not about the code. Treat it as `strongly_supported`, never
+`verified` — the platform's own vocabulary applies to the platform.
+
+### The loop
+
+One round, repeated until the exit condition below:
+
+1. **Sweep.** Multi-lens audit of the whole repository — spec conformance, fail-open hunting,
+   doc-vs-code, threat model, test quality. Lenses run blind to each other; overlap is signal.
+2. **Refute.** Every finding goes to a skeptic instructed to refute by default and to narrow rather
+   than inflate what survives.
+3. **Spot-check by execution.** Pick at least three survivors and confirm them by *running* the
+   code, not reading it. This exists because the refutation step has so far refuted nothing —
+   see the caveat below.
+4. **Fix in dependency order.** Restoring a guarantee the docs already assert outranks adding a
+   capability; making an existing gate true outranks adding a gate.
+5. **Pin.** Every fix gets a test that fails without it. Where a limitation remains, pin the
+   limitation too, so it stays honest instead of becoming a surprise.
+6. **Record, including the cost.** Update `CHANGELOG.md`, `docs/`, and this file — *including when
+   the fix invalidates something already shipped.* Four claims have been retracted this way so far.
+
+### The invariants each round must leave true
+
+Cheap to re-check, and each one is a class of defect already found here:
+
+| | Invariant |
+|---|---|
+| I1 | Every artifact validation loads is hash-verified; a mismatch blocks |
+| I2 | Every gate distinguishes *"looked and found nothing"* from *"never looked"* |
+| I3 | Every published verdict names the artifacts it was computed over |
+| I4 | Every documented capability is reachable from an installed wheel, not just a source checkout |
+| I5 | Every claim in `README.md` / `docs/` traces to executing code, or says it does not |
+| I6 | `pytest`, `ruff check src tests`, `mypy --strict src/research`, schema regeneration — all clean |
+
+### Exit condition
+
+Stop iterating when **all** of these hold:
+
+- the six themes above are done, each with its `done_when` met;
+- two consecutive full sweeps, run independently, produce **zero** new confirmed findings;
+- I1–I6 hold, checked mechanically;
+- the release checklist has no gate marked met without evidence a reader can follow;
+- the two external blockers are closed: Codex cross-host conformance (§38.10) and one green CI run
+  on Linux and macOS.
+
+The last two are not code problems and cannot be closed by iterating.
+
+### What would falsify the exit condition
+
+Worth writing down before it is reached, so it cannot be quietly redefined: a *new* defect found
+after two clean sweeps means the sweeps were not independent enough or the lenses were too narrow.
+The response is to add a lens, not to lower the bar.
+
+### The caveat that most threatens this plan
+
+**Across two rounds, 20 of 20 findings survived refutation.** A verifier that never disagrees is
+indistinguishable from one that is not looking. Until a sweep produces a genuine refutation, step 3
+is doing the real work and steps 2 is unproven. Next round should deliberately seed one false claim
+into the refutation batch and check that it comes back refuted.
 
 ## How this list was produced, and what is weak about it
 

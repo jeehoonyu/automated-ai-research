@@ -6,6 +6,22 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed — the publication verdict is bound to the artifacts it was computed over
+- `ValidationResult` gains required `validated_inputs`: sorted `(artifact_id, artifact_hash)` pairs
+  for every artifact `build_context` loaded, the load-error count, and a digest over both.
+  `research report` rebuilds the roster and refuses to publish when it differs, naming what was
+  added, removed or re-stamped. `report_eligible` was previously a boolean the renderer read before
+  re-reading `claims/` and `evidence/` from disk — **a claim written after `validate` was published
+  having never been validated**, and one deleted afterwards vanished from a report still asserting
+  it. `--draft` is exempt; re-running `validate` restores publication.
+- A second citation review can no longer erase the first. Per-claim verdicts were folded into one
+  dict, last-write-wins in filename sort order, so re-reviewing until the answer was acceptable
+  worked. Verdicts are now collected per claim and disagreement is `not_evaluated` naming the
+  reviews involved. `not_checked` no longer registers as a verdict.
+- Relationships and amendments are loaded once in `build_context` instead of lazily, so a malformed
+  one becomes a blocking load error rather than a silent drop.
+- Removed a dead ternary in the report manifest whose two branches were identical.
+
 ### Fixed — the bytes citations actually resolve against are now re-hashed
 - `source_hashes_match` re-hashes `originals/` and claims "evidence rests on those bytes". It does
   not: a text locator is an offset pair into `normalized_text_path`, a derived and mutable file that

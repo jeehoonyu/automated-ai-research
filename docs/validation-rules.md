@@ -63,7 +63,7 @@ wrong gate fired.
 | `text_locators_resolve` | offsets re-slice to the recorded span, and `exact_text` matches it |
 | `visual_locators_resolve` | the named page render exists **and its bytes still hash to the cited digest** |
 | `claims_reference_evidence` | no claim without evidence; no dangling evidence id |
-| `citations_support_their_claims` | citation review judged every claim, and none rests on a related-but-non-supporting source |
+| `citations_support_their_claims` | citation review judged every claim, reviews do not disagree, and none rests on a related-but-non-supporting source |
 | `contradiction_review_complete` | the review exists and did not fail |
 | `citation_review_complete` | as above |
 | `methodology_review_complete` | as above |
@@ -112,6 +112,34 @@ above code that did the opposite. The fourth is the most consequential, because
 `src/research/reporting/renderer.py` deliberately quotes *through the locator* rather than from
 `evidence["exact_text"]`, on the reasoning that validation would have caught any divergence — so the
 one defence-in-depth measure was the path that carried altered text into `report.md`.
+
+## The verdict is bound to the artifacts it was computed over
+
+`report_eligible` used to be a boolean in a file. `research report` read it, then re-read `claims/`
+and `evidence/` fresh from disk — nothing connected the two. **A claim written after `research
+validate` was published having never been validated**, and one deleted afterwards vanished from a
+report that still asserted it rested on that evidence. No tampering was required; a new file was
+enough.
+
+A `ValidationResult` now carries `validated_inputs`: the sorted `(artifact_id, artifact_hash)` pairs
+of every artifact `build_context` loaded, the load-error count, and a digest over both. Publication
+rebuilds that roster and compares. A difference refuses with exit 5 and names it — *added*,
+*removed*, or *re-stamped*, by id.
+
+Three consequences worth stating:
+
+- **Re-stamping is not a way around it.** A correctly re-hashed edit is a valid artifact; it is just
+  not the one that was judged.
+- **It is a binding, not a lock.** Re-run `research validate` and the run as it now stands can
+  publish.
+- **`--draft` is exempt.** A draft is explicitly a picture of the run as it stands, and says so.
+
+In the same last mile, a second citation review could **erase** the first: verdicts were folded into
+one dict, last-write-wins in filename sort order, so re-reviewing until the answer was acceptable
+worked and depended on what the files were called. Verdicts are now collected per claim; disagreement
+is `not_evaluated` naming the reviews that disagree. `not_checked` no longer counts as a verdict — it
+is a value meaning *not assessed*, and treating it as one let an unjudged claim skip the unjudged
+path.
 
 ## Attested independence, and what it is worth
 
