@@ -44,7 +44,9 @@ output checkable.
   deterministic tie-breaking, literal-only query normalization, and search results carrying a
   locator that resolves to exact source text.
 
-- **Phase 5 (run management)** — run manifests pinning the source collection, a two-field lifecycle
+- **Phase 5 (run management)** — run manifests pinning the source collection, stage acceptance
+  (`research validate --stage` validates a stage's responses, promotes them, and advances one
+  phase), a two-field lifecycle
   (`phase` + `disposition`) with enforced one-step transitions, stage work packets carrying the
   independence exclusions, append-only lifecycle events, `research status`, and `research inspect`.
 
@@ -79,7 +81,7 @@ output checkable.
   `CONTRIBUTING.md`, a changelog, CI across Linux/macOS/Windows, and a release checklist that lists
   what is **not** met.
 
-365 tests (362 passing, 3 skipped). A stage is complete only when its artifact exists **and**
+377 tests (374 passing, 3 skipped). A stage is complete only when its artifact exists **and**
 validates — never because a
 file appeared, and never because an artifact says so about itself: every artifact validation loads
 is checked against its own `artifact_hash`, and the derived bytes citations resolve against are

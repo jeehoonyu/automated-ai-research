@@ -6,6 +6,23 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added — stage acceptance (`research validate --stage`)
+- `docs/architecture.md`, `workflow/canonical-workflow.md` and `validator.py`'s own docstring all
+  said agents write to `responses/` and that validation promotes a response only after it validates.
+  **Nothing read `runs/<id>/responses/`**, though eight of ten packets named a `responses/*.json`
+  path as their required output, and `--stage` — the command every packet names as its judge — was
+  accepted and silently ignored (`--stage bogus_nonsense` gave byte-identical output to no flag).
+- `src/research/runs/promotion.py` implements it: validate every artifact a stage produced, stamp
+  the hash of what was validated, promote into `evidence/` / `claims/` / `reviews/` / `plan.json`,
+  advance exactly one phase. All or nothing. A supplied-but-wrong hash is refused rather than
+  re-stamped. Unknown stage names and the two CLI-performed stages are refused by name.
+- This makes hosts able to write plain JSON: since validation began verifying `artifact_hash`, an
+  agent writing straight into a canonical directory had to produce an RFC 8785 digest by hand.
+- `runs.manager.transition()` had no caller in `src/`, so `is_valid_transition` had never run on a
+  real workspace and `check_lifecycle` reported "event log replays cleanly" about a log with
+  nothing in it. Stage acceptance calls it; skipping stages is now refused. `check_lifecycle` also
+  cross-checks the manifest's `phase` against the end of the log.
+
 ### Fixed — human verification reads the record, not the label
 - `ocr_evidence_human_verified` selected candidates purely by `extraction_status` on the
   agent-authored Evidence artifact, so an agent cleared it by labelling its own evidence

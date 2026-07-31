@@ -48,14 +48,31 @@ the artifacts you must produce, the criteria for completion, and the command tha
 ### Your working loop
 
 ```bash
-research status <run-id>          # where the run is, and what is blocking it
+research status <run-id>                    # where the run is, and what is blocking it
 # read runs/<run-id>/packets/NN-<stage>.json
-# write your output to runs/<run-id>/responses/
-research validate <run-id>        # a file existing is NOT completion
+# write your output to the responses/ path that packet names
+research validate <run-id> --stage <stage>  # accept ONE stage
+...                                         # repeat for each stage in order
+research validate <run-id>                  # then the whole run
 ```
 
 **A stage is complete when its artifact validates. Never because you wrote a file.** Output in
-`responses/` is a *candidate*. Validation promotes it to canonical.
+`responses/` is a *candidate*. `research validate --stage <stage>` is what promotes it: it reads the
+paths that stage's packet names, validates every artifact in them, writes the valid ones into
+`evidence/`, `claims/`, `reviews/` (or `plan.json`), and advances the run by exactly one phase.
+
+Three things follow, and all three are deliberate:
+
+- **You do not need to compute `artifact_hash`.** Write plain JSON; the CLI stamps the hash of what
+  it validated. If you *do* supply one it must be correct — a hash that does not match its own body
+  is refused rather than quietly re-stamped.
+- **It is all or nothing.** If any artifact in the stage is invalid, nothing is promoted and the
+  phase does not move. You get the list of problems.
+- **Stages cannot be skipped.** Promoting `synthesis` before `retrieval` and `evidence_extraction`
+  is refused, by name.
+
+Writing directly into `evidence/` or `claims/` still works, but then the hash is your problem and
+nothing checked the artifact before it landed.
 
 ---
 

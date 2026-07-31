@@ -59,7 +59,7 @@ Fixing it exposed a latent bug in the suite's own fixture: the amendment in
 `test_a_recorded_human_verification_amendment_clears_the_ocr_gate` named the *pre-edit* hash,
 because `stamp_artifact_hash` returns a copy. It passed only because nothing checked.
 
-### 3. Make stage acceptance exist — `weakens-a-guarantee`, large
+### 3. Make stage acceptance exist — **done**
 
 *Restores: the host loop that `docs/architecture.md`, `workflow/canonical-workflow.md` and
 `validator.py`'s own docstring all describe.*
@@ -81,9 +81,26 @@ production and the check reports "event log replays cleanly".
 The planning packet asks for `responses/plan.json` while `build_context` reads `runs/<id>/plan.json`,
 so a compliant host's plan — and its `high_risk` flag — is never read.
 
-**Done when** a host following `canonical-workflow.md` literally can reach `report_eligible`;
-`--stage` either advances the phase or refuses an unknown name; and `check_lifecycle` replays a real
-multi-transition log, including a rejected skip.
+**Done.** `src/research/runs/promotion.py` reads the `responses/` paths a stage's packet names,
+validates each artifact, stamps the hash it validated, writes the valid ones into `evidence/`,
+`claims/`, `reviews/` or `plan.json`, and advances exactly one phase. All or nothing: one invalid
+artifact promotes none and the phase stays. A supplied-but-wrong hash is refused rather than quietly
+re-stamped. `--stage` refuses an unknown name and refuses the two CLI-performed stages by name.
+`transition()` now has a caller, so `is_valid_transition` decides for the first time — skipping
+`retrieval` and `evidence_extraction` is refused, naming both.
+
+The reason to implement rather than retract: the spec never required `responses/`, so deleting the
+claim was an option. But since validation began verifying hashes, an agent writing straight into a
+canonical directory must produce an RFC 8785 digest by hand or have its work rejected as tampering.
+Promotion is what makes plain JSON usable.
+
+`check_lifecycle` also cross-checks the manifest against the log — `phase` is a field, and a
+manifest claiming `published` above a one-line log used to pass.
+
+**Not done, and deliberately so:** validation still does not *require* a run to have progressed
+through the phases before publishing. Writing canonical artifacts directly and validating remains
+supported. Requiring progression is a policy change, not a bug fix, so it is named here rather than
+slipped in.
 
 ### 4. Make the read surface answer from the artifacts — `weakens-a-guarantee`
 

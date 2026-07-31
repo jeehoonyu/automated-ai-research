@@ -353,14 +353,43 @@ def cmd_inspect(artifact_id: str, workspace_path: str | None, as_json: bool) -> 
 
 @main.command("validate")
 @click.argument("run_id")
-@click.option("--stage", default=None, help="Validate a single stage.")
+@click.option("--stage", default=None,
+              help="Accept ONE stage: validate its responses, promote them, advance the phase.")
 @_WS_OPT
 @_JSON_OPT
 def cmd_validate(run_id: str, stage: str | None, workspace_path: str | None, as_json: bool) -> None:
-    """Validate a run and decide report eligibility."""
+    """Validate a run and decide report eligibility, or accept a single stage with --stage."""
+    from .runs.promotion import parse_stage, promote_stage
     from .validation.validator import validate_run
 
     env = Envelope(command="validate")
+    if stage is not None:
+        # This flag was declared and never read: `--stage bogus_nonsense` produced byte-identical
+        # output to no flag at all, while every work packet named it as the command that would
+        # judge the stage.
+        try:
+            ws = load_workspace(workspace_path)
+            env.data = promote_stage(ws, run_id, parse_stage(stage))
+        except ResearchError as exc:
+            env.status = "failed"
+            env.errors.append(exc.to_dict())
+            _emit(env, as_json, human=f"research validate --stage: {exc.message}")
+
+        d = env.data
+        if not d["accepted"]:
+            env.status = "blocked"
+            for problem in d["problems"]:
+                env.warn("stage_not_accepted", problem)
+        lines = [f"stage {d['stage']} of {run_id}"]
+        if d["accepted"]:
+            lines += [f"  promoted   {len(d['promoted'])} artifact(s)",
+                      f"  phase      {d.get('previous_phase')} -> {d['phase']}"]
+            lines += [f"    {p}" for p in d["promoted"][:10]]
+        else:
+            lines.append(f"  NOT accepted; phase stays {d['phase']}")
+            lines += [f"    {p}" for p in d["problems"][:10]]
+        _emit(env, as_json, human="\n".join(lines))
+
     try:
         ws = load_workspace(workspace_path)
         env.data = validate_run(ws, run_id)

@@ -926,11 +926,21 @@ def _relationships(ctx: RunContext) -> list[dict[str, Any]]:
 
 
 def check_lifecycle(ctx: RunContext) -> CheckResult:
-    """Replay the event log: every recorded transition must have been legal."""
+    """Replay the event log: every recorded transition must have been legal.
+
+    Until stage acceptance existed, `runs.manager.transition()` had no caller in `src/`, so the log
+    held nothing but the creation event — which this loop skips — and `is_valid_transition` had
+    never once been called on a real run. The check reported "event log replays cleanly" about a
+    log with nothing in it to replay.
+
+    The manifest is cross-checked against the log for the same reason: `phase` is a field, and a
+    manifest claiming `published` above a one-line log used to pass.
+    """
     path = safe_join(ctx.ws.root, "runs", ctx.run_id) / "events.jsonl"
     if not path.is_file():
         return CheckResult("lifecycle_transitions_valid", "not_evaluated", "no event log")
     illegal: list[str] = []
+    last_phase: str | None = None
     for line in path.read_text(encoding="utf-8").splitlines():
         if not line.strip():
             continue
@@ -938,6 +948,7 @@ def check_lifecycle(ctx: RunContext) -> CheckResult:
         if event.get("event") != "lifecycle_transition":
             continue
         prev, new = event.get("previous_phase"), event.get("new_phase")
+        last_phase = new
         if prev == new:
             continue
         ok, reason = is_valid_transition(Phase(prev), Phase(new),
@@ -946,7 +957,18 @@ def check_lifecycle(ctx: RunContext) -> CheckResult:
             illegal.append(f"{prev} -> {new}: {reason}")
     if illegal:
         return CheckResult("lifecycle_transitions_valid", "failed", "; ".join(illegal[:5]))
-    return CheckResult("lifecycle_transitions_valid", "passed", "event log replays cleanly")
+
+    recorded = ctx.manifest.get("phase")
+    if last_phase is None:
+        return CheckResult("lifecycle_transitions_valid", "not_evaluated",
+                           "the event log records no lifecycle transition, so the manifest's "
+                           "phase rests on nothing")
+    if recorded != last_phase:
+        return CheckResult("lifecycle_transitions_valid", "failed",
+                           f"the manifest says phase {recorded!r} but the event log ends at "
+                           f"{last_phase!r}; the state and its history disagree")
+    return CheckResult("lifecycle_transitions_valid", "passed",
+                       f"event log replays cleanly and ends at {last_phase!r}")
 
 
 def _amendments(ctx: RunContext) -> list[dict[str, Any]]:
