@@ -60,6 +60,8 @@ where = ["src"]
 research = [
     "py.typed",
     "reporting/templates/*.j2",
+    "ui/templates/*.j2",
+    "ui/static/*.css",
     "assets/*.md",
     "schemas/v*/*.json",
     "profiles/*.yaml",

@@ -152,3 +152,13 @@ DPI cannot quietly change what a figure citation points at.
 | `runs/` | lifecycle, packets, manager, inspector |
 | `validation/` | the checks and the gate |
 | `reporting/` | renderer, language rule, template |
+| `ui/` | read-only local web view — server, page models, templates |
+
+`ui/` sits strictly downstream of everything above it and has no arrow pointing back: it imports
+`runs.inspector`, `runs.manager`, `validation.validator` and `search.engine`, and none of them know
+it exists. That direction is the whole design. The UI holds no vocabulary of its own for how
+well-supported a claim is and no second opinion about what blocks — it asks `CheckResult.blocks`,
+re-derives the artifact roster with `validated_inputs`, and re-resolves citations through
+`inspector.inspect` rather than printing what an artifact says about itself. A page that disagrees
+with `research validate` is a bug in the page, and there is nowhere else for the disagreement to
+come from.

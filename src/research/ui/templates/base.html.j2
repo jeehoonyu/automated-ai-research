@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>{{ page_title }} — research</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/">research</a>
+  <nav>
+    <a href="/">Workspace</a>
+    <a href="/documents">Documents</a>
+    <a href="/search">Search</a>
+  </nav>
+  <span class="ws" title="{{ workspace_root }}">{{ workspace_root }}</span>
+</header>
+
+<main>
+{% block content %}{% endblock %}
+</main>
+
+<footer>
+  <p><strong>Read-only.</strong> This interface never writes to the workspace. The JSON artifacts on
+  disk are canonical; every page here is a view of them, and a page that disagrees with
+  <code>research validate</code> is a bug in this page.</p>
+</footer>
+</body>
+</html>

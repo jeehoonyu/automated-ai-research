@@ -26,6 +26,26 @@ instructions addressed to whatever reads it next.
 | Write outside the workspace root | Every write passes `assert_within`, which resolves symlinks first. |
 | Serialize environment variables into artifacts | Artifacts are built from explicit fields; no `os.environ` is ever captured. |
 
+## `research ui`
+
+The one component that listens on a socket, and the only one that renders document text into a
+format a browser will interpret. Both are new attack surface, so both are stated here rather than
+left to the code.
+
+| | How |
+|---|---|
+| It cannot write | No route mutates a workspace. `POST`, `PUT`, `DELETE`, `PATCH`, `OPTIONS` and `TRACE` are answered `405` before a workspace is opened, and `tests/unit/test_ui_contract.py` asserts the package contains no write entry point at all — not `write_artifact`, not `atomic_write_*`, not `open(..., "w")`. `tests/integration/test_ui.py` hashes every file in a workspace, browses every page, and re-hashes. |
+| Document text cannot become markup | Jinja autoescaping is on unconditionally — not `select_autoescape`, which decides by filename. An integration test imports a document containing `<script>`, `<img onerror=…>` and an attribute break, then asserts the bytes that come back carry them as text. |
+| Nothing can run even if the escaping were wrong | Every response carries `Content-Security-Policy: default-src 'none'`. The interface ships no JavaScript, so the policy costs nothing and there is no `script-src` to widen. |
+| It is not reachable from another origin | Binding to a non-loopback address is refused unless `--allow-remote` is passed, and a request whose `Host` header is not loopback is answered `421`. A hostile page can point a name it controls at `127.0.0.1`; the header is what closes that. |
+| It cannot make a gate look better than it is | The blocking/non-blocking question is answered by `CheckResult.blocks` itself rather than by a table restated in the UI, so `not_evaluated` is styled exactly as `failed`. A status the build does not recognise is treated as blocking. |
+
+**Still not protected.** `--allow-remote` gives you an unauthenticated read of every document and
+artifact in the workspace, to anyone who can reach the port. There is no login, no TLS, and no
+per-user separation, because there is no multi-user model anywhere in this project. The flag exists
+because refusing it outright would push people to `ssh -L` shims that are harder to reason about,
+not because remote use is safe.
+
 ## Prompt injection
 
 The realistic attack is not against the CLI — it is against **your agent**. A document says
@@ -114,7 +134,8 @@ Stated plainly, because a security document that only lists strengths is marketi
 - **No workspace encryption at rest.** Anything with filesystem access can read your sources and
   artifacts.
 - **No multi-user model.** There is no authentication, authorisation, or per-user separation. A
-  workspace has exactly the permissions its directory has.
+  workspace has exactly the permissions its directory has. `research ui` inherits this: it is bound
+  to loopback because it has nothing else protecting it.
 - **Hash verification is not signing.** Hashes detect accidental corruption and casual editing. An
   attacker with write access can recompute them. There is no cryptographic authorship claim.
 - **The host environment is outside the boundary.** Whatever your agent sends to its model provider

@@ -28,6 +28,7 @@ output checkable.
 | Command | State |
 |---|---|
 | `init` `import` `index` `search` `run` `status` `inspect` `validate` `report` | implemented |
+| `ui` | implemented — a read-only local web view, **not** part of the specification |
 
 - **Phase 1 (foundation)** — RFC 8785 canonical JSON, SHA-256 content addressing, the
   `artifact_hash` self-reference rule, content-derived identifiers, UUIDv7 with intra-millisecond
@@ -81,7 +82,7 @@ output checkable.
   `CONTRIBUTING.md`, a changelog, CI across Linux/macOS/Windows, and a release checklist that lists
   what is **not** met.
 
-407 tests (404 passing, 3 skipped). A stage is complete only when its artifact exists **and**
+524 tests (521 passing, 3 skipped). A stage is complete only when its artifact exists **and**
 validates — never because a
 file appeared, and never because an artifact says so about itself: every artifact validation loads
 is checked against its own `artifact_hash`, and the derived bytes citations resolve against are
@@ -135,6 +136,34 @@ research --help
 ```bash
 research init example-workspace
 ```
+
+## Looking at a workspace
+
+```bash
+research ui --workspace example-workspace --open
+```
+
+Serves a read-only view on `http://127.0.0.1:8787/`. Everything it shows is already available from
+the CLI; what a browser adds is following a chain — a claim, the evidence under it, the locator, and
+the source text that locator resolves to — without copying identifiers between commands.
+
+Three properties are enforced rather than intended, and each has a test that fails when it is broken:
+
+- **It never writes.** No route mutates a workspace, every method except `GET` and `HEAD` is refused,
+  and an integration test hashes every file in a workspace, browses every page, and re-hashes.
+  Notably `/search` does *not* record a retrieval log — `research search --run` does that on purpose,
+  and a page load is not retrieval.
+- **It cannot make a gate look better than it is.** Whether a check blocks is answered by
+  `CheckResult.blocks` itself, not by a table restated in the UI, so `not_evaluated` is painted
+  exactly as `failed` and labelled *"nobody looked — blocks publication exactly as a failure does"*.
+  A run page also re-derives the artifact roster and says so loudly when the stored verdict no longer
+  describes the files on disk.
+- **Document text stays data.** Autoescaping is unconditional, every response carries
+  `default-src 'none'`, and the interface ships no JavaScript at all.
+
+It binds to loopback and refuses anything else without `--allow-remote`, because it exposes every
+document and artifact in the workspace and has no authentication. See
+[`docs/security-model.md`](docs/security-model.md).
 
 ## Why it is built this way
 

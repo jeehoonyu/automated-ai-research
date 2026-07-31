@@ -327,8 +327,11 @@ def _run_cli(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess
     )
 
 
+# The nine public commands of spec §8, plus `ui`. `ui` is NOT in the specification — it is a
+# read-only local view added on top of them, and it is listed here because `doctor` must describe
+# what the CLI actually has rather than what the spec asked for.
 IMPLEMENTED = ["init", "import", "index", "search", "run", "status", "inspect", "validate",
-               "report"]
+               "report", "ui"]
 NOT_IMPLEMENTED: list[str] = []   # all nine public commands are implemented
 
 
@@ -348,7 +351,7 @@ def test_unimplemented_commands_do_not_claim_success(command: str, tmp_path: Pat
 
 
 def test_every_public_command_exists():
-    """The nine commands in the spec must all be routable, even before they do work."""
+    """Every command `doctor` advertises must be routable, even before it does work."""
     proc = _run_cli("--help")
     for command in [*IMPLEMENTED, *NOT_IMPLEMENTED]:
         assert command in proc.stdout

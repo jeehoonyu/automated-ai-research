@@ -34,6 +34,8 @@ RUNTIME_DATA_DIRS = [
     PACKAGE_ROOT / "profiles",
     PACKAGE_ROOT / "assets",
     PACKAGE_ROOT / "reporting" / "templates",
+    PACKAGE_ROOT / "ui" / "templates",
+    PACKAGE_ROOT / "ui" / "static",
 ]
 
 

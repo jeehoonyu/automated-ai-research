@@ -6,6 +6,94 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added — `research ui`, a read-only local web view
+- A tenth command, and the first that is **not** in the specification. Everything it shows is
+  already available from the CLI; what a browser adds is following a chain — claim → evidence →
+  locator → the source text it resolves to — without copying identifiers between commands.
+- **It never writes.** No route mutates a workspace; every method but `GET` and `HEAD` is answered
+  `405` before a workspace is even opened. `/search` deliberately does *not* record a retrieval log:
+  `research search --run` does that on purpose, and a page load is not retrieval. Asserted two ways
+  — a unit test greps the package for every write entry point, and an integration test hashes every
+  file in a workspace, browses every page, and re-hashes.
+- **It cannot round a gate up.** Whether a check blocks is answered by `CheckResult.blocks` itself
+  rather than by a mapping restated in the UI, so `not_evaluated` is painted exactly as `failed` and
+  labelled *"nobody looked — blocks publication exactly as a failure does"*. A status the build does
+  not recognise — these are read from JSON on disk — is treated as blocking rather than as a calm
+  grey. A run page re-derives the artifact roster and says loudly when the stored verdict no longer
+  describes the files on disk.
+- **Document text stays data.** Autoescaping is unconditional (not `select_autoescape`, which
+  decides by filename), every response carries `Content-Security-Policy: default-src 'none'`, and
+  the interface ships no JavaScript at all. An integration test imports a document containing
+  `<script>`, `<img onerror=…>` and an attribute break and asserts what comes back over the wire.
+- Binds to loopback and refuses anything else without `--allow-remote`; a request whose `Host`
+  header is not loopback is answered `421`, which is what closes DNS rebinding.
+- No new dependencies: `http.server` and the Jinja2 already used by the report renderer.
+- Refusing a non-loopback bind exits `7 UNSAFE_PATH_OR_SECURITY` via the new `UnsafeExposureError`,
+  not `1 GENERAL_FAILURE` — §34 gives security refusals their own code so automation can tell one
+  from a crash. `--json` on a command that serves until interrupted exits `2 INVALID_ARGUMENTS`
+  rather than printing an envelope that looks like a completed command.
+- `allow_reuse_address` is not set on Windows, where it means something different from POSIX: it
+  lets a second process bind a port another is actively listening on, so `research ui --port 8787`
+  against a port already serving *another workspace* started cleanly and showed pages from the wrong
+  corpus. Windows now asks for `SO_EXCLUSIVEADDRUSE` and the second bind fails with a clear message.
+- Five deliberate mutations — autoescape off, `not_evaluated` painted neutral, the `Host` check
+  removed, the staleness comparison skipped, write methods answered instead of refused — were each
+  confirmed to turn a test red.
+
+### Fixed — six defects the UI's own adversarial audit found, in the UI
+Five lenses over the new code, each finding verified by a skeptic instructed to refute it. Nine
+confirmed findings deduplicated to six defects; one was refuted. Every fix below was then confirmed
+by re-introducing the defect and watching a test go red.
+
+- **A claim that had never been independently reviewed got a green chip.** Found by three lenses
+  independently, and the exact failure the UI was written to avoid. The chip class was decided by a
+  Jinja expression restating the Claim schema's enum from memory — in two templates, both wrong the
+  same way. They blocked on `unknown`, which is **not in the enum at all**, and let `not_confirmed`
+  and `not_yet_reviewed` fall through to the green used for `confirmed_independent`. Worse, because
+  the field is optional, *omitting* it rendered the blocking "not recorded" chip while honestly
+  recording `not_yet_reviewed` rendered green — writing the truth down looked better than writing
+  nothing. Classification now lives in `views.claim_chips`, mirrors `check_support_classifications`
+  and `check_contradictions_disclosed`, and is pinned against the shipped schema so a new enum member
+  is a test failure rather than a green chip. A test asserts no template inspects these fields at all.
+- **`support_classification` is no longer painted as a verdict.** `unsupported`,
+  `conflicting_evidence` and `unable_to_determine` are legitimate research outcomes; colouring them
+  red editorializes about findings, and colouring `verified` green implies the classification was
+  earned, which is `support_classifications_earned`'s decision and not this page's.
+- **`/runs/<uuid>` without the `RUN-` prefix showed "Report eligible" and zero artifacts.** The id
+  was normalised at the `inspect` call only, so the manifest and verdict came from the canonical run
+  while `claims/`, `evidence/` and `reviews/` were read from a directory that does not exist. An
+  empty directory rendered as "No claims. A run with no claims has produced no findings" — about a
+  run that has one. Normalised once, up front.
+- **The "Report eligible" banner never checked the checks printed beneath it.** `report_eligible` is
+  a boolean stored beside the check list; flipping it and re-stamping produced a green "every gate
+  cleared" directly above ten blocking rows. Neither guard covers this — a re-stamped result is
+  internally consistent, and a validation result is not part of its own artifact roster, so it reads
+  as perfectly fresh. The page now re-derives eligibility from the checks and says loudly when the
+  stored verdict disagrees with them. The overview chip had the same defect.
+- **A POST body was parsed as the next request.** `protocol_version = "HTTP/1.1"` makes every
+  connection keep-alive and nothing read the request body, so `POST / Host: attacker.example` with a
+  well-formed `GET / Host: localhost` in its body returned **two** responses: the 405, then the full
+  workspace page that the Host check had just refused. Bodies are drained, and a refusal closes the
+  connection. Mutation testing showed the first test pinned only the close, so a second test covers
+  a body on an *accepted* GET — the case only the drain catches.
+- **A request with no `Host` header skipped the loopback check entirely.** `... and host and not
+  is_loopback(host)` short-circuited, so an absent or empty header was served in full — a fail-open
+  answer to a security question, in the same file that argues against exactly that for the bind
+  check. Not reachable from a browser (`Host` is a forbidden header name), but the docstring claimed
+  a property the code did not have.
+- **`check_blocks` failed open on an unrecognised status while `status_class` failed closed**, so a
+  validation result carrying a word this build does not know rendered every row red and then
+  reported "0 blocking" above them. Both now fail closed, and a test asserts they cannot disagree.
+
+### Fixed — `research status` invented an unvalidated response for every validated run
+- `_stage_artifact_present` counted a stage's `required_outputs` wherever they lived.
+  `final_validation` declares `validation/validation-result.json`, which `research validate` writes
+  itself, so the moment a run was validated `status` reported that `final_validation` had a response
+  awaiting acceptance — including a run still at `initialized` that had produced nothing at all —
+  and then advised `research validate <run> --stage final_validation`, which the one-step state
+  machine could not perform. Only files under `responses/` are agent output, and only those count
+  now. Found by the new UI, which draws its stage list from this predicate.
+
 ### Fixed — the four deferred questions, decided
 - **`research status` and `research validate` disagreed about report eligibility.**
   `Phase.REPORT_ELIGIBLE` and `Phase.PUBLISHED` were compared against in `status` and set by

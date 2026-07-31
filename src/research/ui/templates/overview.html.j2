@@ -1,0 +1,104 @@
+{% extends "base.html.j2" %}
+{% import "_macros.html.j2" as m %}
+{% block content %}
+
+<h1>Workspace</h1>
+
+<dl class="facts">
+  <div><dt>Root</dt><dd class="mono">{{ root }}</dd></div>
+  <div><dt>Default profile</dt><dd>{{ default_profile }}</dd></div>
+  <div><dt>Config hash</dt><dd>{{ m.hash_badge(config_hash, 'config') }}</dd></div>
+  <div><dt>Documents</dt><dd>{{ document_count }}</dd></div>
+  <div><dt>Index</dt><dd>
+    {% if index_hash %}{{ m.hash_badge(index_hash, 'index') }}
+    {% else %}<span class="chip chip-blocking">not built</span>
+      <span class="muted">nothing is searchable until <code>research index</code> runs</span>
+    {% endif %}
+  </dd></div>
+</dl>
+
+{% if unreadable_documents %}
+<div class="banner banner-bad">
+  <h2>{{ unreadable_documents|length }} document manifest(s) failed hash verification</h2>
+  <p>These were edited outside the amendment process. They are listed rather than hidden, because a
+  corpus listing that silently drops a tampered manifest is worse than no listing.</p>
+  <ul>
+  {% for d in unreadable_documents %}
+    <li class="mono">{{ d.get('document_id') }} — {{ d.get('unreadable') }}</li>
+  {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<h2>Runs</h2>
+
+{% if not runs %}
+<p class="muted">No runs yet. <code>research run --question "…"</code> starts one.</p>
+{% else %}
+<table>
+  <thead>
+    <tr><th>Run</th><th>Question</th><th>Phase</th><th>Disposition</th><th>Report</th></tr>
+  </thead>
+  <tbody>
+  {% for r in runs %}
+    <tr>
+      <td><a class="mono" href="/runs/{{ r['run_id'] }}" title="{{ r['run_id'] }}">{{ r['run_id']|shortid }}</a></td>
+      <td>{{ r['research_question'] }}</td>
+      <td><span class="phase">{{ r['phase']|replace('_', ' ') }}</span></td>
+      <td><span class="disp disp-{{ 'ok' if r['disposition'] == 'active' else 'warn' }}">{{ r['disposition']|replace('_', ' ') }}</span></td>
+      <td>
+        {% if not r['validated'] %}
+          <span class="chip chip-blocking">never validated</span>
+        {% elif r['contradicts_own_checks'] %}
+          <span class="chip chip-blocking">verdict disagrees with its checks</span>
+        {% elif r['stale'] %}
+          <span class="chip chip-blocking">verdict is stale</span>
+        {% elif r['report_eligible'] %}
+          <span class="chip chip-passed">eligible</span>
+        {% else %}
+          <span class="chip chip-blocking">blocked{% if r['blocking_count'] %} · {{ r['blocking_count'] }}{% endif %}</span>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<h2>Corpus</h2>
+
+{% if ocr_documents %}
+<p class="note">{{ ocr_documents|length }} document(s) have pages that could not be read as text.
+Content on those pages cannot support a claim unless a human verification amendment is recorded.</p>
+{% endif %}
+
+{% if not documents %}
+<p class="muted">Nothing imported yet. <code>research import &lt;path&gt;</code> adds sources.</p>
+{% else %}
+<table>
+  <thead><tr><th>Document</th><th>Type</th><th>Extraction</th><th>Pages</th><th>Chunks</th></tr></thead>
+  <tbody>
+  {% for d in documents %}
+    <tr>
+      <td>
+        {% if d.get('unreadable') %}
+          <span class="mono">{{ d.get('document_id') }}</span>
+          <span class="chip chip-blocking">hash mismatch</span>
+        {% else %}
+          {{ m.artifact_link(d.get('document_id')) }}
+          <span class="muted">{{ (d.get('original_filename_aliases') or [])|join(', ') }}</span>
+        {% endif %}
+      </td>
+      <td>{{ d.get('media_type') or '—' }}</td>
+      <td>
+        <span class="chip chip-{{ 'passed' if d.get('extraction_status') == 'extracted' else 'blocking' }}">{{ d.get('extraction_status') }}</span>
+      </td>
+      <td>{{ d.get('page_count') if d.get('page_count') is not none else '—' }}</td>
+      <td>{{ d.get('chunk_count') if d.get('chunk_count') is not none else '—' }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% endblock %}

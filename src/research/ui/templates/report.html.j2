@@ -1,0 +1,21 @@
+{% extends "base.html.j2" %}
+{% block content %}
+
+<h1>Report</h1>
+<p class="mono muted">{{ name }} · <a href="/runs/{{ run_id }}">back to the run</a></p>
+
+{% if draft %}
+<div class="banner banner-bad">
+  <h2>This is a draft</h2>
+  <p>It was rendered with <code>--draft</code> before validation passed. Its claims have not cleared
+  the report gates and it must not circulate as though they had.</p>
+</div>
+{% endif %}
+
+<p class="note">Shown as text, not as rendered Markdown. The report is a <em>view</em> of validated
+JSON; re-rendering it here would introduce a second renderer with its own vocabulary for describing
+how well-supported something is, and having exactly one such vocabulary is the point.</p>
+
+<pre class="report">{{ text }}</pre>
+
+{% endblock %}

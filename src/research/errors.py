@@ -90,6 +90,19 @@ class UnsafePathError(ResearchError):
     category = "unsafe_path_or_security"
 
 
+class UnsafeExposureError(ResearchError):
+    """Refusing to make the workspace reachable from somewhere it should not be.
+
+    Shares an exit code and category with `UnsafePathError` because §34 gives security refusals one
+    code, and automation should branch on "this was refused for a security reason" rather than on
+    which kind. Separate from it so the message and the docstring stay accurate: nothing about
+    binding a socket is a path.
+    """
+
+    exit_code = ExitCode.UNSAFE_PATH_OR_SECURITY
+    category = "unsafe_path_or_security"
+
+
 class UnsupportedVersionError(ResearchError):
     exit_code = ExitCode.UNSUPPORTED_ARTIFACT_OR_SCHEMA_VERSION
     category = "unsupported_artifact_or_schema_version"

@@ -170,14 +170,26 @@ def transition(ws: Workspace, run_id: str, *, to_phase: Phase | None = None,
 
 
 def _stage_artifact_present(ws: Workspace, run_id: str, stage: Stage) -> bool:
-    """A response file exists for this stage. Presence is NOT completion (spec §28)."""
+    """An AGENT RESPONSE exists for this stage. Presence is NOT completion (spec §28).
+
+    Only files under `responses/` count. `final_validation` and `report` declare required outputs
+    that this package writes itself — the validation result and the rendered report — and counting
+    those made `research status` report an unvalidated response for `final_validation` on every run
+    that had ever been validated, including a run still at `initialized` that had produced nothing
+    at all. It then advised `research validate <run> --stage final_validation`, which the one-step
+    state machine could not have performed. Surfaced by the web UI, which draws the stage list from
+    this predicate and showed a run with zero artifacts as having work awaiting acceptance.
+    """
     run_dir = _run_dir(ws, run_id)
     packet_path = safe_join(run_dir, "packets",
                             f"{list(Stage).index(stage):02d}-{stage}.json")
     if not packet_path.is_file():
         return False
     packet = read_artifact(packet_path, expect_schema="WorkPacket")
-    return all((ws.root / rel).exists() for rel in packet["required_outputs"])
+    responses = [rel for rel in packet["required_outputs"] if "/responses/" in rel]
+    if not responses:
+        return False
+    return all((ws.root / rel).exists() for rel in responses)
 
 
 def status(ws: Workspace, run_id: str) -> dict[str, Any]:

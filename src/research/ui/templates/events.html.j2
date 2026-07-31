@@ -1,0 +1,32 @@
+{% extends "base.html.j2" %}
+{% block content %}
+
+<h1>Events</h1>
+<p class="mono muted">{{ run_id }} · <a href="/runs/{{ run_id }}">back to the run</a></p>
+
+<p class="note">Append-only. The manifest says where a run is; this says how it got there, and the
+second question is the one an auditor asks. Rendered from the raw log rather than from the manifest,
+because the two disagreeing is exactly what someone would be looking for.</p>
+
+{% if not events %}
+<p class="muted">No events.</p>
+{% else %}
+<ol class="events">
+{% for e in events %}
+  <li>
+    <div class="event-head">
+      <span class="mono">{{ e.get('recorded_at') or '—' }}</span>
+      <span class="event-move">{{ (e.get('from_phase') or '?')|replace('_', ' ') }} → {{ (e.get('to_phase') or '?')|replace('_', ' ') }}</span>
+      {% if e.get('to_disposition') %}<span class="disp disp-{{ 'ok' if e.get('to_disposition') == 'active' else 'warn' }}">{{ e['to_disposition']|replace('_', ' ') }}</span>{% endif %}
+    </div>
+    <div class="event-body">
+      {% if e.get('triggered_by') %}<code>{{ e['triggered_by'] }}</code>{% endif %}
+      {{ e.get('reason') or '' }}
+      {% if e.get('unparseable') %}<span class="chip chip-blocking">unparseable line</span> <span class="mono">{{ e['unparseable'] }}</span>{% endif %}
+    </div>
+  </li>
+{% endfor %}
+</ol>
+{% endif %}
+
+{% endblock %}

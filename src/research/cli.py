@@ -482,6 +482,64 @@ def cmd_report(run_id: str, draft: bool, workspace_path: str | None, as_json: bo
           f"validated classification"] if result.overstatements else [])))
 
 
+@main.command("ui")
+@click.option("--host", default=None, help="Address to bind. Loopback unless --allow-remote.")
+@click.option("--port", type=int, default=None, show_default=False,
+              help="Port to bind.  [default: 8787]")
+@click.option("--open", "open_browser", is_flag=True, help="Open a browser once bound.")
+@click.option("--allow-remote", is_flag=True,
+              help="Permit a non-loopback bind. There is no authentication: anyone who can reach "
+                   "the port can read every document and artifact in the workspace.")
+@_WS_OPT
+@_JSON_OPT
+def cmd_ui(host: str | None, port: int | None, open_browser: bool, allow_remote: bool,
+           workspace_path: str | None, as_json: bool) -> None:
+    """Serve a read-only web view of this workspace.
+
+    Everything here is already available from the CLI. What the browser adds is following a chain:
+    a claim, the evidence under it, the locator, and the source text it resolves to, without copying
+    identifiers between commands. The interface never writes to the workspace.
+    """
+    from .ui import DEFAULT_HOST, DEFAULT_PORT, serve
+
+    env = Envelope(command="ui")
+    try:
+        ws = load_workspace(workspace_path)
+    except ResearchError as exc:
+        env.status = "failed"
+        env.errors.append(exc.to_dict())
+        _emit(env, as_json, human=f"research ui: {exc.message}")
+        return
+
+    bind_host = host or DEFAULT_HOST
+    bind_port = port if port is not None else DEFAULT_PORT
+
+    if as_json:
+        # `--json` cannot describe a process that blocks until interrupted. Say so rather than
+        # emitting an envelope that looks like a completed command.
+        env.status = "failed"
+        env.errors.append({"category": "invalid_arguments",
+                           "message": "`research ui` serves until interrupted and has no JSON "
+                                      "result; run it without --json",
+                           "detail": {"url": f"http://{bind_host}:{bind_port}/"}})
+        _emit(env, as_json)
+        return
+
+    try:
+        serve(ws, host=bind_host, port=bind_port, allow_remote=allow_remote,
+              open_browser=open_browser)
+    except ResearchError as exc:
+        env.status = "failed"
+        env.errors.append(exc.to_dict())
+        _emit(env, as_json, human=f"research ui: {exc.message}")
+    except OSError as exc:
+        env.status = "failed"
+        env.errors.append({"category": "general_failure", "message": str(exc),
+                           "detail": {"host": bind_host, "port": bind_port,
+                                      "hint": "another process may hold this port; try --port"}})
+        _emit(env, as_json, human=f"research ui: cannot bind {bind_host}:{bind_port} — {exc}")
+
+
 @main.command("doctor", hidden=True)
 @_WS_OPT
 @_JSON_OPT
@@ -489,7 +547,7 @@ def cmd_doctor(workspace_path: str | None, as_json: bool) -> None:
     """Report what this build can actually do. Used by the honesty test."""
     env = Envelope(command="doctor")
     implemented = ["init", "import", "index", "search", "run", "status", "inspect",
-                   "validate", "report"]
+                   "validate", "report", "ui"]
     pending: list[str] = []
     ws: dict[str, Any] | None = None
     try:

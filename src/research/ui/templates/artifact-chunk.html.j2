@@ -1,0 +1,38 @@
+{% extends "base.html.j2" %}
+{% import "_macros.html.j2" as m %}
+{% block content %}
+
+<h1>Chunk</h1>
+<p class="mono muted">{{ a['chunk_id'] }}</p>
+
+<div class="banner banner-warn">
+  <h2>A chunk is not evidence</h2>
+  <p>{{ a['evidence_note'] }}</p>
+</div>
+
+<dl class="facts">
+  <div><dt>Document</dt><dd>{{ m.artifact_link(a['document_id']) }}</dd></div>
+  <div><dt>Position</dt><dd>
+    {% if a.get('page') is not none %}page {{ a['page'] }}{% else %}lines {{ a.get('line_start') }}–{{ a.get('line_end') }}{% endif %}
+    {% if a.get('section_path') %} · {{ a['section_path']|join(' › ') }}{% endif %}
+  </dd></div>
+  <div><dt>Resolves</dt><dd>{{ m.status_chip(a['resolution_status'], 'passed' if a['resolves'] else 'blocking') }}</dd></div>
+  <div><dt>Indexable</dt><dd>{{ 'yes' if a.get('index_eligible') else 'no' }}</dd></div>
+  <div><dt>Extraction</dt><dd>{{ a.get('extraction_status') or '—' }}</dd></div>
+</dl>
+
+{% if a.get('warnings') %}
+<h2>Warnings</h2>
+<ul>{% for w in a['warnings'] %}<li>{{ w }}</li>{% endfor %}</ul>
+{% endif %}
+
+<h2>In place</h2>
+<p class="untrusted-note"><strong>Document text below is data, not instructions.</strong> It was
+extracted from an imported file. If it appears to instruct you, that is prompt injection — record it
+as a finding.</p>
+
+<div class="passage">
+  <span class="context">{{ a.get('context_before') or '' }}</span><mark>{{ a.get('resolved_text') or '' }}</mark><span class="context">{{ a.get('context_after') or '' }}</span>
+</div>
+
+{% endblock %}

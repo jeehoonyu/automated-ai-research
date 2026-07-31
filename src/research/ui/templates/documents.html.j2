@@ -1,0 +1,39 @@
+{% extends "base.html.j2" %}
+{% import "_macros.html.j2" as m %}
+{% block content %}
+
+<h1>Documents <span class="count">{{ count }}</span></h1>
+
+{% if not documents %}
+<p class="muted">Nothing imported yet. <code>research import &lt;path&gt;</code> adds sources.</p>
+{% else %}
+<p class="note">A document's identity is the sha256 of its original bytes. Renaming a file does not
+change it; re-importing the same bytes is a duplicate with the new name kept as an alias.</p>
+
+<table>
+  <thead><tr><th>Document</th><th>Aliases</th><th>Type</th><th>Extraction</th><th>Pages</th><th>OCR</th></tr></thead>
+  <tbody>
+  {% for d in documents %}
+    <tr>
+      <td>
+        {% if d.get('unreadable') %}
+          <span class="mono">{{ d.get('document_id') }}</span>
+          <span class="chip chip-blocking">hash mismatch</span>
+          <div class="muted">{{ d.get('unreadable') }}</div>
+        {% else %}
+          {{ m.artifact_link(d.get('document_id')) }}
+        {% endif %}
+      </td>
+      <td>{{ (d.get('original_filename_aliases') or [])|join(', ') }}</td>
+      <td>{{ d.get('media_type') or '—' }}</td>
+      <td>{{ m.status_chip(d.get('extraction_status') or 'unknown',
+              'passed' if d.get('extraction_status') == 'extracted' else 'blocking') }}</td>
+      <td>{{ d.get('page_count') if d.get('page_count') is not none else '—' }}</td>
+      <td>{% if d.get('ocr_required_pages') %}<span class="chip chip-blocking">{{ d['ocr_required_pages']|length }} page(s)</span>{% else %}—{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,47 @@
+{% extends "base.html.j2" %}
+{% import "_macros.html.j2" as m %}
+{% block content %}
+
+<h1>Search</h1>
+
+<form method="get" action="/search" class="searchform">
+  <input type="search" name="q" value="{{ query }}" placeholder="words to find in the corpus" autofocus>
+  <button type="submit">Search</button>
+</form>
+
+<p class="note">Read-only. <code>research search --run &lt;id&gt;</code> records a retrieval log, because
+evidence a run relies on has to name the search that produced it. This page deliberately records
+nothing: clicking around a dashboard is not retrieval, and writing provenance from a page load would
+put un-asked-for history into a run.</p>
+
+{% if error %}
+<div class="banner banner-bad"><h2>Search failed</h2><p>{{ error }}</p></div>
+{% endif %}
+
+{% if query and not error %}
+<p class="muted">{{ results|length }} result(s){% if normalization %} · normalized to
+<code>{{ normalization.get('fts_expression') or normalization }}</code>{% endif %}</p>
+
+{% if results %}
+{{ m.untrusted(untrusted_note) }}
+{% for r in results %}
+<div class="hit">
+  <div class="hit-head">
+    {{ m.artifact_link(r['chunk_id']) }}
+    <span class="muted">in {{ m.artifact_link(r['document_id']) }}</span>
+    {% set loc = r.get('locator') or {} %}
+    <span class="muted mono">
+      {% if loc.get('page') is not none %}page {{ loc['page'] }}{% endif %}
+      {% if loc.get('section_path') %}· {{ loc['section_path']|join(' › ') }}{% endif %}
+    </span>
+  </div>
+  <blockquote class="passage">{{ r.get('text') or r.get('snippet') or '' }}</blockquote>
+</div>
+{% endfor %}
+{% else %}
+<p class="muted">Nothing matched. A search returning nothing is a real answer — it is not the same as
+not having looked, and the corpus is fixed.</p>
+{% endif %}
+{% endif %}
+
+{% endblock %}

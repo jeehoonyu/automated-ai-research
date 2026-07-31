@@ -1,0 +1,57 @@
+{% extends "base.html.j2" %}
+{% import "_macros.html.j2" as m %}
+{% block content %}
+
+<h1>Document</h1>
+<p class="mono muted">{{ a['document_id'] }}</p>
+<p>{{ (a.get('aliases') or [])|join(', ') }}</p>
+
+<dl class="facts">
+  <div><dt>Media type</dt><dd>{{ a.get('media_type') or '—' }}</dd></div>
+  <div><dt>Extraction</dt><dd>{{ m.status_chip(a.get('extraction_status') or 'unknown',
+      'passed' if a.get('extraction_status') == 'extracted' else 'blocking') }}</dd></div>
+  <div><dt>Source bytes</dt><dd>{{ m.hash_badge(a.get('source_sha256'), 'sha256 of the original file') }}</dd></div>
+  <div><dt>Version</dt><dd class="mono">{{ a.get('document_version_id')|shortid }}</dd></div>
+  <div><dt>Pages</dt><dd>{{ a.get('page_count') if a.get('page_count') is not none else '—' }}</dd></div>
+  <div><dt>Chunks</dt><dd>{{ a.get('chunk_count') }} ({{ a.get('index_eligible_chunk_count') }} indexable)</dd></div>
+</dl>
+
+{% if a.get('ocr_required_pages') %}
+<div class="banner banner-warn">
+  <h2>{{ a['ocr_required_pages']|length }} page(s) require OCR</h2>
+  <p>Pages {{ a['ocr_required_pages']|join(', ') }} carry too little extractable text to be read.
+  There is no OCR engine here, so content on those pages cannot support a claim unless a human
+  verification amendment is recorded against it.</p>
+</div>
+{% endif %}
+
+{% if a.get('extraction_warnings') %}
+<h2>Extraction warnings</h2>
+<ul>{% for w in a['extraction_warnings'] %}<li>{{ w }}</li>{% endfor %}</ul>
+{% endif %}
+
+{% if a.get('normalization_not_performed') %}
+<h2>Normalization not performed</h2>
+<p class="muted">Recorded so a locator built against this text can be interpreted correctly.</p>
+<ul>{% for n in a['normalization_not_performed'] %}<li class="mono">{{ n }}</li>{% endfor %}</ul>
+{% endif %}
+
+{% if a.get('renders') %}
+<h2>Page renders <span class="count">{{ a['renders']|length }}</span></h2>
+<table>
+  <thead><tr><th>Page</th><th>Size</th><th>Render hash</th></tr></thead>
+  <tbody>
+  {% for r in a['renders'] %}
+    <tr><td>{{ r['page'] }}</td><td>{{ r['width'] }}×{{ r['height'] }}</td>
+        <td>{{ m.hash_badge(r['render_sha256'], 'render') }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<h2>Stored original</h2>
+<p class="muted mono">{{ a.get('stored_original') or '—' }}</p>
+<p class="note">The original bytes are kept content-addressed and unmodified. Extraction, chunking
+and every locator built later are derived from them; the file itself is never rewritten.</p>
+
+{% endblock %}

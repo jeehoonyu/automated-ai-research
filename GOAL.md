@@ -5,6 +5,73 @@ built now and what would count as having built it. It changes; the specification
 
 ---
 
+## Goal 5 — a way to *look* at a run, that cannot lie about it
+
+Requested 2026-07-31: "It will be nice to have a UI interface."
+
+Everything the platform records is already reachable from the CLI. What was genuinely missing is
+following a chain: a published claim rests on evidence, which rests on a locator, which resolves
+into immutable source bytes, and checking that by hand is four `research inspect` calls and a lot of
+copied identifiers. `research ui` makes it four clicks.
+
+**The ordering rule still applies.** A UI is a capability, and this project ranks restoring a
+guarantee above adding one — so the acceptance criteria are not "it looks good". They are that the
+new component cannot become a way around anything:
+
+| It must | How it is held to that |
+|---|---|
+| never write | No route mutates a workspace; every method but `GET`/`HEAD` is refused before a workspace is opened. A unit test greps the package for every write entry point; an integration test hashes every file in a workspace, browses every page, and re-hashes. `/search` deliberately records no retrieval log — `research search --run` does that on purpose, and a page load is not retrieval. |
+| never round a gate up | Whether a check blocks is answered by `CheckResult.blocks` itself, not a table restated in the UI, so `not_evaluated` is painted exactly as `failed`. An unrecognised status — these come from JSON on disk — is treated as blocking. A run page re-derives the artifact roster and says loudly when the stored verdict no longer describes the files present. |
+| never let document text become markup | Autoescaping unconditional, `Content-Security-Policy: default-src 'none'`, zero JavaScript. Verified in a real browser against a corpus document containing `<script>`, `<img onerror=…>` and an attribute break: present as text, `childElementCount: 0`, nothing executed. |
+| add no dependency | `http.server` and the Jinja2 the report renderer already uses. |
+
+Five deliberate mutations — autoescape off, `not_evaluated` painted neutral, the `Host` check
+removed, the staleness comparison skipped, write methods answered instead of refused — were each
+confirmed to turn a test red. A test that passes against the broken code too is not guarding
+anything.
+
+**It found one defect on its first day**, which is the argument for building it. `research status`
+reported an unvalidated `final_validation` response for every run that had ever been validated —
+including runs at `initialized` that had produced nothing — because that stage's declared output is
+the validation result the CLI writes itself. The UI draws its stage list from that predicate, so a
+run with zero artifacts showed work awaiting acceptance. Only `responses/` files count now.
+
+### And then the audit found six in the UI itself
+
+Five lenses over the new code, each finding handed to a skeptic told to refute it: nine confirmed
+findings, deduplicating to six defects, one refuted. Full list in `CHANGELOG.md`. Two are worth
+repeating here because of what they say about the acceptance criteria above.
+
+**The worst one was the exact failure the table promised would not happen.** A claim that had never
+been independently reviewed showed a *green* chip reading "not yet reviewed". Three lenses found it
+separately. The cause was structural rather than careless: I had put the classification policy in
+Jinja, and two templates each restated the Claim schema's enum from memory. Both blocked on a value
+(`unknown`) that is not in the schema at all and let `not_confirmed` and `not_yet_reviewed` fall
+through to the reassuring branch — so *recording* that independence was unestablished rendered
+calmer than recording nothing.
+
+**The lesson generalises past this component.** `status_class` was correct throughout, because it
+asked `CheckResult.blocks` instead of restating anything. Every place I let a vocabulary be typed
+out a second time is where the defect was. Policy now lives in `views.py`, is derived from the
+shipped schema, and a test asserts no template inspects those fields at all.
+
+**Second: the "Report eligible" banner never checked the checks printed underneath it.** Flipping
+the stored boolean and re-stamping produced a green "every gate cleared" above ten blocking rows —
+and neither guard I was proud of catches that, because a re-stamped result is internally consistent
+and a validation result is not part of its own artifact roster. Two independent integrity mechanisms,
+both blind to the same edit, and only comparing the verdict against its own evidence closes it.
+
+That is the argument for auditing a component whose entire claim is that it does not lie: the claim
+is not evidence. Writing the acceptance criteria down did not make them true — it made it possible
+to check, and checking found six places where they weren't.
+
+**What the UI cannot do, stated so nobody expects it to:** it cannot judge whether a claim is true,
+whether a figure was read correctly, or whether a reviewer was genuinely independent. It shows what
+was recorded and what the validator made of it. Making a record easier to read does not make the
+record more true.
+
+---
+
 ## Goal 4 — make every shipped guarantee true, in the order they depend on each other
 
 Six themes. Every item below was found by auditing this repository, not by reading the spec and

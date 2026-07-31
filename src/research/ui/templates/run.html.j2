@@ -1,0 +1,204 @@
+{% extends "base.html.j2" %}
+{% import "_macros.html.j2" as m %}
+{% block content %}
+
+<h1>Run</h1>
+<p class="mono muted">{{ run['run_id'] }}</p>
+<p class="question">{{ run['research_question'] }}</p>
+
+<dl class="facts">
+  <div><dt>Phase</dt><dd>{{ m.phase_badge(status['phase'], status['disposition']) }}</dd></div>
+  <div><dt>Profile</dt><dd>{{ run['profile'] }}</dd></div>
+  <div><dt>Sources pinned</dt><dd>{{ status['source_document_count'] }} document(s)</dd></div>
+  <div><dt>Index</dt><dd>{{ m.hash_badge(status['index_hash'], 'index') or '—' }}</dd></div>
+  <div><dt>Events</dt><dd><a href="/runs/{{ run['run_id'] }}/events">{{ run['event_count'] }} recorded</a></dd></div>
+</dl>
+
+{# ------------------------------------------------------------------ the verdict, stated plainly #}
+
+{% set v = validation %}
+{% if not v.get('present') %}
+<div class="banner banner-bad">
+  <h2>Never validated</h2>
+  <p>{{ v.get('note') }} Nothing on this page has been checked against the gates. A run that has not
+  been validated is not "probably fine" — it is unexamined.</p>
+</div>
+{% elif v.get('unreadable') %}
+<div class="banner banner-bad">
+  <h2>The validation result failed hash verification</h2>
+  <p>{{ v.get('unreadable') }}</p>
+  <p>The stored verdict was modified outside the amendment process, so it is not shown. Re-run
+  <code>research validate {{ run['run_id'] }}</code>.</p>
+</div>
+{% else %}
+
+{% if v.get('contradicts_own_checks') %}
+<div class="banner banner-bad">
+  <h2>This verdict disagrees with its own checks</h2>
+  <p>The stored result says <code>report_eligible: true</code>, but
+  {{ v.get('counts', {}).get('blocking') }} of the {{ v.get('checks')|length }} checks below block
+  and {{ v.get('human_review_reasons')|length }} human-review reason(s) are recorded.
+  <code>research validate</code> derives that boolean as "no blocking checks and no human review",
+  so it cannot have produced this file. Something wrote the verdict without doing the work.</p>
+  <p>The artifact hash will not catch it — a re-stamped result is internally consistent — and the
+  staleness comparison will not either, because a validation result is not part of its own artifact
+  roster. Re-run <code>research validate {{ run['run_id'] }}</code> and believe that instead.</p>
+</div>
+{% elif v.get('stale') %}
+<div class="banner banner-bad">
+  <h2>This verdict does not describe the artifacts now on disk</h2>
+  <p><code>research validate</code> records the roster of artifacts its verdict was computed over.
+  Re-deriving that roster from the current files gives a different answer, so the result below —
+  whatever it says — was reached about different inputs. Re-validate before believing it.</p>
+  <ul>
+  {% for d in v.get('diffs') %}<li class="mono">{{ d }}</li>{% endfor %}
+  </ul>
+</div>
+{% elif v.get('trustworthy_pass') %}
+<div class="banner banner-good">
+  <h2>Report eligible</h2>
+  <p>Every gate cleared, and the {{ v.get('checks')|length }} checks below were computed over exactly
+  the artifacts on disk now.</p>
+</div>
+{% else %}
+<div class="banner banner-bad">
+  <h2>Publication is blocked by {{ v.get('counts', {}).get('blocking') }} of {{ v.get('checks')|length }} checks</h2>
+  <p>A check that was never evaluated blocks exactly as a failed one does. "Nobody looked" is not
+  "nothing found".</p>
+</div>
+{% endif %}
+
+{% if v.get('human_review_reasons') %}
+<div class="banner banner-warn">
+  <h2>Human review required</h2>
+  <ul>{% for r in v.get('human_review_reasons') %}<li>{{ r }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
+{% if v.get('load_errors') %}
+<div class="banner banner-bad">
+  <h2>{{ v.get('load_errors')|length }} artifact(s) could not be loaded</h2>
+  <ul>{% for e in v.get('load_errors') %}<li class="mono">{{ e }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
+<h2>Gates</h2>
+<p class="muted">Validated {{ v.get('validated_at') }} · result {{ m.hash_badge(v.get('artifact_hash'), 'validation result') }}
+· {{ v.get('counts', {}).get('passed') }} passed,
+{{ v.get('counts', {}).get('blocking') }} blocking,
+{{ v.get('counts', {}).get('not_applicable') }} not applicable</p>
+
+<table class="checks">
+  <thead><tr><th>Check</th><th>Status</th><th>Detail</th></tr></thead>
+  <tbody>
+  {% for c in v.get('checks') %}
+    <tr class="row-{{ c['class'] }}">
+      <td class="mono">{{ c['check'] }}</td>
+      <td>{{ m.status_chip(c['status'], c['class'], c['meaning']) }}</td>
+      <td>
+        {{ c.get('detail') or '' }}
+        {% if c['blocks'] %}<div class="meaning">{{ c['meaning'] }}</div>{% endif %}
+        {% if c.get('artifact_ids') %}
+        <div class="ids">{% for a in c['artifact_ids'][:8] %}{{ m.artifact_link(a) }} {% endfor %}</div>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{# ------------------------------------------------------------------------------------- progress #}
+
+<h2>Workflow</h2>
+<ol class="stages">
+{% for s in stages %}
+  <li class="stage stage-{{ s['state'] }}">
+    <span class="stage-name">{{ s['stage']|replace('_', ' ') }}</span>
+    <span class="stage-state">{{ s['state']|replace('_', ' ') }}</span>
+  </li>
+{% endfor %}
+</ol>
+
+{% if status['blocking'] %}
+<div class="banner banner-warn">
+  <h2>Blocking the next step</h2>
+  <ul>{% for b in status['blocking'] %}<li><code>{{ b['category'] }}</code> — {{ b['message'] }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
+{# --------------------------------------------------------------------------------- the findings #}
+
+<h2>Claims <span class="count">{{ claims|length }}</span></h2>
+{% if not claims %}
+<p class="muted">No claims. A run with no claims has produced no findings — which is a legitimate
+outcome, not an empty page to be filled.</p>
+{% else %}
+<table>
+  <thead><tr><th>Claim</th><th>Support</th><th>Contradictions</th><th>Independence</th></tr></thead>
+  <tbody>
+  {% for c in claims %}
+    <tr>
+      <td>
+        {% if c.get('unreadable') %}
+          <span class="chip chip-blocking">unreadable</span> <span class="mono">{{ c.get('claim_id') }}</span>
+          <div class="muted">{{ c.get('unreadable') }}</div>
+        {% else %}
+          <a href="/artifacts/{{ c['claim_id'] }}">{{ c.get('claim') }}</a>
+          <div class="muted mono">{{ c['claim_id']|shortid }} · {{ c.get('claim_type') }}</div>
+        {% endif %}
+      </td>
+      {# Chips are decided in views.claim_chips, never here. Two copies of this expression lived in
+         templates and both restated the schema's enum from memory — and got it wrong, greening a
+         claim that had never been independently reviewed. #}
+      {% set chips = c.get('chips') or {} %}
+      <td>{{ m.status_chip(chips.get('support_classification', {}).get('label', '—'),
+                           chips.get('support_classification', {}).get('class', 'neutral')) }}</td>
+      <td>{{ m.status_chip(chips.get('contradiction_status', {}).get('label', '—'),
+                           chips.get('contradiction_status', {}).get('class', 'blocking')) }}</td>
+      <td>{{ m.status_chip(chips.get('independent_review_status', {}).get('label', '—'),
+                           chips.get('independent_review_status', {}).get('class', 'blocking')) }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<h2>Evidence <span class="count">{{ evidence|length }}</span></h2>
+{% if evidence %}
+<ul class="idlist">
+{% for e in evidence %}
+  <li>{{ m.artifact_link(e.get('evidence_id')) }}
+      <span class="muted">{{ e.get('evidence_type') or '' }}</span>
+      {% if e.get('unreadable') %}<span class="chip chip-blocking">unreadable</span>{% endif %}
+  </li>
+{% endfor %}
+</ul>
+{% else %}
+<p class="muted">None.</p>
+{% endif %}
+
+<h2>Reviews <span class="count">{{ reviews|length }}</span></h2>
+{% if reviews %}
+<ul class="idlist">
+{% for r in reviews %}
+  <li>{{ m.artifact_link(r.get('review_id')) }}
+      <span class="muted">{{ r.get('review_type') or '' }}</span>
+      {% if r.get('decision') %}{{ m.status_chip(r['decision'], 'passed' if r['decision'] == 'passed' else 'blocking') }}{% endif %}
+  </li>
+{% endfor %}
+</ul>
+{% else %}
+<p class="muted">None.</p>
+{% endif %}
+
+{% if reports %}
+<h2>Reports</h2>
+<ul class="idlist">
+{% for name in reports %}
+  <li><a href="/runs/{{ run['run_id'] }}/report/{{ name }}">{{ name }}</a></li>
+{% endfor %}
+</ul>
+{% endif %}
+
+{% endblock %}

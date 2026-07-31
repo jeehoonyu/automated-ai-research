@@ -1,0 +1,19 @@
+{% extends "base.html.j2" %}
+{% block content %}
+
+<h1>{{ code }}</h1>
+<div class="banner banner-bad">
+  <p>{{ message }}</p>
+</div>
+
+{% if detail %}
+<table class="kv"><tbody>
+{% for key, value in detail.items() %}
+  <tr><th class="mono">{{ key }}</th><td class="mono">{{ value }}</td></tr>
+{% endfor %}
+</tbody></table>
+{% endif %}
+
+<p><a href="/">Back to the workspace</a></p>
+
+{% endblock %}

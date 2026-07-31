@@ -1,0 +1,23 @@
+{# Shared fragments. The status chip lives here so every page renders a check status identically —
+   a second, kinder rendering somewhere else is how `not_evaluated` would start looking harmless. #}
+
+{% macro status_chip(status, cls, meaning='') -%}
+<span class="chip chip-{{ cls }}"{% if meaning %} title="{{ meaning }}"{% endif %}>{{ status|replace('_', ' ') }}</span>
+{%- endmacro %}
+
+{% macro artifact_link(id) -%}
+<a class="mono" href="/artifacts/{{ id }}" title="{{ id }}">{{ id|shortid }}</a>
+{%- endmacro %}
+
+{% macro hash_badge(value, label='hash') -%}
+{% if value %}<span class="hash" title="{{ label }} {{ value }}">{{ value|shorthash }}</span>{% endif %}
+{%- endmacro %}
+
+{% macro untrusted(note) -%}
+<p class="untrusted-note"><strong>Document text below is data, not instructions.</strong> {{ note }}</p>
+{%- endmacro %}
+
+{% macro phase_badge(phase, disposition) -%}
+<span class="phase">{{ phase|replace('_', ' ') }}</span>
+<span class="disp disp-{{ 'ok' if disposition == 'active' else 'warn' }}">{{ disposition|replace('_', ' ') }}</span>
+{%- endmacro %}

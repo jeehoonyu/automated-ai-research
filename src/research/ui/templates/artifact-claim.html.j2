@@ -1,0 +1,90 @@
+{% extends "base.html.j2" %}
+{% import "_macros.html.j2" as m %}
+{% block content %}
+
+<h1>Claim</h1>
+<p class="mono muted">{{ a['claim_id'] }}</p>
+<blockquote class="claim">{{ a.get('claim') }}</blockquote>
+
+<dl class="facts">
+  <div><dt>Run</dt><dd><a class="mono" href="/runs/{{ a['run_id'] }}">{{ a['run_id']|shortid }}</a></dd></div>
+  <div><dt>Type</dt><dd>{{ a.get('claim_type') or '—' }}</dd></div>
+  <div><dt>Lifecycle</dt><dd>{{ (a.get('claim_status') or '—')|replace('_', ' ') }}</dd></div>
+  {# Decided in views.claim_chips. This template used to restate the schema enum and get it wrong. #}
+  {% set chips = a.get('chips') or {} %}
+  <div><dt>Support</dt><dd>{{ m.status_chip(chips.get('support_classification', {}).get('label', '—'),
+      chips.get('support_classification', {}).get('class', 'neutral')) }}</dd></div>
+  <div><dt>Contradictions</dt><dd>{{ m.status_chip(chips.get('contradiction_status', {}).get('label', '—'),
+      chips.get('contradiction_status', {}).get('class', 'blocking')) }}</dd></div>
+  <div><dt>Independence</dt><dd>{{ m.status_chip(chips.get('independent_review_status', {}).get('label', '—'),
+      chips.get('independent_review_status', {}).get('class', 'blocking')) }}</dd></div>
+  <div><dt>Artifact hash</dt><dd>{{ m.hash_badge(a.get('artifact_hash')) }}</dd></div>
+</dl>
+
+<p class="note">A support classification is a claim about how well the evidence backs the statement.
+It is recorded by the agent and checked by <code>research validate</code>; this page reports what was
+recorded and never softens or strengthens it.</p>
+
+<h2>Supporting evidence <span class="count">{{ a.get('evidence_detail')|length }}</span></h2>
+
+{% if not a.get('evidence_detail') %}
+<div class="banner banner-bad">
+  <h2>No supporting evidence</h2>
+  <p>A claim with no evidence cannot be published, whatever its classification says.</p>
+</div>
+{% else %}
+{{ m.untrusted(a['untrusted_content_note']) }}
+{% for e in a['evidence_detail'] %}
+<div class="evidence-card{{ ' evidence-bad' if not e['resolves'] else '' }}">
+  <div class="evidence-head">
+    {{ m.artifact_link(e['evidence_id']) }}
+    {% if e.get('document_id') %}<span class="muted">in {{ m.artifact_link(e['document_id']) }}</span>{% endif %}
+    {% if e['resolves'] %}
+      <span class="chip chip-passed">resolves</span>
+    {% else %}
+      <span class="chip chip-blocking">{{ e.get('resolution_status') or e.get('unreadable') or 'does not resolve' }}</span>
+    {% endif %}
+    {% if e.get('text_matches_source') is false %}
+      <span class="chip chip-blocking">stored quote differs from source</span>
+    {% endif %}
+  </div>
+  {% if e.get('quote') %}
+  <blockquote class="passage">{{ e['quote'] }}</blockquote>
+  {% endif %}
+  <div class="muted mono locator-line">
+    {% set loc = e.get('locator') or {} %}
+    {% if loc.get('page') is not none %}page {{ loc['page'] }}{% endif %}
+    {% if loc.get('section_path') %}· {{ loc['section_path']|join(' › ') }}{% endif %}
+    {% if loc.get('start_offset') is not none %}· offsets {{ loc['start_offset'] }}–{{ loc.get('end_offset') }}{% endif %}
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+
+{% if a.get('contradicting_evidence_ids') %}
+<h2>Contradicting evidence <span class="count">{{ a['contradicting_evidence_ids']|length }}</span></h2>
+<ul class="idlist">
+{% for eid in a['contradicting_evidence_ids'] %}<li>{{ m.artifact_link(eid) }}</li>{% endfor %}
+</ul>
+{% endif %}
+
+<h2>Review verdicts</h2>
+{% if a.get('review_verdicts') %}
+<table>
+  <thead><tr><th>Review</th><th>Type</th><th>Assessment</th><th>Citation support</th></tr></thead>
+  <tbody>
+  {% for v in a['review_verdicts'] %}
+    <tr>
+      <td>{{ m.artifact_link(v.get('review_id')) }}</td>
+      <td>{{ (v.get('review_type') or '—')|replace('_', ' ') }}</td>
+      <td>{{ v.get('assessment') or '—' }}</td>
+      <td>{{ v.get('citation_support') or '—' }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">No review recorded a per-claim verdict for this claim.</p>
+{% endif %}
+
+{% endblock %}

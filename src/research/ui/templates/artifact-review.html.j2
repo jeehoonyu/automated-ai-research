@@ -1,0 +1,70 @@
+{% extends "base.html.j2" %}
+{% import "_macros.html.j2" as m %}
+{% block content %}
+
+<h1>Review</h1>
+<p class="mono muted">{{ a['review_id'] }}</p>
+
+<dl class="facts">
+  <div><dt>Run</dt><dd><a class="mono" href="/runs/{{ a['run_id'] }}">{{ a['run_id']|shortid }}</a></dd></div>
+  <div><dt>Type</dt><dd>{{ (a.get('review_type') or '—')|replace('_', ' ') }}</dd></div>
+  <div><dt>Decision</dt><dd>{{ m.status_chip(a.get('decision') or 'not recorded',
+      'passed' if a.get('decision') == 'passed' else 'blocking') }}</dd></div>
+  <div><dt>Reviewer</dt><dd class="mono">{{ (a.get('reviewer') or {}).get('actor_type') or '—' }}</dd></div>
+  <div><dt>Artifact hash</dt><dd>{{ m.hash_badge(a.get('artifact_hash')) }}</dd></div>
+</dl>
+
+{% set ind = a.get('review_independence') %}
+{% if ind %}
+<h2>Independence</h2>
+<p class="note">Independence is a property of the <em>context</em> the reviewer was given, not of the
+conclusion it reached. These fields record what was excluded from the packet.</p>
+<table class="kv"><tbody>
+{% for key, value in ind.items() %}
+  <tr><th class="mono">{{ key }}</th>
+      <td>{% if value is sameas true %}<span class="chip chip-passed">yes</span>
+          {% elif value is sameas false %}<span class="chip chip-blocking">no</span>
+          {% else %}<span class="mono">{{ value }}</span>{% endif %}</td></tr>
+{% endfor %}
+</tbody></table>
+{% endif %}
+
+{% if a.get('reviewed_artifact_ids') %}
+<h2>Reviewed</h2>
+<ul class="idlist">
+{% for aid in a['reviewed_artifact_ids'] %}<li>{{ m.artifact_link(aid) }}</li>{% endfor %}
+</ul>
+{% endif %}
+
+{% if a.get('per_claim') %}
+<h2>Per-claim verdicts</h2>
+<table>
+  <thead><tr><th>Claim</th><th>Assessment</th><th>Citation support</th></tr></thead>
+  <tbody>
+  {% for p in a['per_claim'] %}
+    <tr><td>{{ m.artifact_link(p.get('claim_id')) }}</td>
+        <td>{{ p.get('assessment') or '—' }}</td>
+        <td>{{ p.get('citation_support') or '—' }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% if a.get('blocking_issues') %}
+<div class="banner banner-bad">
+  <h2>Blocking issues</h2>
+  <ul>{% for b in a['blocking_issues'] %}<li>{{ b }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
+{% if a.get('findings') %}
+<h2>Findings</h2>
+<ul>{% for f in a['findings'] %}<li>{{ f }}</li>{% endfor %}</ul>
+{% endif %}
+
+{% if a.get('warnings') %}
+<h2>Warnings</h2>
+<ul>{% for w in a['warnings'] %}<li>{{ w }}</li>{% endfor %}</ul>
+{% endif %}
+
+{% endblock %}

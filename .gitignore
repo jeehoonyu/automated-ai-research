@@ -9,3 +9,6 @@ build/
 dist/
 # Workspaces are user data, not source. Originals and canonical artifacts live inside one.
 example-workspace/
+# Editor/agent scratch. `research ui` is documented in the README; a machine-specific launch
+# config for one tool is not something the repository should carry.
+.claude/

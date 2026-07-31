@@ -1,0 +1,73 @@
+{% extends "base.html.j2" %}
+{% import "_macros.html.j2" as m %}
+{% block content %}
+
+<h1>Evidence</h1>
+<p class="mono muted">{{ a['evidence_id'] }}</p>
+
+<dl class="facts">
+  <div><dt>Run</dt><dd><a class="mono" href="/runs/{{ a['run_id'] }}">{{ a['run_id']|shortid }}</a></dd></div>
+  <div><dt>Document</dt><dd>{{ m.artifact_link(a['document_id']) }}</dd></div>
+  <div><dt>Type</dt><dd>{{ a.get('evidence_type') or '—' }}</dd></div>
+  <div><dt>Extraction</dt><dd>{{ a.get('extraction_status') or '—' }}</dd></div>
+  <div><dt>Artifact hash</dt><dd>{{ m.hash_badge(a.get('artifact_hash')) }}</dd></div>
+</dl>
+
+{# The whole reason this page exists: the locator is re-resolved against the stored normalized text
+   rather than trusting the artifact's own copy of the quote. #}
+
+{% if not a['resolves'] %}
+<div class="banner banner-bad">
+  <h2>This citation does not resolve</h2>
+  <p>Status <code>{{ a['resolution_status'] }}</code>. The locator does not point at readable text in
+  the source it names, so nothing below can be checked against the document.</p>
+</div>
+{% elif a['text_matches_source'] is false %}
+<div class="banner banner-bad">
+  <h2>The stored quote is not what the locator resolves to</h2>
+  <p>The evidence record carries one text; re-slicing the source at the recorded offsets produces a
+  different one. Both are shown. The source is the one that counts.</p>
+</div>
+{% else %}
+<p class="note">Resolved: re-slicing the stored normalized text at the recorded offsets produces
+exactly the quote this evidence record carries.</p>
+{% endif %}
+
+<h2>In place</h2>
+{{ m.untrusted(a['untrusted_content_note']) }}
+
+<div class="passage">
+  <span class="context">{{ a.get('context_before') or '' }}</span><mark>{{ a.get('resolved_text') or '' }}</mark><span class="context">{{ a.get('context_after') or '' }}</span>
+</div>
+
+{% if a['text_matches_source'] is false %}
+<h3>What the artifact stored instead</h3>
+<div class="passage passage-bad">{{ a.get('stored_exact_text') or '' }}</div>
+{% endif %}
+
+<h2>Locator</h2>
+<table class="kv">
+  <tbody>
+  {% for key, value in (a.get('locator') or {}).items() %}
+    <tr><th class="mono">{{ key }}</th><td class="mono">{{ value }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h2>Relied on by</h2>
+{% if a.get('referenced_by_claims') %}
+<ul class="idlist">
+{% for cid in a['referenced_by_claims'] %}<li>{{ m.artifact_link(cid) }}</li>{% endfor %}
+</ul>
+{% else %}
+<p class="muted">No claim cites this evidence.</p>
+{% endif %}
+
+{% if a.get('reviewed_by') %}
+<h2>Reviewed by</h2>
+<ul class="idlist">
+{% for rid in a['reviewed_by'] %}<li>{{ m.artifact_link(rid) }}</li>{% endfor %}
+</ul>
+{% endif %}
+
+{% endblock %}
