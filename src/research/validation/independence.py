@@ -32,12 +32,13 @@ from typing import Any
 # Imported, not restated. The scanner and the contract it enforces must name the same fields, and a
 # copy here would drift the moment one of them changed — the exact failure mode catalogued in
 # docs/lessons-carried-forward.md §4.
+from ..artifacts.registry import schema_enum  # noqa: E402
 from ..runs.packets import GRADING_FIELDS, INDEPENDENCE_EXCLUSIONS  # noqa: E402
 
-SUPPORT_CLASSIFICATIONS = (
-    "verified", "strongly_supported", "moderately_supported", "weakly_supported",
-    "conflicting_evidence", "unsupported", "unable_to_determine",
-)
+# Read from the shipped Claim schema rather than typed out again. This was a seven-element tuple
+# copied by hand; a classification added to the schema and not added here would simply stop being
+# recognised as a leaked grade, and the leak scanner would report a clean context.
+SUPPORT_CLASSIFICATIONS = tuple(sorted(schema_enum("Claim", "support_classification")))
 
 # Field names that carry excluded material. Matched only in `key:` / `key =` position — never as a
 # bare word, because the work packet legitimately *lists* these names in `excluded_inputs`, and the
@@ -45,8 +46,13 @@ SUPPORT_CLASSIFICATIONS = (
 FORBIDDEN_KEYS = (*INDEPENDENCE_EXCLUSIONS, "reasoning_trace", *GRADING_FIELDS)
 
 # Reviews whose conclusions must not reach the independent reviewer (`previous_review_conclusions`).
-# The independent review itself is excluded for the obvious reason.
-PRIOR_REVIEW_TYPES = ("citation_review", "methodology_review", "contradiction_review")
+#
+# Derived by SUBTRACTION from the schema rather than listed, so a review type added later is
+# excluded by default. Listing three of the five members by hand left `human_review` out: a human
+# reviewer's conclusions are exactly the kind of prior judgement an independent reviewer is supposed
+# not to see, and the scanner walked straight past them. Only the independent review itself is
+# exempt, for the obvious reason.
+PRIOR_REVIEW_TYPES = tuple(sorted(schema_enum("Review", "review_type") - {"independent_review"}))
 
 # Prior-review text is compared by n-gram containment. Eight tokens is long enough that a match is
 # not coincidence and short enough to survive light rewording. A conclusion shorter than eight

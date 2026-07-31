@@ -196,6 +196,29 @@ def test_prompt_injection_is_stored_as_inert_data(ws, sources):
     assert manifest["created_by"]["actor_type"] == "cli"
 
 
+def test_a_lossy_utf8_decode_is_not_reported_as_a_clean_extraction(ws, tmp_path: Path):
+    """Undecodable bytes were replaced with U+FFFD and the document stamped `extracted`.
+
+    `extracted` is the one status that means "usable as evidence". The warning beside it said in
+    plain words that quoted text may differ from the original bytes — but nothing in validation
+    reads `extraction_warnings`, so a document whose citations quote replacement characters was
+    exactly as trustworthy as any other. A warning is not a gate.
+    """
+    source = tmp_path / "latin1.md"
+    source.write_bytes("# Notes\n\nMeasured at 41\xb0C in the caf\xe9.\n".encode("latin-1"))
+
+    out = import_paths(ws, [source])
+    manifest = read_artifact(out["manifest_paths"][0], expect_schema="Document")
+
+    assert manifest["extraction_status"] == ExtractionStatus.PARTIALLY_EXTRACTED
+    assert ExtractionStatus(manifest["extraction_status"]).needs_human_review
+    assert any("not valid UTF-8" in w for w in manifest["extraction_warnings"])
+    # The content is still preserved and still importable — the status is the disclosure, not a
+    # refusal. Refusing would lose the document; mislabelling it would lose the doubt.
+    body = (ws.root / manifest["normalized_path"]).read_text(encoding="utf-8")
+    assert "�" in body
+
+
 def test_symlinked_source_is_rejected(ws, sources, tmp_path: Path):
     link = tmp_path / "sources" / "link.md"
     try:

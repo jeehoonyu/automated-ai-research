@@ -48,9 +48,15 @@ The plan defined **in advance** what would count as insufficient evidence:
 | {{ doc.alias }} | {{ doc.media_type }} | `{{ doc.extraction_status }}` | {{ doc.page_count or "—" }} |
 {% endfor %}
 {% if ocr_documents %}
-> {{ ocr_documents|length }} document(s) contain pages that could not be read as text and require
-> OCR or human verification. Content on those pages did not back any claim below unless a human
-> verification amendment is recorded.
+> **{{ ocr_documents|length }} of {{ documents|length }} source document(s) were not extracted cleanly.**
+> This report does not rest on the whole of them:
+{% for doc in ocr_documents %}
+> - {{ doc.alias }} — `{{ doc.extraction_status }}`
+{%- endfor %}
+>
+> Content that could not be read did not back any claim below unless a human verification amendment
+> is recorded. A source listed here may be partially readable, unreadable, in a format this build
+> does not parse, or one whose extraction failed outright — the status says which.
 {% endif %}
 
 ## Findings

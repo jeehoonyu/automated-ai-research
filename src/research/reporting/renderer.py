@@ -24,6 +24,7 @@ from ..artifacts.io import make_artifact, read_artifact, write_artifact
 from ..artifacts.locators import resolve_text_locator
 from ..config import SCHEMA_VERSION, WORKFLOW_VERSION, Workspace
 from ..errors import ReportGatingError, ResearchError
+from ..extraction.status import ExtractionStatus
 from ..hashing import sha256_text
 from ..security.paths import safe_join
 from ..validation.validator import build_context, compare_inputs, validated_inputs
@@ -44,6 +45,20 @@ class ReportResult:
     citation_count: int
     overstatements: list[dict[str, Any]]
     blocking: list[dict[str, Any]]
+
+
+def _extraction_needs_disclosure(status: str) -> bool:
+    """Anything but a clean, complete extraction has to be disclosed in the report.
+
+    Asked of the package's own vocabulary rather than restated, and phrased as "not `extracted`" so
+    a status added to the enum later is disclosed by default instead of quietly omitted. A value
+    outside the enum is disclosed too: a word this build does not recognise is not a clean bill of
+    health for a source.
+    """
+    try:
+        return ExtractionStatus(status) is not ExtractionStatus.EXTRACTED
+    except ValueError:
+        return True
 
 
 def _position(evidence: dict[str, Any]) -> str:
@@ -229,8 +244,14 @@ def render_report(ws: Workspace, run_id: str, *, draft: bool = False) -> ReportR
         "insufficient_evidence_conditions": (ctx.plan or {}).get(
             "insufficient_evidence_conditions", []),
         "documents": documents,
-        "ocr_documents": [d for d in documents if d["extraction_status"] in
-                          ("ocr_required", "partially_extracted")],
+        # Every document whose extraction the package itself considers unreliable — asked of
+        # `ExtractionStatus`, not restated. This was the inline tuple
+        # `("ocr_required", "partially_extracted")`: two of seven members, so a source that failed
+        # to parse at all, or was an unsupported format, or was flagged ambiguous, appeared in the
+        # report's Sources table with no disclosure whatsoever. The narrowest slice of the enum
+        # produced the most reassuring report.
+        "ocr_documents": [d for d in documents
+                          if _extraction_needs_disclosure(d["extraction_status"])],
         "claims": claims_view,
         "insufficient_findings": insufficient,
         "unresolved": [c for c in claims_view if c.get("contradiction_status") == "unresolved"],

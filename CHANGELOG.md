@@ -6,6 +6,68 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed — nine defects from a sweep for restated vocabularies
+The UI's worst defect was a *shape*, not a typo: a template restated a schema enum from memory and
+lost. There are 53 enums across the 15 shipped schemas, and Python throughout the package restated
+slices of them. A five-lens sweep asked one question of each — **what does a value this vocabulary
+does not list do?** — and the answer was reliably "the reassuring thing". Nine findings survived
+adversarial refutation; one was refuted. Every fix was mutation-tested.
+
+- **`check_ocr_evidence` asked about 1 of the 7 extraction statuses.** Evidence labelled `ambiguous`,
+  `partially_extracted` or `human_review_required` returned `not_applicable` — which does not block
+  — and published. `Evidence.human_review_required`, a **required** field in the schema, was read by
+  nothing anywhere in `src/research`. The asymmetry is what made it bad: the flattering label
+  (`extracted`) was correctly distrusted and overridden from the Document manifest, while the
+  self-incriminating labels were discarded, so an agent that wrote down the truth about its own
+  extraction got the same green verdict as one that did not. Now asks
+  `ExtractionStatus.needs_human_review` and honours the schema's own boolean.
+- **`research validate` crashed on any run that had once been flagged.** `_record_verdict` attempted
+  `independently_reviewed → validation_passed` on a run whose disposition was
+  `human_review_required`, which the state machine forbids, so the ordinary "fix what was flagged,
+  validate again" loop raised `LifecycleError` — *after* writing the verdict artifact to disk. The
+  disposition was consulted by nothing in validation at all, so a run parked at
+  `human_review_required` could have every check pass and be recorded `report_eligible: true` while
+  `research status` called it blocked and `research report` published it. `check_run_progressed` now
+  blocks a run whose disposition forbids advancing, and `_record_verdict` cannot raise.
+- **`causal_claim_from_correlational_evidence` was a trigger nothing could fire.** It sat in
+  `KNOWN_TRIGGERS` — whose comment says these are "triggers the validator can actually detect" — and
+  both shipped profiles asked for it, but no check ever passed that string to `forces_human_review`.
+  The detection already existed in `reporting.language`; it ran only at report time, after the gate
+  it should have informed.
+- **Causal wording was checked against 3 of the 11 claim types.** "The treatment causes X" typed as
+  an `interpretation` or `hypothesis` sailed through while the identical sentence typed as a
+  descriptive result was caught. Inverted to name the one exempt type, so a claim type added later
+  is suspect by default.
+- **The report disclosed 2 of the 7 extraction statuses.** A source that failed to parse outright,
+  or was an unsupported format, appeared in the Sources table with no disclosure whatsoever — the
+  narrowest slice of the enum producing the most reassuring report. The disclosure now names each
+  document and its status.
+- **A lossy UTF-8 decode was stamped `extracted`**, the one status meaning "usable as evidence",
+  while the warning beside it said in plain words that quoted text may differ from the original
+  bytes. Nothing in validation reads `extraction_warnings`; a warning is not a gate. Now
+  `partially_extracted`.
+- **`PRIOR_REVIEW_TYPES` listed 3 of the 5 review types** and omitted `human_review` — whose
+  conclusions are exactly the prior judgement an independent reviewer must not see. Derived by
+  subtraction now, so a review type added later is excluded by default.
+- **`prohibited_confidence` was the one profile-supplied vocabulary loaded verbatim** while its
+  three neighbours all rejected unknown values. A typo prohibited nothing, so the profile read as
+  tighter than the default while being exactly the default.
+- **`docs/validation-rules.md` claimed each of the eleven spec §8.8 blocking conditions had a
+  benchmark case naming its check.** Six do. Deleting any of the other 19 checks from `CHECKS`
+  leaves the benchmark fully green, and `benchmark/README.md` asserted the stronger claim that
+  deleting *any single check* must break an assertion. Both corrected, and
+  `tests/unit/test_vocabularies.py` now pins the corrected claim against `cases.json`.
+
+### Added — `schema_enum()`, so Python can ask instead of restating
+- `artifacts.registry.schema_enum("Claim", "support_classification")` reads the permitted values
+  from the shipped schema. A restatement stays right where the code needs a *judgement* about a
+  subset — which relationships establish independence, which statuses block — because those are
+  decisions and belong in code with the reason beside them. This is for the other case.
+- `tests/unit/test_vocabularies.py` checks every domain vocabulary in the package against the schema
+  or `StrEnum` that defines it, in one file. It states plainly what it cannot do: coverage is not
+  correctness. `not_confirmed` was mis-*filed*, not missing, and no schema-derived test would have
+  caught it.
+
 ### Added — `research ui`, a read-only local web view
 - A tenth command, and the first that is **not** in the specification. Everything it shows is
   already available from the CLI; what a browser adds is following a chain — claim → evidence →

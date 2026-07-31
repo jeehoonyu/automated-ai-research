@@ -76,6 +76,38 @@ def known_schemas() -> list[str]:
     return sorted(SCHEMA_FILES)
 
 
+@cache
+def schema_enum(schema_name: str, *path: str) -> frozenset[str]:
+    """The permitted values of a field, read from the shipped schema.
+
+    ASK, DO NOT RESTATE. The schemas hold 53 enums, and Python around this package used to copy
+    slices of them into sets, tuples and inline membership tests. Every copy is a bet that nobody
+    will ever add a member — and the bets were being lost silently, in the direction that matters:
+    a value nobody listed lands in whichever branch the author did not think about, which is
+    reliably the reassuring one. The UI shipped a green chip for a claim that had never been
+    independently reviewed for exactly this reason.
+
+    A restatement is still right where the code needs a *judgement* about a subset — which
+    relationships establish independence, which statuses block. Those are decisions, and decisions
+    belong in code with the reason beside them. This is for the other case, where the code simply
+    needs to know what the field may contain.
+
+    Raises rather than returning empty: a vocabulary that quietly resolves to nothing would permit
+    everything or forbid everything, and both are worse than a startup failure.
+    """
+    node: Any = _load(schema_name)
+    for part in path:
+        properties = node.get("properties") if isinstance(node, dict) else None
+        node = properties[part] if isinstance(properties, dict) and part in properties \
+            else node[part]
+    values = node.get("enum") if isinstance(node, dict) else None
+    if not isinstance(values, list) or not values:
+        raise SchemaValidationError(
+            f"{schema_name}.{'.'.join(path)} has no enum to read",
+            detail={"schema_name": schema_name, "path": list(path)})
+    return frozenset(str(v) for v in values)
+
+
 def _nearest_rule(schema_doc: dict[str, Any], error: Any) -> str | None:
     """Find the `$comment` on the closest enclosing subschema.
 

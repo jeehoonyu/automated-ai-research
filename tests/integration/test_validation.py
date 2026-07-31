@@ -65,6 +65,27 @@ def test_checks_record_what_ran_not_only_what_failed(complete_run):
                                                        "not_applicable"}
 
 
+def test_every_check_a_run_emits_is_named_in_the_validation_rules_document(complete_run):
+    """A gate nobody outside the code knows exists.
+
+    Asserted against the ids a REAL run emits, not against the check functions' names — the two are
+    different strings (`check_claims_have_evidence` emits `claims_reference_evidence`), and four of
+    the checks are lambdas that build their id from the review type they take. Deriving the id from
+    the function would test the derivation rather than the documentation.
+
+    `docs/validation-rules.md` is the file the README points a reader at to find out what blocks.
+    """
+    ws, rid, _ = complete_run
+    result = validate_run(ws, rid)
+    doc = (Path(__file__).resolve().parents[2] / "docs" / "validation-rules.md").read_text(
+        encoding="utf-8")
+
+    emitted = sorted({str(c["check"]) for c in result["checks"]})
+    assert len(emitted) == len(result["checks"]), "two checks share an id"
+    missing = [name for name in emitted if f"`{name}`" not in doc]
+    assert not missing, f"checks the documentation does not name: {missing}"
+
+
 # --------------------------------------------------------------- not_evaluated blocks
 
 
@@ -791,6 +812,129 @@ def test_the_ocr_gate_ignores_the_agents_label_on_its_own_evidence(complete_run,
     assert _status(result, "ocr_evidence_human_verified") == "failed"
     assert eid in result["blocking_errors"][0]["artifact_ids"] or any(
         eid in e.get("artifact_ids", []) for e in result["blocking_errors"])
+    assert result["report_eligible"] is False
+
+
+def _reword_claim(meta, text: str, claim_type: str | None = None):
+    path = meta["claim_path"]
+    claim = json.loads(path.read_text(encoding="utf-8"))
+    claim["claim"] = text
+    if claim_type:
+        claim["claim_type"] = claim_type
+    path.write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
+
+
+def test_the_causal_human_review_trigger_can_actually_fire(complete_run):
+    """A trigger nothing could fire, requested by both shipped profiles.
+
+    `causal_claim_from_correlational_evidence` sat in `KNOWN_TRIGGERS` — the set whose comment says
+    these are "triggers the validator can actually detect" — and `default.yaml` and `medicine.yaml`
+    both listed it, but no check ever passed that string to `forces_human_review`. So a profile
+    asking for a human whenever a causal reading is drawn from non-causal evidence got nothing, and
+    `research validate` reported it in green. The detection already existed in `reporting.language`;
+    it ran only at report time, after the gate it should have informed.
+    """
+    ws, rid, meta = complete_run
+    _reword_claim(meta, "Process-in-memory causes a reduction in off-chip traffic.",
+                  claim_type="descriptive_result")
+
+    result = validate_run(ws, rid)
+    assert result["human_review_required"] is True
+    assert any("causal" in r for r in result["human_review_reasons"]), \
+        result["human_review_reasons"]
+    assert result["report_eligible"] is False
+
+
+CAUSAL_SENTENCE = "The measured slowdown is caused by memory pressure."
+
+
+@pytest.mark.parametrize("claim_type", ["interpretation", "hypothesis", "direct_fact",
+                                        "methodological_claim"])
+def test_causal_wording_is_flagged_on_claim_types_the_old_set_omitted(complete_run,
+                                                                     claim_type: str):
+    """The set named the three "correlational" types, so the other eight were exempt by omission.
+
+    `interpretation` and `hypothesis` were the sharpest: "the treatment causes X" typed as an
+    interpretation sailed through, while the identical sentence typed as a descriptive result was
+    caught.
+    """
+    ws, rid, meta = complete_run
+    _reword_claim(meta, CAUSAL_SENTENCE, claim_type=claim_type)
+    assert validate_run(ws, rid)["human_review_required"] is True
+
+
+def test_causal_wording_on_a_causal_claim_is_not_flagged(complete_run):
+    """The exemption, on its own run.
+
+    It has to be a fresh run: once a validation raises human review the disposition holds, and
+    clearing it needs a recorded human amendment rather than another validation pass — which is the
+    point of the disposition and not something a test should route around.
+    """
+    ws, rid, meta = complete_run
+    _reword_claim(meta, CAUSAL_SENTENCE, claim_type="causal_claim")
+    result = validate_run(ws, rid)
+    assert result["human_review_required"] is False
+    assert result["report_eligible"] is True
+
+
+def test_a_run_in_human_review_is_not_report_eligible_and_validate_does_not_crash(complete_run):
+    """Re-validating a flagged run used to raise `LifecycleError` out of `research validate`.
+
+    `_record_verdict` attempted `independently_reviewed -> validation_passed` on a run whose
+    disposition was `human_review_required`, which the state machine forbids — so the ordinary
+    "fix what was flagged, validate again" loop crashed on any run that had ever been flagged, after
+    the verdict artifact was already written to disk.
+    """
+    ws, rid, meta = complete_run
+    _reword_claim(meta, CAUSAL_SENTENCE, claim_type="interpretation")
+    assert validate_run(ws, rid)["human_review_required"] is True
+
+    # Fix the wording. Validation must run, must not raise, and must still refuse to publish —
+    # because the disposition is cleared by a human amendment, not by a second opinion from itself.
+    _reword_claim(meta, "The measured slowdown coincided with memory pressure.",
+                  claim_type="interpretation")
+    result = validate_run(ws, rid)
+    assert _status(result, "run_reached_a_publishable_phase") == "failed"
+    assert result["report_eligible"] is False
+    assert "human_review_required" in str(result["blocking_errors"])
+
+
+def _relabel_evidence(meta, **fields):
+    """Rewrite fields on the fixture's promoted Evidence record and re-stamp it."""
+    path = meta["evidence_path"]
+    ev = json.loads(path.read_text(encoding="utf-8"))
+    ev.update(fields)
+    path.write_text(json.dumps(stamp_artifact_hash(ev)), encoding="utf-8")
+
+
+@pytest.mark.parametrize("declared", ["ambiguous", "human_review_required", "partially_extracted",
+                                      "a_status_this_build_has_never_heard_of"])
+def test_evidence_that_declares_an_unreliable_extraction_needs_a_human(complete_run, declared):
+    """The gate asked about ONE of the seven extraction statuses.
+
+    `== "ocr_required"` meant evidence labelled `ambiguous`, `partially_extracted` or
+    `human_review_required` returned `not_applicable` — which does not block — and published. The
+    asymmetry is what made it bad: the flattering label `extracted` was correctly distrusted and
+    overridden from the Document manifest, while the self-incriminating labels were thrown away, so
+    an agent that wrote down the truth about its own extraction got the same green verdict as one
+    that did not.
+    """
+    ws, rid, meta = complete_run
+    _relabel_evidence(meta, extraction_status=declared)
+
+    result = validate_run(ws, rid)
+    assert _status(result, "ocr_evidence_human_verified") == "failed"
+    assert result["report_eligible"] is False
+
+
+def test_evidence_that_asks_for_human_review_in_the_schemas_own_field_gets_it(complete_run):
+    """`Evidence.human_review_required` is a REQUIRED field in the schema, and was read by nothing
+    anywhere in the package — not one line in `src/research`."""
+    ws, rid, meta = complete_run
+    _relabel_evidence(meta, human_review_required=True)
+
+    result = validate_run(ws, rid)
+    assert _status(result, "ocr_evidence_human_verified") == "failed"
     assert result["report_eligible"] is False
 
 

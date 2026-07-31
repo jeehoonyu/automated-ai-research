@@ -46,9 +46,23 @@ alongside blocking errors is not a representable artifact.
 - an artifact that does not conform to its schema
 - an invalid lifecycle transition
 
-Each has a benchmark case naming the specific check that must catch it — see
-`benchmark/expected/cases.json`. Asserting only "publication was blocked" would pass when the
-wrong gate fired.
+**6 of these eleven have a benchmark case naming the specific check that must catch them** — see
+`benchmark/expected/cases.json`. Asserting only "publication was blocked" would pass when the wrong
+gate fired, so the cases that exist name their mechanism.
+
+**This paragraph used to say "each".** It did not; the sentence was written when the list was
+shorter and never revisited. Measured rather than asserted: of the 25 checks, the benchmark pins
+`claims_reference_evidence`, `citations_support_their_claims`, `contradictions_disclosed`,
+`source_independence_established`, `ocr_evidence_human_verified` and `text_locators_resolve`.
+Deleting any of the other 19 from `CHECKS` leaves the benchmark fully green. Not covered by a
+mechanism-naming case: a source hash that no longer matches, a required review missing, insufficient
+**reviewer** independence (B5/B6 pin *source* independence, `check_source_independence` — a
+different gate), an uncertain visual interpretation, and an invalid lifecycle transition. Each of
+those has unit or integration coverage; none has a benchmark case.
+
+`B10` declares `artifacts_conform_to_schema / failed` and never evaluates it — its test asserts that
+`validate_artifact` raises and never calls `validate_run`, so the declared pair is dead metadata.
+`tests/unit/test_vocabularies.py` pins the six, so this paragraph now fails a test when it drifts.
 
 ## The checks
 

@@ -14,8 +14,17 @@ A test asserting only *"publication was blocked"* passes when the **wrong** gate
 everything failed for an unrelated reason. `benchmark/expected/cases.json` therefore records, per
 case, the check that must fire and the status it must report. The harness asserts that exact pair.
 
-This is the same discipline as `docs/lessons-carried-forward.md` §6c: deleting any single check must
-break at least one assertion, or the suite measures coverage it does not have.
+This is the same discipline as `docs/lessons-carried-forward.md` §6c — but **it holds for six of the
+25 checks, not all of them**, and the sentence here used to claim otherwise ("deleting any single
+check must break at least one assertion"). Measured: removing `check_source_hashes`,
+`check_visual_certainty`, `check_lifecycle`, `check_independence`, `check_artifacts_conform` or any
+of the four review-completeness checks from `CHECKS` leaves this benchmark green. Those gates are
+covered by the unit and integration suites instead; the gap is in the *benchmark*, which is the
+thing that claims to measure end-to-end coverage.
+
+The six the benchmark does pin are listed in `docs/validation-rules.md`, and
+`tests/unit/test_vocabularies.py` fails if that list and `cases.json` disagree — so this paragraph
+cannot quietly become true again by wishful editing.
 
 ## The corpus
 

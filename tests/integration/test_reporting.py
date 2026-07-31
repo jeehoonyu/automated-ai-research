@@ -368,9 +368,32 @@ def test_the_ocr_disclosure_appears_when_a_document_has_unreadable_pages(complet
     result = render_report(ws, rid, draft=True)
 
     body = _read(result.report_path)
-    assert "could not be read as text" in body
+    assert "were not extracted cleanly" in body
+    # The status is named, not just the fact that something was wrong. The disclosure used to be
+    # one sentence about OCR for two of the seven extraction statuses; a reader could not tell an
+    # unreadable scan from a parse failure from an unsupported format.
+    assert "`partially_extracted`" in body
     manifest = read_artifact(result.manifest_path, expect_schema="ReportManifest")
     assert any("unreadable pages" in d for d in manifest["disclosures"])
+
+
+@pytest.mark.parametrize("status", ["processing_failed", "unsupported_format", "ambiguous",
+                                    "human_review_required"])
+def test_every_unclean_extraction_status_is_disclosed(status: str):
+    """The narrowest slice of the enum produced the most reassuring report.
+
+    `ocr_documents` tested `in ("ocr_required", "partially_extracted")` — two of seven — so a source
+    that failed to parse outright appeared in the Sources table with no disclosure at all. Asserted
+    at the predicate rather than through a full render, because the deterministic pipeline cannot
+    currently produce every one of these statuses, and a gap the pipeline happens not to reach today
+    is still a gap in the rule.
+    """
+    from research.reporting.renderer import _extraction_needs_disclosure
+
+    assert _extraction_needs_disclosure(status) is True
+    assert _extraction_needs_disclosure("extracted") is False
+    # A status this build does not know is disclosed, not treated as clean.
+    assert _extraction_needs_disclosure("invented_status") is True
 
 
 def test_the_ocr_disclosure_is_absent_when_no_document_has_unreadable_pages(complete_run):
@@ -379,6 +402,6 @@ def test_the_ocr_disclosure_is_absent_when_no_document_has_unreadable_pages(comp
     validate_run(ws, rid)
     result = render_report(ws, rid)
 
-    assert "could not be read as text" not in _read(result.report_path)
+    assert "were not extracted cleanly" not in _read(result.report_path)
     manifest = read_artifact(result.manifest_path, expect_schema="ReportManifest")
     assert not any("unreadable pages" in d for d in manifest["disclosures"])

@@ -34,9 +34,11 @@ from ..artifacts.locators import resolve_text_locator, resolve_visual_locator
 from ..artifacts.registry import validate_artifact
 from ..config import SCHEMA_VERSION, Workspace
 from ..errors import ResearchError
+from ..extraction.status import ExtractionStatus
 from ..hashing import canonical_json, sha256_file, sha256_text, verify_artifact_hash
 from ..profiles import Profile, load_profile
-from ..runs.lifecycle import Disposition, Phase, Stage, is_valid_transition
+from ..reporting.language import scan_claims
+from ..runs.lifecycle import Disposition, LifecycleError, Phase, Stage, is_valid_transition
 from ..runs.manager import load_run
 from ..security.paths import safe_join
 from .independence import scan_context
@@ -779,39 +781,91 @@ def check_methodology_assessed(ctx: RunContext) -> CheckResult:
                        f"{len(required)} required methodology item(s) assessed")
 
 
+def _declared_extraction_status(ev: dict[str, Any]) -> ExtractionStatus | None:
+    """The evidence's own `extraction_status`, as the package's vocabulary, or None if unknown.
+
+    A value outside the enum returns None and is treated as unreliable by the caller — an agent
+    writing a word this build does not know has not thereby declared its evidence readable.
+    """
+    try:
+        return ExtractionStatus(str(ev.get("extraction_status", "")))
+    except ValueError:
+        return None
+
+
 def check_ocr_evidence(ctx: RunContext) -> CheckResult:
-    """OCR-required material may back a claim only through a recorded human verification.
+    """Evidence the package considers unreliably extracted needs a human before it backs a claim.
 
     THE GATE USED TO ASK THE AGENT. It selected candidates purely by `extraction_status` on the
     agent-authored Evidence artifact, so writing `extracted` on evidence taken from a scanned page
     cleared it — while the deterministic record of which pages need OCR sat unread in the Document
     manifest the CLI itself produced. Both are consulted now, and the manifest can only ever add.
+
+    AND IT ASKED ABOUT ONE STATUS OUT OF SEVEN. `== "ocr_required"` is a one-member slice of an enum
+    the package already models completely: `ExtractionStatus.needs_human_review` names four members,
+    and `Evidence.human_review_required` — a *required* field in the schema — was read by nothing in
+    this package at all. So evidence labelled `ambiguous`, `partially_extracted` or
+    `human_review_required`, or carrying `human_review_required: true` in the field the schema
+    provides for exactly that purpose, returned `not_applicable` and published.
+
+    The asymmetry is what made it bad rather than merely incomplete: the flattering label
+    (`extracted`) was correctly distrusted and overridden from the manifest, while the
+    self-incriminating labels were discarded. An agent that wrote down the truth about its own
+    extraction got the same green verdict as one that did not.
+
+    Both are now collected. OCR keeps its own bucket because it has a deterministic cross-check and
+    its own amendment type; the rest are unreliable-by-declaration, and a declaration that a human
+    is needed is honoured as one.
     """
     name = "ocr_evidence_human_verified"
     ocr: list[dict[str, Any]] = []
+    unreliable: list[dict[str, Any]] = []
     for ev in ctx.evidence:
         doc = ctx.documents.get(ev.get("document_id", ""))
         page = evidence_page(ctx, ev)
         from_manifest = (doc is not None and page is not None
                          and page in set(doc.get("ocr_required_pages") or []))
-        if ev.get("extraction_status") == "ocr_required" or from_manifest:
+        declared = _declared_extraction_status(ev)
+        if declared is ExtractionStatus.OCR_REQUIRED or from_manifest:
             ocr.append(ev)
-    if not ocr:
-        return CheckResult(name, "not_applicable", "no evidence depends on an ocr_required page")
+        elif declared is None or declared.needs_human_review or ev.get("human_review_required"):
+            unreliable.append(ev)
 
-    missing, stale = _unverified(ctx, ocr, "human_ocr_verification")
-    if missing or stale:
-        parts = []
+    if not ocr and not unreliable:
+        return CheckResult(name, "not_applicable",
+                           "no evidence depends on an ocr_required page or declares an "
+                           "extraction that needs a human")
+
+    problems: list[str] = []
+    flagged: list[str] = []
+    forces_review = ctx.rules.forces_human_review("evidence_depends_on_ocr_required_page")
+
+    if ocr:
+        missing, stale = _unverified(ctx, ocr, "human_ocr_verification")
         if missing:
-            parts.append(f"{len(missing)} without a recorded human verification amendment")
+            problems.append(f"{len(missing)} on an ocr_required page without a recorded human "
+                            f"verification amendment")
         if stale:
-            parts.append(f"{len(stale)} verified against a different version of the evidence")
+            problems.append(f"{len(stale)} verified against a different version of the evidence")
+        flagged += missing + stale
+
+    if unreliable:
+        # Either human verification type clears these: the point is that a person looked and signed
+        # the record, not which of the two amendment names they used.
+        verified = set(_human_verifications(ctx, "human_ocr_verification")) | set(
+            _human_verifications(ctx, "human_visual_verification"))
+        unsigned = [e["evidence_id"] for e in unreliable if e["evidence_id"] not in verified]
+        if unsigned:
+            statuses = sorted({str(e.get("extraction_status")) for e in unreliable})
+            problems.append(f"{len(unsigned)} declare an extraction that needs a human "
+                            f"({', '.join(statuses)}) with no verification recorded")
+            flagged += unsigned
+
+    if problems:
         return CheckResult(name, "failed",
-                           f"{len(ocr)} evidence record(s) rest on an ocr_required page: "
-                           + "; ".join(parts), missing + stale,
-                           human_review=ctx.rules.forces_human_review(
-                               "evidence_depends_on_ocr_required_page"))
-    return CheckResult(name, "passed", f"{len(ocr)} verified")
+                           f"{len(ocr) + len(unreliable)} evidence record(s) need a human: "
+                           + "; ".join(problems), flagged, human_review=forces_review)
+    return CheckResult(name, "passed", f"{len(ocr) + len(unreliable)} verified")
 
 
 def check_visual_certainty(ctx: RunContext) -> CheckResult:
@@ -891,8 +945,31 @@ def check_support_classifications(ctx: RunContext) -> CheckResult:
         if cls == "strongly_supported" and len(claim.get("supporting_evidence_ids") or []) < 2:
             problems.append(f"{claim['claim_id']}: `strongly_supported` needs multiple evidence "
                             f"records")
+    # SPEC §26's causal trigger, which nothing could fire.
+    #
+    # `causal_claim_from_correlational_evidence` sat in `KNOWN_TRIGGERS`, and both shipped profiles
+    # asked for it, but no check ever passed that string to `forces_human_review` — so a profile
+    # requesting human review for a causal reading drawn from non-causal evidence received nothing,
+    # and `research validate` said so in green. The detection already existed in
+    # `reporting.language`; it ran only at report time, after the gate it should have informed.
+    #
+    # It is raised as human review rather than as a failure because the wording check is lexical,
+    # not comprehension: it is qualified to say "a person should look at this", never "this is
+    # wrong". A profile that does not name the trigger still gets nothing, deliberately.
+    causal = [o for o in scan_claims(ctx.claims)
+              if o.kind == "causal_language_on_a_non_causal_claim"]
+    causal_review = bool(causal) and ctx.rules.forces_human_review(
+        "causal_claim_from_correlational_evidence")
+
     if problems:
-        return CheckResult("support_classifications_earned", "failed", "; ".join(problems[:5]))
+        return CheckResult("support_classifications_earned", "failed", "; ".join(problems[:5]),
+                           human_review=causal_review)
+    if causal_review:
+        return CheckResult(
+            "support_classifications_earned", "passed",
+            f"{len(ctx.claims)} claim(s); {len(causal)} carry causal wording on a claim type that "
+            f"is not `causal_claim`, which this profile makes a human-review trigger",
+            sorted({o.claim_id for o in causal}), human_review=True)
     return CheckResult("support_classifications_earned", "passed", f"{len(ctx.claims)} claim(s)")
 
 
@@ -1023,6 +1100,33 @@ def check_run_progressed(ctx: RunContext) -> CheckResult:
             f"the run is at {current}; publication requires it to have reached "
             f"{PUBLISHABLE_FROM} through `research validate --stage <stage>`, so that when each "
             f"stage was accepted is on the record")
+
+    # HOW FAR IT GOT IS NOT WHETHER IT MAY GO ON.
+    #
+    # The disposition was consulted by nothing in validation, so a run parked at
+    # `human_review_required` or `validation_failed` could have every check pass and be written to
+    # disk as `report_eligible: true` — while the lifecycle refused to advance it, `research status`
+    # reported it blocked, and `research report` published it anyway from the stored boolean. Three
+    # components disagreeing about the same run.
+    #
+    # It was worse than a disagreement: `_record_verdict` then attempted the transition the state
+    # machine forbids, and `research validate` exited with an unhandled `LifecycleError` — so the
+    # ordinary "fix what was flagged and validate again" loop crashed on any run that had once been
+    # flagged.
+    try:
+        disposition = Disposition(str(ctx.manifest.get("disposition")))
+    except ValueError:
+        return CheckResult(name, "not_evaluated",
+                           f"the manifest records an unknown disposition "
+                           f"{ctx.manifest.get('disposition')!r}")
+    if not disposition.can_advance:
+        return CheckResult(
+            name, "failed",
+            f"run reached {current}, but its disposition is {disposition}: "
+            + ("clearing human review needs a recorded human amendment or review artifact, not "
+               "another validation run" if disposition is Disposition.HUMAN_REVIEW_REQUIRED
+               else "resolve it before publishing"),
+            human_review=disposition is Disposition.HUMAN_REVIEW_REQUIRED)
     return CheckResult(name, "passed", f"run reached {current}")
 
 
@@ -1182,13 +1286,21 @@ def _record_verdict(ws: Workspace, run_id: str, *, report_eligible: bool,
     if current is not Phase.INDEPENDENTLY_REVIEWED:
         return f"left at {current}: the lifecycle only advances a run that walked the stages"
 
-    transition(ws, run_id, to_phase=Phase.VALIDATION_PASSED,
-               to_disposition=Disposition.ACTIVE,
-               triggered_by="research validate", reason="every gate cleared",
-               validation_result=result_hash)
-    transition(ws, run_id, to_phase=Phase.REPORT_ELIGIBLE,
-               triggered_by="research validate", reason="report eligibility established",
-               validation_result=result_hash)
+    # NEVER RAISE OUT OF VALIDATION. The verdict artifact is already on disk by the time this runs,
+    # so an exception here leaves a recorded result and a non-zero exit with no explanation of the
+    # relationship between them. `check_run_progressed` now blocks a run whose disposition forbids
+    # advancing, so an eligible run should always be able to move — but "should" is not a guarantee
+    # worth crashing a command over, and the state machine is the authority on its own rules.
+    try:
+        transition(ws, run_id, to_phase=Phase.VALIDATION_PASSED,
+                   to_disposition=Disposition.ACTIVE,
+                   triggered_by="research validate", reason="every gate cleared",
+                   validation_result=result_hash)
+        transition(ws, run_id, to_phase=Phase.REPORT_ELIGIBLE,
+                   triggered_by="research validate", reason="report eligibility established",
+                   validation_result=result_hash)
+    except LifecycleError as exc:
+        return f"left at {current}: the lifecycle refused to advance it — {exc.message}"
     return f"advanced to {Phase.REPORT_ELIGIBLE}"
 
 

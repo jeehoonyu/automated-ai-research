@@ -65,10 +65,12 @@ def extract_markdown(source: str | Path, *, min_usable_chars: int = 1) -> Markdo
             status=ExtractionStatus.PROCESSING_FAILED,
             warnings=[f"could not read file: {type(exc).__name__}: {exc}"])
 
+    lossy = False
     try:
         text = raw.decode("utf-8")
     except UnicodeDecodeError:
         text = raw.decode("utf-8", errors="replace")
+        lossy = True
         warns.append("file is not valid UTF-8; undecodable bytes were replaced. Offsets remain "
                      "stable but quoted text may differ from the original bytes.")
 
@@ -124,6 +126,14 @@ def extract_markdown(source: str | Path, *, min_usable_chars: int = 1) -> Markdo
         status = (ExtractionStatus.OCR_REQUIRED if usable == 0
                   else ExtractionStatus.PARTIALLY_EXTRACTED)
         warns.append(f"only {usable} usable characters in the file")
+    elif lossy:
+        # A LOSSY DECODE IS NOT A CLEAN EXTRACTION. This branch used to fall through to
+        # `EXTRACTED` — the one status that means "usable as evidence" — while the warning above
+        # said in plain words that quoted text may differ from the original bytes. A warning is not
+        # a gate: nothing in validation reads `extraction_warnings`, so a document with U+FFFD
+        # standing in for the very characters a citation quotes was as trustworthy as any other.
+        # `partially_extracted` is the honest status and carries `needs_human_review`.
+        status = ExtractionStatus.PARTIALLY_EXTRACTED
     else:
         status = ExtractionStatus.EXTRACTED
 

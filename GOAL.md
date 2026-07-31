@@ -5,6 +5,91 @@ built now and what would count as having built it. It changes; the specification
 
 ---
 
+## Goal 6 — every vocabulary has one home, and an unlisted value never reads as fine
+
+Set 2026-07-31, straight out of what Goal 5's audit found. Not a new capability: a guarantee the
+codebase already implies and does not everywhere keep.
+
+### The evidence this rests on
+
+The UI's worst defect was not carelessness, it was **shape**. Two Jinja templates each restated the
+Claim schema's `independent_review_status` enum from memory. Both blocked on `unknown` — a value the
+schema does not contain — and both let `not_confirmed` and `not_yet_reviewed` fall through to the
+green branch, so a claim that had never been independently reviewed rendered as fine.
+
+The code beside it that was *correct* was correct for one reason: `status_class` asked
+`CheckResult.blocks` instead of restating anything.
+
+There are **53 enums across the 15 shipped schemas**, and Python all over this package restates
+slices of them as sets, tuples, dict keys and inline membership tests. Each one is the same bet.
+
+### The two properties to establish
+
+Neither is about style. Both are about which way a gap falls.
+
+**P1 — coverage.** Every Python vocabulary that mirrors a schema enum either names every member, or
+omits members deliberately with the reason in a comment. A test derives the enum from the shipped
+schema and fails when the schema gains a member the vocabulary has not been told about. Today a new
+enum member lands silently in whichever branch the author did not think about.
+
+**P2 — fail direction.** For a value a vocabulary does *not* list, the code must produce the strict
+outcome: blocks, unknown, human review, or an exception. Never the reassuring one. This is the
+property that decides whether a coverage gap is a latent bug or merely untidy — and the codebase is
+already mostly right here, which is what makes the exceptions worth finding.
+
+Two supporting questions the sweep also asks: is a vocabulary derived from one schema's enum being
+applied to a value that comes from a **different** schema (`INDEPENDENCE_ORDER` carries the 4 values
+of `review_independence.status`, while `independent_review_status` has 5), and is the same
+vocabulary written out in more than one place, where the copies can drift.
+
+### What would count as done
+
+- `tests/unit/test_vocabularies.py` exists and checks **every** domain vocabulary in the package
+  against the schema or `StrEnum` that defines it — one file, so there is a single place to look.
+- Every gap it finds is either closed or recorded as deliberate with its reason, in code.
+- Every P2 violation the sweep confirms is fixed, and each fix is mutation-tested: re-introduce the
+  defect, watch a named test go red.
+- The docs' own enumerations — check names, counts, exit codes, statuses — are pinned, because prose
+  restating a vocabulary is a copy like any other.
+
+### What this cannot claim
+
+Coverage is not correctness. A vocabulary can name every enum member and put one in the wrong set,
+and no test derived from the schema would notice — `not_confirmed` was in the *wrong* branch, not a
+missing one, and only reading it against `check_support_classifications` caught that. P1 stops the
+silent drift; only a human or a reviewer comparing intent against the validator catches a member
+that is listed and misfiled.
+
+### Where it stands — done, with nine defects found
+
+The sweep ran five lenses over the codebase and one over the documentation, each finding handed to a
+skeptic instructed to refute it. **Nine survived; one was refuted.** All nine are fixed, and each fix
+was confirmed by re-introducing the defect and watching a named test go red. `schema_enum()` exists,
+`tests/unit/test_vocabularies.py` exists, and 568 tests pass with ruff, `mypy --strict` and schema
+regeneration clean.
+
+Two of the nine were not merely untidy:
+
+- **`check_ocr_evidence` asked about one extraction status out of seven**, so evidence declaring
+  `ambiguous` or `human_review_required` — in the schema's own required boolean, which nothing in
+  the package read — published. The asymmetry is the lesson: the flattering label was distrusted and
+  cross-checked against the manifest; the honest ones were thrown away.
+- **`research validate` raised `LifecycleError` on any run that had once been flagged**, after
+  writing its verdict to disk, because the disposition was consulted by no check and `_record_verdict`
+  then attempted a transition the state machine forbids. The ordinary "fix it and validate again"
+  loop crashed.
+
+### A note on the verification itself
+
+One mutation reported MISSED that was actually caught. `elif lossy:` and `elif False:` are the same
+eleven characters, and the restore landed in the same second, so Python's `(mtime, size)` cache
+validation reused bytecode compiled from the mutated source. A mutation harness that edits files in
+place must purge `__pycache__` on both sides of the run, or it will occasionally lie in **either**
+direction. The earlier rounds are unaffected — every one of those mutations changed the file's length
+— but the hazard was invisible until it fired.
+
+---
+
 ## Goal 5 — a way to *look* at a run, that cannot lie about it
 
 Requested 2026-07-31: "It will be nice to have a UI interface."

@@ -28,6 +28,7 @@ from typing import Any
 
 import yaml
 
+from .artifacts.registry import schema_enum
 from .errors import InvalidArguments
 
 PACKAGED_PROFILE_DIR = Path(__file__).resolve().parent / "profiles"
@@ -145,6 +146,21 @@ def _parse(data: dict[str, Any], *, name: str, source: str | None) -> Profile:
             detail={"source": source, "detectable": sorted(KNOWN_TRIGGERS),
                     "hint": "a trigger nothing can fire is a promise, not a rule"})
 
+    # The one profile-supplied vocabulary that was loaded verbatim. Its three neighbours above and
+    # below all reject a value they do not recognise; this one did not, so `moderatly_supported` in
+    # a profile forbade nothing at all — a rule that reads as tighter than the default while being
+    # exactly the default. A typo must not silently loosen a profile.
+    prohibited = tuple(str(c) for c in (data.get("prohibited_confidence") or []))
+    unknown_classifications = sorted(
+        set(prohibited) - schema_enum("Claim", "support_classification"))
+    if unknown_classifications:
+        raise InvalidArguments(
+            f"profile {name!r} prohibits classifications that do not exist: "
+            f"{unknown_classifications}",
+            detail={"source": source,
+                    "allowed": sorted(schema_enum("Claim", "support_classification")),
+                    "hint": "a prohibition on a value nothing can carry forbids nothing"})
+
     methodology = data.get("methodology_review") or {}
     required_items = tuple(sorted(
         key[len("require_"):] for key, value in methodology.items()
@@ -163,7 +179,7 @@ def _parse(data: dict[str, Any], *, name: str, source: str | None) -> Profile:
         risk=str(data.get("risk", "standard")),
         minimum_independence=minimum,
         disclose_independence_below=disclose,
-        prohibited_confidence=tuple(str(c) for c in (data.get("prohibited_confidence") or [])),
+        prohibited_confidence=prohibited,
         human_review_triggers=triggers,
         required_methodology_items=required_items,
         unimplemented=tuple(sorted(set(data) & set(NOT_IMPLEMENTED))),

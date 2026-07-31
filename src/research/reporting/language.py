@@ -58,7 +58,16 @@ QUALIFIER: dict[str, str] = {
     "unable_to_determine": "Unable to determine — the available evidence is insufficient.",
 }
 
-CORRELATIONAL_TYPES = {"correlational_claim", "descriptive_result", "comparative_result"}
+# The ONLY claim type entitled to causal wording. Everything else that reads causally is flagged.
+#
+# This was the inverse — a three-member list of "correlational" types — and it therefore missed the
+# eight claim types nobody thought to add. `interpretation` and `hypothesis` were the sharpest
+# omissions: "the treatment causes X" typed as an interpretation sailed through, while the identical
+# sentence typed as a descriptive result was caught. Naming the exempt type rather than the suspect
+# ones makes a claim type added to the schema later suspect by default, which is the direction a
+# disclosure flag should fail. Over-flagging costs one disclosure line; under-flagging publishes an
+# unearned causal reading.
+CAUSAL_CLAIM_TYPES = frozenset({"causal_claim"})
 
 
 @dataclass
@@ -96,7 +105,7 @@ def check_claim_language(claim: dict[str, Any]) -> list[Overstatement]:
 
     # Spec §26: a causal reading drawn from correlational evidence is a human-review trigger.
     causal = sorted({m.group(0).lower() for m in CAUSAL_RE.finditer(text)})
-    if causal and claim_type in CORRELATIONAL_TYPES:
+    if causal and claim_type not in CAUSAL_CLAIM_TYPES:
         out.append(Overstatement(
             cid, "causal_language_on_a_non_causal_claim",
             f"the wording implies causation ({', '.join(causal)}) but the claim type is "
