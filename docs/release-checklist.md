@@ -20,6 +20,12 @@ a checklist that only records successes is a marketing document.
 
 ## The outstanding gate
 
+> **Scope note, 2026-07-31.** The repository owner has withdrawn both remaining external items —
+> the Codex conformance run and a green CI run — from scope. They are not being pursued. Neither is
+> now met, and neither is marked met: this section and the task list below record them as unmet
+> exactly as before, and keep the procedure for closing them. A gate nobody intends to close is
+> still an open gate.
+
 **Spec §37 / §38.10 requires that Codex *and* Claude Code each complete the benchmark.** Claude Code
 has; Codex has not.
 
@@ -65,7 +71,7 @@ The run was **not simulated**. A Claude subagent role-playing as Codex, with its
 under `benchmark/expected/codex/`, would be a fabricated conformance record — the precise failure
 this platform exists to refuse. The directory stays empty until Codex actually runs.
 
-When credits reset:
+The procedure, kept for whoever picks it up:
 
 ```bash
 python benchmark/build_corpus.py /tmp/corpus

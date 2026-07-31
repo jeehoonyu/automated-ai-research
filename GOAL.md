@@ -189,9 +189,12 @@ invariants I1–I6 hold.
 
 Still open, and not closeable by iterating:
 
-- **Codex cross-host conformance (§38.10)** — account usage limits until 2026-08-01.
-- **One green CI run** — GitHub cancels every job before it starts; private repositories bill
-  Actions minutes and the account's billing is blocked.
+- **Codex cross-host conformance (§38.10)** and **one green CI run** — both **withdrawn from scope
+  on 2026-07-31 by the repository owner**, who decided they are not worth pursuing. That is a
+  decision about effort, not a change in status: gate 38.10 remains **half met** and "Verified on
+  Linux and macOS" remains **unchecked**. Nothing was rounded up. See `docs/release-checklist.md`,
+  which still records both as unmet and still carries the procedure for closing them if anyone
+  wants to.
 
 ### The deferred items, now decided
 
@@ -369,11 +372,14 @@ rather than grandfathered**.
 
 ## Not in scope
 
-- **Codex conformance (gate 38.10)** — blocked on account usage limits until 2026-08-01. Procedure
-  is in `docs/release-checklist.md`. Not simulated.
-- **CI execution** — GitHub cancels every job before it starts: *"recent account payments have
-  failed or your spending limit needs to be increased"*. Private repositories bill Actions minutes.
-  An account setting, not a code defect.
+- **Codex conformance (gate 38.10)** — was blocked on account usage limits; **withdrawn from scope
+  on 2026-07-31**. The gate stays half met and the directory stays empty. Never simulated: a Claude
+  subagent role-playing as Codex would be a fabricated conformance record, which is the precise
+  failure this platform exists to refuse.
+- **CI execution** — GitHub cancels every job before it starts (*"recent account payments have
+  failed or your spending limit needs to be increased"*; private repositories bill Actions minutes).
+  **Withdrawn from scope on 2026-07-31.** Every step the pipeline runs has been executed by hand
+  against a real install instead, but no CI run has proved it, and the checklist says so.
 
 ## What no fix in this file can claim
 
