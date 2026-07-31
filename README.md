@@ -9,6 +9,61 @@ indexing, search, state, validation, citation resolution, gating, and report ren
 
 **The point is not to produce a report. It is to refuse to produce one that isn't supported.**
 
+## Quickstart
+
+```bash
+git clone https://github.com/jeehoonyu/automated-ai-research
+cd automated-ai-research
+python -m venv .venv && . .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -e .
+```
+
+Then, **outside this repository**, make a workspace and put a question to it:
+
+```bash
+research init ~/my-research
+research import ~/papers/*.pdf --workspace ~/my-research
+research index                 --workspace ~/my-research
+research run --question "Does X reduce Y?" --workspace ~/my-research
+```
+
+`research run` does no reasoning. It records the question, pins the corpus as it stands, writes ten
+work packets, and stops. Your agent does the thinking; the packets tell it what each stage owes and
+what it may not look at. Then:
+
+```bash
+research validate <run-id> --workspace ~/my-research
+research report   <run-id> --workspace ~/my-research
+research ui       --workspace ~/my-research --open
+```
+
+`research report` exits 5 and refuses if any gate blocks. **That refusal is the product working.**
+
+Want to see it work before pointing it at your own sources? The benchmark corpus is synthetic and
+ships with the repo:
+
+```bash
+python benchmark/build_corpus.py /tmp/corpus
+research init /tmp/demo && research import /tmp/corpus --workspace /tmp/demo
+research index --workspace /tmp/demo
+```
+
+## Drive it with an AI agent
+
+The platform is deliberately not an agent. It expects one, and ships the prompts:
+
+| File | For |
+|---|---|
+| [`AGENTS.md`](AGENTS.md) | orienting any AI tool in this repository — folder map, the workflow, the invariants that must not break, how to verify a change |
+| [`prompts/run-research.md`](prompts/run-research.md) | taking a run from empty workspace to report |
+| [`prompts/independent-review.md`](prompts/independent-review.md) | the independent review — **paste into a fresh session**, never the one that did the synthesis |
+| [`prompts/audit-this-repo.md`](prompts/audit-this-repo.md) | auditing a change you made to the tool. This prompt found most of the defects in `CHANGELOG.md` |
+| [`prompts/extend-a-gate.md`](prompts/extend-a-gate.md) | adding a validation check for your own field |
+
+`AGENTS.md` is read by Codex, Cursor and others directly; [`CLAUDE.md`](CLAUDE.md) points Claude Code
+at the same file. There is deliberately no host-specific guidance, for the same reason the research
+workflow has none: two tools with two sets of rules quietly become two standards of evidence.
+
 ## What it does not do
 
 Deliberately, and not as a temporary gap:
@@ -20,6 +75,130 @@ Deliberately, and not as a temporary gap:
 
 Your host environment supplies the intelligence. This repository supplies the parts that make its
 output checkable.
+
+## How a run works
+
+Ten stages. Eight are your agent's; two are the CLI's.
+
+```
+planning → retrieval → evidence_extraction → synthesis → contradiction_review
+   → citation_review → methodology_review → independent_review → final_validation → report
+```
+
+Each stage has a **work packet** in `runs/<run-id>/packets/` naming its allowed inputs, its forbidden
+inputs, what it must produce, and the command that will judge it. The agent writes plain JSON to
+`responses/`; `research validate <run-id> --stage <stage>` validates it, promotes it into the
+canonical directories, and advances the run by exactly one phase.
+
+**A stage is complete when its artifact validates — never because a file appeared.** Promotion is
+all-or-nothing, stages cannot be skipped, and the CLI stamps `artifact_hash` so the agent never has
+to.
+
+The full version, including what each stage owes and the independence rules, is
+[`workflow/canonical-workflow.md`](workflow/canonical-workflow.md) — which is also copied into every
+workspace `research init` creates, so an agent working in a workspace has it to hand.
+
+## Looking at a workspace
+
+```bash
+research ui --workspace example-workspace --open
+```
+
+Serves a read-only view on `http://127.0.0.1:8787/`. Everything it shows is already available from
+the CLI; what a browser adds is following a chain — a claim, the evidence under it, the locator, and
+the source text that locator resolves to — without copying identifiers between commands.
+
+Three properties are enforced rather than intended, and each has a test that fails when it is broken:
+
+- **It never writes.** No route mutates a workspace, every method except `GET` and `HEAD` is refused,
+  and an integration test hashes every file in a workspace, browses every page, and re-hashes.
+  Notably `/search` does *not* record a retrieval log — `research search --run` does that on purpose,
+  and a page load is not retrieval.
+- **It cannot make a gate look better than it is.** Whether a check blocks is answered by
+  `CheckResult.blocks` itself, not by a table restated in the UI, so `not_evaluated` is painted
+  exactly as `failed` and labelled *"nobody looked — blocks publication exactly as a failure does"*.
+  A run page also re-derives the artifact roster and says so loudly when the stored verdict no longer
+  describes the files on disk.
+- **Document text stays data.** Autoescaping is unconditional, every response carries
+  `default-src 'none'`, and the interface ships no JavaScript at all.
+
+It binds to loopback and refuses anything else without `--allow-remote`, because it exposes every
+document and artifact in the workspace and has no authentication. See
+[`docs/security-model.md`](docs/security-model.md).
+
+**Page renders are shown.** A quote cannot settle a figure or a table — someone has to look — so a
+document's pages are displayed as the CLI rendered them, and visual evidence shows the page it cites.
+Each image is re-hashed against the digest the manifest recorded before it is served; a render whose
+bytes changed under an existing citation is refused with an explanation rather than displayed.
+
+### Running it on your own machine
+
+The UI opens an existing workspace and never creates one. A workspace is any directory containing
+`research.yaml`; pass `--workspace`, or run from inside one and it walks up to find it.
+
+Paths are not a special case. Verified on Windows against directories with spaces, non-ASCII names
+(`한글 폴더`, `café — ünïcode`), dots in directory names, and twelve levels of nesting — every page
+serves, and `--workspace` accepts the path with backslashes, forward slashes, a trailing separator,
+or relative. Files stored under OneDrive work too, including cloud-only placeholders: they are not
+symlinks, so import accepts them, though reading one triggers a download and needs the network.
+
+The document page lists the **absolute** location of the original bytes, the normalized text and the
+chunk set, so you can open them yourself — the artifacts record workspace-relative paths, which are
+right for a workspace that gets moved and useless for finding a file.
+
+## Forking it for your own research
+
+The tool is domain-agnostic. Your field goes in the **rules**, not the code.
+
+**Start with a profile.** `src/research/profiles/medicine.yaml` is the worked example — higher risk
+tier, `confirmed_independent` required rather than merely requested, `verified` forbidden outright,
+and six human-review triggers. Copy it and change what your field demands.
+
+A profile may only name triggers the validator can actually fire, and may only require methodology
+items a review can record. A key that nothing reads is **rejected at load time** rather than silently
+ignored — a rule nothing enforces is a promise, not a rule, and this is the one place where that
+distinction is cheap to enforce.
+
+**Then, if you need a gate that does not exist**, [`prompts/extend-a-gate.md`](prompts/extend-a-gate.md)
+walks an agent through adding one correctly: what it must answer when its input is absent (
+`not_evaluated`, which blocks), why it may check that something was *recorded* but not whether it was
+any good, and how to prove the check can actually fail.
+
+Three housekeeping notes for a fork:
+
+- **Replace [`GOAL.md`](GOAL.md), or delete it.** It is the original build's working log — what was
+  found, what was fixed, and what remains unmet. It is not about your fork.
+- **Keep [`docs/release-checklist.md`](docs/release-checklist.md) honest.** Restate it for your build,
+  including what you have not done. A checklist that only records successes is a marketing document.
+- **The benchmark corpus is synthetic and redistributable.** Nothing in it is copyrighted. Add cases
+  for gates you add — `benchmark/expected/cases.json` names the specific check each case must trip,
+  because asserting only "publication was blocked" passes when the wrong gate fires.
+
+## Why it is built this way
+
+**Originals are authoritative.** Imported bytes are never modified. A document's identity is
+`SHA-256` of those bytes — not its filename, path, import time, or who imported it. Re-importing the
+same file anywhere produces the same identity, which is what makes deduplication and the audit trail
+work.
+
+**JSON is canonical; Markdown is a view.** Reports are rendered *from* validated JSON artifacts.
+A Markdown file never becomes more authoritative than the artifacts beneath it, and the report
+generator may not strengthen a claim's language beyond its validated classification.
+
+**Extraction is versioned.** `document_version_id` derives from the document hash *plus* the
+extraction toolchain and configuration. Upgrading the PDF parser produces a new version rather than
+silently moving the text under someone's existing citation.
+
+**Evidence before synthesis.** A claim cannot appear in a publishable report unless it references
+evidence that resolves to immutable source bytes at an exact locator, the citation genuinely supports
+it, contradictions were sought, and the required reviews passed.
+
+**Insufficient evidence is a result.** `unable_to_determine` is a successful research outcome, not a
+failure. The platform prefers refusing publication over publishing an unsupported conclusion.
+
+**Imported content is untrusted.** Documents may carry prompt injection, scripts, hostile filenames,
+or traversal paths. Document text is data, never instructions. Work packets separate trusted workflow
+instructions from untrusted document content explicitly.
 
 ## Status
 
@@ -124,97 +303,15 @@ rather than inside it, so no wheel shipped them and an installed copy could run 
 Fixed, along with two more claims nothing backed — research profiles were never read by any code,
 and exit code `6 HUMAN_REVIEW_REQUIRED` was unreachable. See [`GOAL.md`](GOAL.md).
 
-## Install
-
-```bash
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -e .
-research --help
-```
-
-```bash
-research init example-workspace
-```
-
-## Looking at a workspace
-
-```bash
-research ui --workspace example-workspace --open
-```
-
-Serves a read-only view on `http://127.0.0.1:8787/`. Everything it shows is already available from
-the CLI; what a browser adds is following a chain — a claim, the evidence under it, the locator, and
-the source text that locator resolves to — without copying identifiers between commands.
-
-Three properties are enforced rather than intended, and each has a test that fails when it is broken:
-
-- **It never writes.** No route mutates a workspace, every method except `GET` and `HEAD` is refused,
-  and an integration test hashes every file in a workspace, browses every page, and re-hashes.
-  Notably `/search` does *not* record a retrieval log — `research search --run` does that on purpose,
-  and a page load is not retrieval.
-- **It cannot make a gate look better than it is.** Whether a check blocks is answered by
-  `CheckResult.blocks` itself, not by a table restated in the UI, so `not_evaluated` is painted
-  exactly as `failed` and labelled *"nobody looked — blocks publication exactly as a failure does"*.
-  A run page also re-derives the artifact roster and says so loudly when the stored verdict no longer
-  describes the files on disk.
-- **Document text stays data.** Autoescaping is unconditional, every response carries
-  `default-src 'none'`, and the interface ships no JavaScript at all.
-
-It binds to loopback and refuses anything else without `--allow-remote`, because it exposes every
-document and artifact in the workspace and has no authentication. See
-[`docs/security-model.md`](docs/security-model.md).
-
-**Page renders are shown.** A quote cannot settle a figure or a table — someone has to look — so a
-document's pages are displayed as the CLI rendered them, and visual evidence shows the page it cites.
-Each image is re-hashed against the digest the manifest recorded before it is served; a render whose
-bytes changed under an existing citation is refused with an explanation rather than displayed.
-
-### Running it on your own machine
-
-The UI opens an existing workspace and never creates one. A workspace is any directory containing
-`research.yaml`; pass `--workspace`, or run from inside one and it walks up to find it.
-
-Paths are not a special case. Verified on Windows against directories with spaces, non-ASCII names
-(`한글 폴더`, `café — ünïcode`), dots in directory names, and twelve levels of nesting — every page
-serves, and `--workspace` accepts the path with backslashes, forward slashes, a trailing separator,
-or relative. Files stored under OneDrive work too, including cloud-only placeholders: they are not
-symlinks, so import accepts them, though reading one triggers a download and needs the network.
-
-The document page lists the **absolute** location of the original bytes, the normalized text and the
-chunk set, so you can open them yourself — the artifacts record workspace-relative paths, which are
-right for a workspace that gets moved and useless for finding a file.
-
-## Why it is built this way
-
-**Originals are authoritative.** Imported bytes are never modified. A document's identity is
-`SHA-256` of those bytes — not its filename, path, import time, or who imported it. Re-importing the
-same file anywhere produces the same identity, which is what makes deduplication and the audit trail
-work.
-
-**JSON is canonical; Markdown is a view.** Reports are rendered *from* validated JSON artifacts.
-A Markdown file never becomes more authoritative than the artifacts beneath it, and the report
-generator may not strengthen a claim's language beyond its validated classification.
-
-**Extraction is versioned.** `document_version_id` derives from the document hash *plus* the
-extraction toolchain and configuration. Upgrading the PDF parser produces a new version rather than
-silently moving the text under someone's existing citation.
-
-**Evidence before synthesis.** A claim cannot appear in a publishable report unless it references
-evidence that resolves to immutable source bytes at an exact locator, the citation genuinely supports
-it, contradictions were sought, and the required reviews passed.
-
-**Insufficient evidence is a result.** `unable_to_determine` is a successful research outcome, not a
-failure. The platform prefers refusing publication over publishing an unsupported conclusion.
-
-**Imported content is untrusted.** Documents may carry prompt injection, scripts, hostile filenames,
-or traversal paths. Document text is data, never instructions. Work packets separate trusted workflow
-instructions from untrusted document content explicitly.
-
 ## Documentation
 
-- `PROJECT_GOAL.md` — the full specification (authoritative)
-- [`GOAL.md`](GOAL.md) — the current working goal against it, and what would count as meeting it
+- [`AGENTS.md`](AGENTS.md) — **start here if you are an AI tool.** Folder map, the workflow, the
+  invariants, how to verify a change. [`CLAUDE.md`](CLAUDE.md) points Claude Code at the same file.
+- [`prompts/`](prompts/) — copy-paste prompts for running research, independent review, auditing a
+  change, and adding a gate
+- `PROJECT_GOAL.md` — the full specification (authoritative, and does not change)
+- [`GOAL.md`](GOAL.md) — the **original build's** working log: what was found, what was fixed, what
+  remains unmet. Replace or delete it in a fork; it is not about yours.
 - `docs/lessons-carried-forward.md` — failures from a predecessor project and where each is now
   enforced. Worth reading before changing any gate.
 - [`docs/architecture.md`](docs/architecture.md) — trust boundaries, authority model, determinism
