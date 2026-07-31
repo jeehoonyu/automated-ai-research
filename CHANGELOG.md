@@ -6,6 +6,19 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed — human verification reads the record, not the label
+- `ocr_evidence_human_verified` selected candidates purely by `extraction_status` on the
+  agent-authored Evidence artifact, so an agent cleared it by labelling its own evidence
+  `extracted` while the CLI-written Document manifest recorded which pages need OCR. The page is
+  now derived from the manifest — `page_map` for a text span, the render digest for a visual
+  region — never from `locator["page"]`, which the agent also writes.
+- A two-key JSON object in `amendments/` cleared both human-verification gates: `_amendments` did
+  not filter on `schema_name` and amendments were absent from `check_artifacts_conform`, so
+  `validate_artifact` never ran on one. Now filtered and validated, and a verification must carry
+  the `target_artifact_hash` of the version it checked — so it cannot outlive that version.
+- `docs/validation-rules.md` records what remains self-reported (`interpretation_status`) and calls
+  out the undecided question of whether `actor_type == "human"` should be required.
+
 ### Fixed — the publication verdict is bound to the artifacts it was computed over
 - `ValidationResult` gains required `validated_inputs`: sorted `(artifact_id, artifact_hash)` pairs
   for every artifact `build_context` loaded, the load-error count, and a digest over both.

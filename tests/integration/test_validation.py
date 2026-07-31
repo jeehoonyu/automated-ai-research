@@ -245,7 +245,11 @@ def test_a_recorded_human_verification_amendment_clears_the_ocr_gate(complete_ru
     ev = json.loads(path.read_text(encoding="utf-8"))
     ev["extraction_status"] = "ocr_required"
     ev["human_review_required"] = True
-    path.write_text(json.dumps(stamp_artifact_hash(ev)), encoding="utf-8")
+    # `stamp_artifact_hash` returns a COPY, so the amendment must name the hash of what actually
+    # lands on disk. Naming `ev["artifact_hash"]` here points at the pre-edit version — which the
+    # staleness rule now rejects, correctly: a verification must name the version it checked.
+    ev = stamp_artifact_hash(ev)
+    path.write_text(json.dumps(ev), encoding="utf-8")
 
     aid = amendment_id()
     amendment = make_artifact(
@@ -731,3 +735,110 @@ def test_two_reviews_agreeing_still_pass(complete_run):
 
     result = validate_run(ws, rid)
     assert _status(result, "citations_support_their_claims") == "passed"
+
+
+# ------------------------------------------------ human verification reads the record
+#
+# The OCR gate selected candidates purely by `extraction_status` on the AGENT-authored Evidence
+# artifact, so writing `extracted` on evidence taken from a scanned page cleared it — while the
+# deterministic record of which pages need OCR sat unread in the Document manifest the CLI wrote.
+# And when the gate did fire, a two-key JSON blob in amendments/ cleared it.
+
+
+def _ocr_run(ws, rid, meta, tmp_path, *, declare):
+    """Import the image-only PDF and point new evidence at a page the manifest flags ocr_required.
+
+    The base fixture's corpus has no such page, so the interesting case was unreachable from it —
+    which is its own small lesson about fixtures that make a gate untestable.
+    """
+    import_paths(ws, [build(tmp_path / "ocr-src")["low_text_pdf"]])
+    doc_path = next(p for p in (ws.root / "documents" / "manifests").glob("*.json")
+                    if json.loads(p.read_text(encoding="utf-8")).get("ocr_required_pages"))
+    doc = json.loads(doc_path.read_text(encoding="utf-8"))
+    page_no = doc["ocr_required_pages"][0]
+    span = next(s for s in doc["page_map"] if s["page_number"] == page_no)
+    text = (ws.root / doc["normalized_text_path"]).read_text(encoding="utf-8")
+    start = span["start_offset"]
+    end = min(span["end_offset"], start + 30)
+    exact = text[start:end]
+
+    loc = {"type": "text_span", "start_offset": start, "end_offset": end,
+           "span_sha256": sha256_text(exact)}
+    eid = evidence_id(document_version_id_=doc["document_version_id"], locator=loc,
+                      exact_text=exact, evidence_type="direct_statement")
+    ev = make_artifact(
+        schema_name="Evidence", artifact_id=eid, actor_type="host_agent",
+        body=dict(evidence_id=eid, document_id=doc["document_id"],
+                  document_version_id=doc["document_version_id"],
+                  evidence_type="direct_statement", locator=loc, exact_text=exact,
+                  extraction_status=declare,
+                  human_review_required=(declare == "ocr_required")))
+    write_artifact(meta["run_dir"] / "evidence" / "e-ocr.json", ev, root=ws.root)
+
+    path = meta["run_dir"] / "claims" / "c1.json"
+    claim = json.loads(path.read_text(encoding="utf-8"))
+    claim["supporting_evidence_ids"] = [meta["evidence_id"], eid]
+    path.write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
+    return eid
+
+
+def test_the_ocr_gate_ignores_the_agents_label_on_its_own_evidence(complete_run, tmp_path):
+    """The manifest says the page needs OCR. The evidence says it does not. The manifest wins."""
+    ws, rid, meta = complete_run
+    eid = _ocr_run(ws, rid, meta, tmp_path, declare="extracted")
+
+    result = validate_run(ws, rid)
+    assert _status(result, "ocr_evidence_human_verified") == "failed"
+    assert eid in result["blocking_errors"][0]["artifact_ids"] or any(
+        eid in e.get("artifact_ids", []) for e in result["blocking_errors"])
+    assert result["report_eligible"] is False
+
+
+def test_a_two_key_amendment_stub_does_not_clear_the_ocr_gate(complete_run, tmp_path):
+    """It used to. `_amendments` did not filter on schema_name, and amendments were absent from
+    `check_artifacts_conform`, so `validate_artifact` never ran on one."""
+    ws, rid, meta = complete_run
+    eid = _ocr_run(ws, rid, meta, tmp_path, declare="ocr_required")
+
+    stub = stamp_artifact_hash({
+        "amendment_type": "human_ocr_verification",
+        "target_artifact_id": eid,
+    })
+    (meta["run_dir"] / "amendments" / "stub.json").write_text(
+        json.dumps(stub), encoding="utf-8")
+
+    result = validate_run(ws, rid)
+    assert _status(result, "ocr_evidence_human_verified") == "failed"
+    assert result["report_eligible"] is False
+
+
+def test_a_verification_of_a_different_version_does_not_clear_the_gate(complete_run, tmp_path):
+    """"A human checked this" must not outlive the thing they checked."""
+    ws, rid, meta = complete_run
+    eid = _ocr_run(ws, rid, meta, tmp_path, declare="ocr_required")
+
+    aid = amendment_id()
+    amendment = make_artifact(
+        schema_name="Amendment", artifact_id=aid, actor_type="human",
+        body=dict(amendment_id=aid, run_id=rid, target_artifact_id=eid,
+                  target_artifact_hash="sha256:" + "0" * 64,      # some other version
+                  amendment_type="human_ocr_verification",
+                  changed_fields=["extraction_status"], reason="checked against the render",
+                  human={"identifier": "tester"}, requires_revalidation=True,
+                  replacement_artifact_id=eid,
+                  replacement_artifact_hash="sha256:" + "0" * 64))
+    write_artifact(meta["run_dir"] / "amendments" / "a-stale.json", amendment, root=ws.root)
+
+    result = validate_run(ws, rid)
+    assert _status(result, "ocr_evidence_human_verified") == "failed"
+    assert "different version" in result["blocking_errors"][0]["detail"] or any(
+        "different version" in e.get("detail", "") for e in result["blocking_errors"])
+
+
+def test_a_markdown_only_run_still_validates(complete_run):
+    """Markdown has an empty page_map and no pages. That is a document without pages, not a
+    failure to locate one — the OCR derivation must not block every non-paginated run."""
+    ws, rid, _ = complete_run
+    result = validate_run(ws, rid)
+    assert _status(result, "ocr_evidence_human_verified") in ("not_applicable", "passed")
+    assert result["report_eligible"] is True, result["blocking_errors"]

@@ -224,6 +224,7 @@ def build_context(ws: Workspace, run_id: str) -> RunContext:
 def check_artifacts_conform(ctx: RunContext) -> CheckResult:
     bad: list[str] = []
     for artifact in [*ctx.evidence, *ctx.claims, *ctx.reviews, *ctx.review_contexts,
+                     *ctx.relationships, *ctx.amendments,
                      *([ctx.plan] if ctx.plan else [])]:
         try:
             validate_artifact(artifact)
@@ -651,38 +652,124 @@ def check_independence_attested(ctx: RunContext) -> CheckResult:
                        "no review declares `confirmed_independent`, so no attestation is required")
 
 
+def evidence_page(ctx: RunContext, ev: dict[str, Any]) -> int | None:
+    """Which page of the DOCUMENT this evidence sits on, per the manifest the CLI wrote.
+
+    Deliberately not `locator["page"]`: the locator is written by the agent, and a gate that reads
+    the agent's own page number is asking the subject where it was standing. A text span is located
+    by walking the manifest's `page_map`; a visual region by matching its render digest.
+
+    Returns None for content with no page at all — Markdown has an empty `page_map` and no pages,
+    which is not a failure to locate, it is a document without pages.
+    """
+    doc = ctx.documents.get(ev.get("document_id", ""))
+    if not doc:
+        return None
+    locator = ev.get("locator") or {}
+    if locator.get("type") == "visual_region":
+        digest = locator.get("render_sha256")
+        for page in doc.get("pages", []):
+            if (page.get("render") or {}).get("sha256") == digest:
+                return int(page["page_number"])
+        return None
+    start = locator.get("start_offset")
+    if start is None:
+        return None
+    for span in doc.get("page_map", []):
+        if int(span["start_offset"]) <= int(start) < int(span["end_offset"]):
+            return int(span["page_number"])
+    return None
+
+
+def _human_verifications(ctx: RunContext, amendment_type: str) -> dict[str, str]:
+    """target_artifact_id -> target_artifact_hash, for amendments of one type.
+
+    The hash matters: an amendment verifying an OLD version of an evidence record must not clear
+    the gate for a record that has since been re-stamped. Without it, "a human checked this" could
+    outlive the thing they checked.
+    """
+    return {a["target_artifact_id"]: a.get("target_artifact_hash", "")
+            for a in _amendments(ctx)
+            if a.get("amendment_type") == amendment_type and a.get("target_artifact_id")}
+
+
+def _unverified(ctx: RunContext, candidates: list[dict[str, Any]],
+                amendment_type: str) -> tuple[list[str], list[str]]:
+    """Split candidates into (never verified, verified against a different version)."""
+    verifications = _human_verifications(ctx, amendment_type)
+    missing: list[str] = []
+    stale: list[str] = []
+    for ev in candidates:
+        eid = ev["evidence_id"]
+        if eid not in verifications:
+            missing.append(eid)
+        elif verifications[eid] != ev.get("artifact_hash"):
+            stale.append(eid)
+    return missing, stale
+
+
 def check_ocr_evidence(ctx: RunContext) -> CheckResult:
-    """OCR-required material may back a claim only through a recorded human verification."""
-    ocr = [e for e in ctx.evidence if e.get("extraction_status") == "ocr_required"]
+    """OCR-required material may back a claim only through a recorded human verification.
+
+    THE GATE USED TO ASK THE AGENT. It selected candidates purely by `extraction_status` on the
+    agent-authored Evidence artifact, so writing `extracted` on evidence taken from a scanned page
+    cleared it — while the deterministic record of which pages need OCR sat unread in the Document
+    manifest the CLI itself produced. Both are consulted now, and the manifest can only ever add.
+    """
+    name = "ocr_evidence_human_verified"
+    ocr: list[dict[str, Any]] = []
+    for ev in ctx.evidence:
+        doc = ctx.documents.get(ev.get("document_id", ""))
+        page = evidence_page(ctx, ev)
+        from_manifest = (doc is not None and page is not None
+                         and page in set(doc.get("ocr_required_pages") or []))
+        if ev.get("extraction_status") == "ocr_required" or from_manifest:
+            ocr.append(ev)
     if not ocr:
-        return CheckResult("ocr_evidence_human_verified", "not_applicable",
-                           "no evidence depends on an ocr_required page")
-    verified = {a.get("target_artifact_id") for a in _amendments(ctx)
-                if a.get("amendment_type") == "human_ocr_verification"}
-    unverified = [e["evidence_id"] for e in ocr if e["evidence_id"] not in verified]
-    if unverified:
-        return CheckResult("ocr_evidence_human_verified", "failed",
-                           f"{len(unverified)} evidence record(s) rest on an ocr_required page "
-                           f"without a recorded human verification amendment", unverified,
+        return CheckResult(name, "not_applicable", "no evidence depends on an ocr_required page")
+
+    missing, stale = _unverified(ctx, ocr, "human_ocr_verification")
+    if missing or stale:
+        parts = []
+        if missing:
+            parts.append(f"{len(missing)} without a recorded human verification amendment")
+        if stale:
+            parts.append(f"{len(stale)} verified against a different version of the evidence")
+        return CheckResult(name, "failed",
+                           f"{len(ocr)} evidence record(s) rest on an ocr_required page: "
+                           + "; ".join(parts), missing + stale,
                            human_review=ctx.rules.forces_human_review(
                                "evidence_depends_on_ocr_required_page"))
-    return CheckResult("ocr_evidence_human_verified", "passed", f"{len(ocr)} verified")
+    return CheckResult(name, "passed", f"{len(ocr)} verified")
 
 
 def check_visual_certainty(ctx: RunContext) -> CheckResult:
-    uncertain = [e["evidence_id"] for e in ctx.evidence
+    """An uncertain visual reading needs a human.
+
+    `interpretation_status` is self-reported in exactly the shape the OCR gate used to be, and
+    there is no deterministic record to cross-check it against — the CLI cannot know whether an
+    agent read a figure correctly. What IS enforced now: a verification must name the evidence AND
+    the version of it that was checked.
+    """
+    name = "visual_interpretation_certain"
+    uncertain = [e for e in ctx.evidence
                  if e.get("interpretation_status") in ("uncertain", "human_review_required")]
     if not uncertain:
-        return CheckResult("visual_interpretation_certain", "passed", "no uncertain readings")
-    verified = {a.get("target_artifact_id") for a in _amendments(ctx)
-                if a.get("amendment_type") == "human_visual_verification"}
-    outstanding = [e for e in uncertain if e not in verified]
-    if outstanding:
-        return CheckResult("visual_interpretation_certain", "failed",
-                           f"{len(outstanding)} visual reading(s) are uncertain and unverified",
-                           outstanding, human_review=ctx.rules.forces_human_review(
+        return CheckResult(name, "passed", "no uncertain readings")
+
+    missing, stale = _unverified(ctx, uncertain, "human_visual_verification")
+    if missing or stale:
+        parts = []
+        if missing:
+            parts.append(f"{len(missing)} unverified")
+        if stale:
+            parts.append(f"{len(stale)} verified against a different version")
+        return CheckResult(name, "failed",
+                           f"{len(uncertain)} uncertain visual reading(s): " + "; ".join(parts),
+                           missing + stale,
+                           human_review=ctx.rules.forces_human_review(
                                "uncertain_visual_interpretation"))
-    return CheckResult("visual_interpretation_certain", "passed", "all verified by a human")
+    return CheckResult(name, "passed", "all verified by a human")
 
 
 def check_contradictions_disclosed(ctx: RunContext) -> CheckResult:
@@ -863,10 +950,14 @@ def check_lifecycle(ctx: RunContext) -> CheckResult:
 
 
 def _amendments(ctx: RunContext) -> list[dict[str, Any]]:
-    """Read from the context. NOTE: still unfiltered by schema_name and still not schema-validated —
-    that is Theme 2 in GOAL.md, not this change. What IS fixed here is that a malformed amendment
-    now becomes a blocking load error instead of being dropped in silence."""
-    return ctx.amendments
+    """Only real Amendment artifacts clear a human-verification gate.
+
+    This was unfiltered, and amendments were absent from `check_artifacts_conform`, so nothing ever
+    ran `validate_artifact` on one. A two-key JSON object in `amendments/` therefore cleared the OCR
+    and visual gates — the schema has always required `target_artifact_hash`, `changed_fields`,
+    `reason` and `human`, and nothing checked any of it.
+    """
+    return [a for a in ctx.amendments if a.get("schema_name") == "Amendment"]
 
 
 CHECKS = [

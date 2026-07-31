@@ -33,7 +33,7 @@ Verdicts are collected per claim; disagreement is `not_evaluated`; `not_checked`
 Re-validating restores publication and `--draft` is exempt, both pinned. The conflict test is
 parametrised over **both** filename orders, because order-dependence was the bug.
 
-### 2. Make the human-verification gate read the record instead of the label — `weakens-a-guarantee`
+### 2. Make the human-verification gate read the record instead of the label — **done**
 
 *Restores: OCR-dependent and uncertain-visual material reaches a claim only through a verification
 the platform actually checked.*
@@ -48,11 +48,16 @@ When the gate does fire, a minimal JSON blob in `amendments/` clears it: `_amend
 filter on `schema_name == "Amendment"` (unlike `_relationships`), amendments are absent from
 `check_artifacts_conform`, and the loader's error list is discarded.
 
-**Done when** a three-key amendment stub leaves both gates `failed`; evidence whose locator lands on
-a page the manifest flags `ocr_required` blocks even when the Evidence declares `extracted`; a
-malformed or hash-mismatched amendment is a blocking load error; a markdown-only run (no pages at
-all) still validates; and whether `actor_type == "human"` is required for `human_*` amendments is
-answered either way in the docs.
+**Done.** The page comes from the manifest (`page_map` for text, render digest for visual), never
+from `locator["page"]`. Amendments are filtered by `schema_name` and schema-validated, and must name
+the version of the evidence they checked. A two-key stub, a self-labelled `extracted`, and a
+stale-hash verification each leave the gate `failed`; a markdown-only run still validates. The
+`actor_type == "human"` question is called out in `docs/validation-rules.md` as deliberately
+undecided rather than silently skipped.
+
+Fixing it exposed a latent bug in the suite's own fixture: the amendment in
+`test_a_recorded_human_verification_amendment_clears_the_ocr_gate` named the *pre-edit* hash,
+because `stamp_artifact_hash` returns a copy. It passed only because nothing checked.
 
 ### 3. Make stage acceptance exist — `weakens-a-guarantee`, large
 

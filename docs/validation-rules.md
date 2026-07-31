@@ -70,7 +70,7 @@ wrong gate fired.
 | `independent_review_complete` | as above |
 | `reviewer_independence_sufficient` | independence declared and meeting the profile's bar |
 | `independence_context_attested` | `confirmed_independent` is backed by an attested reviewer context containing no excluded material |
-| `ocr_evidence_human_verified` | OCR-dependent evidence has a recorded human verification amendment |
+| `ocr_evidence_human_verified` | evidence on a page **the Document manifest flags** `ocr_required` has a valid human-verification amendment naming that version of it |
 | `visual_interpretation_certain` | uncertain visual readings were human-verified |
 | `contradictions_disclosed` | every claim was actually checked, and none carries an unresolved contradiction |
 | `support_classifications_earned` | `verified` has a passed independent review; `strongly_supported` has multiple evidence records |
@@ -112,6 +112,38 @@ above code that did the opposite. The fourth is the most consequential, because
 `src/research/reporting/renderer.py` deliberately quotes *through the locator* rather than from
 `evidence["exact_text"]`, on the reasoning that validation would have caught any divergence — so the
 one defence-in-depth measure was the path that carried altered text into `report.md`.
+
+## Human verification reads the record, not the label
+
+`ocr_evidence_human_verified` selected its candidates purely by `extraction_status` on the
+**agent-authored** Evidence artifact. Writing `extracted` on evidence taken from a scanned page
+cleared the gate, while the deterministic record of which pages need OCR sat unread in the Document
+manifest the CLI itself produced. A gate that reads the agent's own label is asking the subject
+where it was standing.
+
+The page is now derived from the manifest — a text span by walking `page_map`, a visual region by
+matching the render digest, never from `locator["page"]`, which the agent also writes. The manifest
+can only ever *add* candidates, so an honest `ocr_required` declaration still counts.
+
+When the gate fired, a two-key JSON object in `amendments/` cleared it: `_amendments` did not filter
+on `schema_name`, and amendments were absent from `check_artifacts_conform`, so `validate_artifact`
+never ran on one — while the Amendment schema has always required `target_artifact_hash`,
+`changed_fields`, `reason` and `human`. Amendments are now filtered and validated like every other
+artifact, and a verification must name **the version it checked**: an amendment carrying a
+`target_artifact_hash` that no longer matches the evidence does not clear the gate, so "a human
+checked this" cannot outlive the thing they checked.
+
+### What is still self-reported
+
+`visual_interpretation_certain` reads `interpretation_status`, written by the agent, and there is no
+deterministic record to cross-check it against — the CLI cannot know whether an agent read a figure
+correctly. What is enforced is the amendment discipline above. Stated here rather than left to be
+discovered.
+
+**Open question, deliberately not decided:** whether `created_by.actor_type == "human"` should be
+required for `human_ocr_verification` and `human_visual_verification`. The gate names a human; the
+schema does not demand one. Requiring it would be enforceable and is probably right, but it changes
+what existing workspaces can do, so it is called out rather than slipped in.
 
 ## The verdict is bound to the artifacts it was computed over
 
