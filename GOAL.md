@@ -102,7 +102,7 @@ through the phases before publishing. Writing canonical artifacts directly and v
 supported. Requiring progression is a policy change, not a bug fix, so it is named here rather than
 slipped in.
 
-### 4. Make the read surface answer from the artifacts — `weakens-a-guarantee`
+### 4. Make the read surface answer from the artifacts — **done**
 
 *Restores: what spec §8.6 and §8.7 promise a host agent reading a run.*
 
@@ -115,10 +115,16 @@ Also here: the TRUSTED / UNTRUSTED separation the security model relies on is th
 in `packets.py` that never wrap any document content, so nothing is structurally delimited where
 document bytes leave the CLI.
 
-**Done when** `status --json` reports real contradictions and superseded artifacts; `inspect EVD-…`
-re-resolves the locator, names the claims and reviews referencing it, and reports divergence from
-`exact_text` rather than hiding it; search and inspect output visibly delimits document-derived
-text; and `security-model.md` no longer describes a split the packet does not carry.
+**Done.** `status` computes `unresolved_contradictions`, `unchecked_contradictions` (a separate
+answer, because "nobody looked" is not "none found") and `superseded_artifacts` from the run's own
+claims and amendments. `inspect` handles `EVD-`, `CLM-` and `REV-`: evidence re-slices the stored
+text and reports a divergence from `exact_text` rather than reprinting it, names the claims and
+reviews that reference it, and carries surrounding context; a claim shows its evidence resolved and
+every review verdict on it. Payloads carrying imported bytes carry an explicit untrusted-content
+note.
+
+Adding the computation exposed that **nothing exercised `status` at all** — a missing `import json`
+sat there through a full green run.
 
 ### 5. Persist the retrieval record — `weakens-a-guarantee`
 

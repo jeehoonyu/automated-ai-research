@@ -11,6 +11,7 @@ validates — never because a file appeared.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -232,8 +233,44 @@ def status(ws: Workspace, run_id: str) -> dict[str, Any]:
         "blocking": blocking,
         "source_document_count": manifest["source_collection"]["document_count"],
         "index_hash": manifest["source_collection"]["index_hash"],
-        "unresolved_contradictions": [],   # populated by validation in Phase 7
-        "superseded_artifacts": [],        # populated by amendments in Phase 6
+        # These were `[]` under the comments "populated by validation in Phase 7" and "populated
+        # by amendments in Phase 6". Both phases shipped; the lists stayed empty, so `status`
+        # reported a clean run to anyone who asked.
+        **_contradiction_and_supersession(ws, run_id),
+    }
+
+
+def _run_json(ws: Workspace, run_id: str, subdir: str) -> list[dict[str, Any]]:
+    directory = _run_dir(ws, run_id) / subdir
+    out: list[dict[str, Any]] = []
+    if not directory.is_dir():
+        return out
+    for path in sorted(directory.glob("*.json")):
+        try:
+            with open(path, encoding="utf-8") as fh:
+                data = json.load(fh)
+        except Exception:  # noqa: BLE001, S112
+            continue
+        out.extend(x for x in (data if isinstance(data, list) else [data]) if isinstance(x, dict))
+    return out
+
+
+def _contradiction_and_supersession(ws: Workspace, run_id: str) -> dict[str, Any]:
+    """What `status` should have been answering all along, computed from the artifacts."""
+    claims = _run_json(ws, run_id, "claims")
+    amendments = _run_json(ws, run_id, "amendments")
+    superseded = sorted({a["target_artifact_id"] for a in amendments
+                         if a.get("schema_name") == "Amendment" and a.get("target_artifact_id")
+                         and a.get("replacement_artifact_id")
+                         and a["replacement_artifact_id"] != a["target_artifact_id"]}
+                        | {c["supersedes"] for c in claims if c.get("supersedes")})
+    return {
+        "unresolved_contradictions": sorted(
+            c["claim_id"] for c in claims if c.get("contradiction_status") == "unresolved"),
+        "unchecked_contradictions": sorted(
+            c["claim_id"] for c in claims
+            if c.get("contradiction_status") in (None, "not_checked")),
+        "superseded_artifacts": superseded,
     }
 
 

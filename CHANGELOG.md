@@ -6,6 +6,19 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed — the read surface answers from the artifacts
+- `research status` hardcoded `unresolved_contradictions: []` and `superseded_artifacts: []` under
+  the comments "populated by validation in Phase 7" and "populated by amendments in Phase 6". Both
+  phases had shipped. They are now computed, and `unchecked_contradictions` is reported separately
+  because "nobody looked" is not "none found".
+- `research inspect` refused `EVD-`, `CLM-` and `REV-` ids with "arrives with Phase 6 artifacts" —
+  the three classes spec §8.7 most requires. Evidence inspection re-slices the stored normalized
+  text, reports any divergence from `exact_text` instead of hiding it, and names the claims and
+  reviews that rely on it.
+- Payloads carrying document-derived text now carry an explicit untrusted-content note. The
+  trusted/untrusted separation the security model relies on existed only as three constants in
+  `packets.py` that never wrapped anything.
+
 ### Added — stage acceptance (`research validate --stage`)
 - `docs/architecture.md`, `workflow/canonical-workflow.md` and `validator.py`'s own docstring all
   said agents write to `responses/` and that validation promotes a response only after it validates.
