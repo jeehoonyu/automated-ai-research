@@ -29,7 +29,8 @@ PRIMARY_METHOD = (
 
 CONTRADICTING_RESULT = (
     "In our replication across three hardware platforms, the process-in-memory configuration "
-    "increased measured off-chip data movement by 12 percent relative to the baseline, the opposite "
+    "increased measured off-chip data movement by 12 percent relative to the baseline, the "
+    "opposite "
     "of the direction previously reported."
 )
 
@@ -104,7 +105,8 @@ def build(root: Path) -> dict[str, Path]:
     # 1. The primary study. Page 1 carries the result; page 2 carries its own limitations.
     made["primary"] = root / "pim-primary-study.pdf"
     _pdf(made["primary"], [
-        "1 Introduction. This report evaluates a process-in-memory configuration. " + PRIMARY_RESULT,
+        "1 Introduction. This report evaluates a process-in-memory configuration. "
+        + PRIMARY_RESULT,
         "3 Method and limitations. " + PRIMARY_METHOD,
     ])
 
@@ -124,7 +126,8 @@ def build(root: Path) -> dict[str, Path]:
     made["contradiction"] = root / "pim-replication.pdf"
     _pdf(made["contradiction"], [
         "1 Replication study. " + CONTRADICTING_RESULT,
-        "2 Method. Three hardware platforms, ten random seeds, full control configuration measured.",
+        "2 Method. Three hardware platforms, ten random seeds, full control configuration "
+        "measured.",
     ])
 
     # 5. Related but NOT supporting: ranks well for the query, states nothing that supports it.

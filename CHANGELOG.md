@@ -6,6 +6,19 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed — the assertions that guard everything else can now fail
+- `compare_hosts.py`, the harness that decides gate 38.10, reduced each host's claims to three
+  *independently sorted* lists — throwing away which value belonged to which claim, so two hosts
+  that swapped verdicts compared as identical — and collected `claim_types` without ever comparing
+  it. Verdicts are now compared per claim, anchored to the content-derived evidence ids the claim
+  rests on, which is the only key stable across hosts (claim ids are UUIDs; §37 permits differing
+  prose). Six mutation tests, including a control that identical copies agree.
+- `test_every_registered_schema_loads_and_is_wellformed` asserted `is_valid(...) in (True, False)`.
+  It now validates each schema against the Draft 2020-12 meta-schema.
+- The OCR disclosure is asserted present in a report with an unreadable page and absent in one
+  without.
+- CI lints `benchmark/` and `tools/`, which ship and were never linted.
+
 ### Added — retrieval provenance is persisted (spec §29)
 - `research search` computed the entire retrieval record and a stable `retrieval_log_hash` — under
   a docstring calling the log "reproducible and auditable" — and discarded it. Nothing recorded

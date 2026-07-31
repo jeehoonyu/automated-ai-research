@@ -54,10 +54,24 @@ def claim(**over):
 # --------------------------------------------------------------- registry
 
 
-def test_every_registered_schema_loads_and_is_wellformed():
+def test_every_registered_schema_is_a_valid_json_schema():
+    """This asserted `is_valid(...) in (True, False)` — true of every boolean ever returned.
+
+    It would have passed for a schema that accepted anything, or rejected everything, or was a
+    syntactically valid JSON document with no constraints in it at all. Checking the schema against
+    the Draft 2020-12 meta-schema is the assertion that was meant.
+    """
+    import jsonschema
+
+    from research.artifacts.registry import _load
+
     for name in known_schemas():
-        assert is_valid(artifact(name), schema_name=name) in (True, False)  # loads without raising
-    assert len(SCHEMA_FILES) >= 13
+        schema = _load(name)
+        jsonschema.Draft202012Validator.check_schema(schema)
+        assert schema["title"] == name, f"{name} does not name itself"
+        assert schema.get("required"), f"{name} constrains nothing"
+        assert schema.get("properties"), f"{name} declares no properties"
+    assert len(SCHEMA_FILES) >= 15
 
 
 def test_unknown_artifact_type_is_rejected():

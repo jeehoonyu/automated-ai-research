@@ -348,3 +348,37 @@ def test_a_validation_result_naming_no_artifacts_cannot_publish(complete_run):
     with pytest.raises(ReportGatingError) as exc:
         render_report(ws, rid)
     assert any("no artifact roster" in d for d in exc.value.detail["differences"])
+
+
+# ------------------------------------------------ disclosures are asserted, not assumed
+#
+# `_disclosures` and the template block for unreadable pages both existed; no test asserted either
+# appeared, so the OCR disclosure could have been deleted and every test would still have passed.
+
+
+def test_the_ocr_disclosure_appears_when_a_document_has_unreadable_pages(complete_run, tmp_path):
+    from research.importers.importer import import_paths
+
+    ws, rid, meta = complete_run
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from fixtures.make_fixtures import build
+
+    import_paths(ws, [build(tmp_path / "ocr-src")["low_text_pdf"]])
+    validate_run(ws, rid)
+    result = render_report(ws, rid, draft=True)
+
+    body = _read(result.report_path)
+    assert "could not be read as text" in body
+    manifest = read_artifact(result.manifest_path, expect_schema="ReportManifest")
+    assert any("unreadable pages" in d for d in manifest["disclosures"])
+
+
+def test_the_ocr_disclosure_is_absent_when_no_document_has_unreadable_pages(complete_run):
+    """The other half. A disclosure that is always present discloses nothing."""
+    ws, rid, _ = complete_run
+    validate_run(ws, rid)
+    result = render_report(ws, rid)
+
+    assert "could not be read as text" not in _read(result.report_path)
+    manifest = read_artifact(result.manifest_path, expect_schema="ReportManifest")
+    assert not any("unreadable pages" in d for d in manifest["disclosures"])

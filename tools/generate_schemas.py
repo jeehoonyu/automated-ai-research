@@ -1,7 +1,8 @@
 """Emit src/research/schemas/v1/*.schema.json.
 
-The schemas are checked-in artifacts; this script is how they are authored, so the shared fragments
-(envelope, locators, id patterns) are written once rather than copied into fourteen files and drifting.
+The schemas are checked-in artifacts; this script is how they are authored, so the shared
+fragments (envelope, locators, id patterns) are written once rather than copied into fifteen files
+and drifting.
 
 Run:  python tools/generate_schemas.py
 """
@@ -390,7 +391,8 @@ SCHEMAS["validation-result"] = schema(
         "human_review_reasons": {"type": "array", "items": {"type": "string"}},
         "schema_versions_used": {"type": "object"},
         "validated_inputs": {
-            "$comment": "The artifacts this verdict was computed over. Without it `report_eligible` "
+            "$comment": "The artifacts this verdict was computed over. "
+            "Without it `report_eligible` "
                         "is a boolean bound to nothing: `research report` re-reads claims/ and "
                         "evidence/ from disk, so a claim written after `validate` was published "
                         "having never been validated.",
@@ -700,7 +702,8 @@ SCHEMAS["report-manifest"] = schema(
 SCHEMAS["review-context"] = schema(
     "review-context", "ReviewContext",
     "The context a host attests it handed to a reviewer. `reviewer_independence_sufficient` "
-    "otherwise decides by reading a boolean the host wrote about itself; this artifact is the thing "
+    "otherwise decides by reading a boolean the host wrote about "
+    "itself; this artifact is the thing "
     "it can actually inspect. It records what was sent, not what should have been sent.",
     {
         "context_id": CONTEXT_ID,
@@ -744,7 +747,8 @@ SCHEMAS["review-context"] = schema(
 SCHEMAS["retrieval-log"] = schema(
     "retrieval-log", "RetrievalLog",
     "One executed search, kept. `research search` already computed the whole record and a stable "
-    "`retrieval_log_hash` under a docstring calling the log 'reproducible and auditable' — and then "
+    "`retrieval_log_hash` under a docstring calling the log "
+    "'reproducible and auditable' — and then "
     "discarded it, so nothing recorded which queries produced the evidence a run rests on.",
     {
         "retrieval_id": RETRIEVAL_ID,

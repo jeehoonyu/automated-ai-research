@@ -28,7 +28,8 @@ jobs:
         run: |
           python tools/generate_schemas.py
           git diff --exit-code src/research/schemas/
-      - run: ruff check src tests
+      # `benchmark/` ships and decides gate 38.10; it was never linted.
+      - run: ruff check src tests benchmark tools
       - run: mypy src/research
 
   wheel:

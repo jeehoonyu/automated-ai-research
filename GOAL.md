@@ -147,7 +147,7 @@ calling it wrong.
 The suite's own fixture and the benchmark harness both had to start recording their searches, which
 is the point: they were not exercising the pipeline they claimed to.
 
-### 6. Make the assertions that guard all of the above capable of failing — `weakens-a-guarantee`
+### 6. Make the assertions that guard all of the above capable of failing — **done**
 
 *Restores: the benchmark's and the suite's ability to notice a regression.*
 
@@ -155,10 +155,51 @@ is the point: they were not exercising the pipeline they claimed to.
 detection. A schema test asserts a loaded schema is a dict; a page-disclosure test asserts only that
 a list is a list.
 
-**Done when** a mutated copy of `benchmark/expected/claude-code` (a changed `claim_type`, or two
-claims with swapped verdicts) produces a non-empty diff and a non-zero exit, pinned by a test; the
-OCR disclosure is asserted present in one report and absent in another; and the schema test checks
-meta-schema well-formedness rather than a tautology.
+**Done.** `compare_hosts.py` reduced each host's claims to three *independently sorted* lists, which
+threw away which value belonged to which claim — and `claim_types` was collected and never compared
+at all. Verdicts are now compared per claim, **anchored to the content-derived evidence ids** the
+claim rests on. That anchor is the only thing available: claim ids are UUIDs and spec §37 permits
+the prose to differ, so neither can key the comparison; evidence ids are the same across hosts that
+cite the same passage.
+
+Six mutation tests, including a control that identical copies agree — without it, a harness that
+always disagreed would pass everything else.
+
+The schema test asserted `is_valid(...) in (True, False)`, which is true of every boolean ever
+returned; it would have passed for a schema accepting anything, rejecting everything, or containing
+no constraints. It now checks each schema against the Draft 2020-12 meta-schema and that it names
+itself and constrains something.
+
+The OCR disclosure is asserted present in a report with an unreadable page and **absent** in one
+without — a disclosure that is always present discloses nothing.
+
+Also: `benchmark/` and `tools/` ship and were never linted. CI lints them now.
+
+---
+
+## Where Goal 4 stands
+
+All six themes are done. `pytest`, `ruff check src tests benchmark tools`, `mypy --strict
+src/research` and schema regeneration are clean, and the CI wheel job drives a real pipeline against
+a real install.
+
+What that does **not** mean is that the program logic is flawless — see the plan below, which says
+so at more length. It means the defects found by two audits are closed and pinned, and the
+invariants I1–I6 hold.
+
+Still open, and not closeable by iterating:
+
+- **Codex cross-host conformance (§38.10)** — account usage limits until 2026-08-01.
+- **One green CI run** — GitHub cancels every job before it starts; private repositories bill
+  Actions minutes and the account's billing is blocked.
+
+Named, deliberately deferred, and recorded rather than slipped in:
+
+- Validation does not *require* phase progression before publishing; direct writes to canonical
+  directories remain supported (Theme 3).
+- `interpretation_status` on visual evidence is still self-reported, and whether
+  `actor_type == "human"` should be required for `human_*` amendments is undecided (Theme 2).
+- `methodology_review.require_*` profile keys are declared unimplemented with their reason.
 
 ---
 
