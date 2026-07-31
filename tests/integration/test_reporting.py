@@ -41,7 +41,7 @@ def test_an_unvalidated_run_cannot_be_published(complete_run):
 def test_a_blocked_run_cannot_be_published(complete_run):
     """Spec §8.9: refuse publication when gating fails, and say which gates."""
     ws, rid, meta = complete_run
-    (meta["run_dir"] / "reviews" / "independent_review.json").unlink()
+    meta["review_paths"]["independent_review"].unlink()
     validate_run(ws, rid)
 
     with pytest.raises(ReportGatingError) as exc:
@@ -62,7 +62,7 @@ def test_a_validated_eligible_run_publishes(complete_run):
 
 def test_a_blocked_run_can_still_produce_a_visibly_marked_draft(complete_run):
     ws, rid, meta = complete_run
-    (meta["run_dir"] / "reviews" / "citation_review.json").unlink()
+    meta["review_paths"]["citation_review"].unlink()
     validate_run(ws, rid)
 
     result = render_report(ws, rid, draft=True)
@@ -113,7 +113,7 @@ def test_causal_wording_on_a_correlational_claim_is_flagged():
 
 def test_an_overstated_claim_is_disclosed_in_the_report_not_silently_rendered(complete_run):
     ws, rid, meta = complete_run
-    path = meta["run_dir"] / "claims" / "c1.json"
+    path = meta["claim_path"]
     claim = json.loads(path.read_text(encoding="utf-8"))
     claim["claim"] = "This definitively proves that data movement always falls."
     path.write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
@@ -131,7 +131,7 @@ def test_an_overstated_claim_is_disclosed_in_the_report_not_silently_rendered(co
 def test_the_renderer_never_rewrites_a_claim(complete_run):
     """The generator has no vocabulary of its own for how well-supported something is."""
     ws, rid, meta = complete_run
-    path = meta["run_dir"] / "claims" / "c1.json"
+    path = meta["claim_path"]
     claim = json.loads(path.read_text(encoding="utf-8"))
     original = claim["claim"]
     validate_run(ws, rid)
@@ -141,7 +141,7 @@ def test_the_renderer_never_rewrites_a_claim(complete_run):
 
 def test_the_qualifier_comes_from_a_fixed_table(complete_run):
     ws, rid, meta = complete_run
-    path = meta["run_dir"] / "claims" / "c1.json"
+    path = meta["claim_path"]
     claim = json.loads(path.read_text(encoding="utf-8"))
     claim["support_classification"] = "weakly_supported"
     path.write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
@@ -181,7 +181,7 @@ def test_the_report_quotes_what_the_locator_resolves_to(complete_run):
     body = _read(render_report(ws, rid).report_path)
     doc = meta["doc"]
     text = (ws.root / doc["normalized_text_path"]).read_text(encoding="utf-8")
-    ev = json.loads((meta["run_dir"] / "evidence" / "e1.json").read_text(encoding="utf-8"))
+    ev = json.loads((meta["evidence_path"]).read_text(encoding="utf-8"))
     expected = " ".join(text[ev["locator"]["start_offset"]:ev["locator"]["end_offset"]].split())
     assert expected[:60] in body
 
@@ -286,7 +286,7 @@ def test_a_claim_deleted_after_validate_is_not_published(complete_run):
     """The mirror image: a report that quietly drops what the verdict rested on."""
     ws, rid, meta = complete_run
     _publishable(ws, rid)
-    (meta["run_dir"] / "claims" / "c1.json").unlink()
+    (meta["claim_path"]).unlink()
 
     with pytest.raises(ReportGatingError) as exc:
         render_report(ws, rid)
@@ -299,7 +299,7 @@ def test_a_claim_re_stamped_after_validate_is_not_published(complete_run):
     ws, rid, meta = complete_run
     _publishable(ws, rid)
 
-    path = meta["run_dir"] / "claims" / "c1.json"
+    path = meta["claim_path"]
     claim = json.loads(path.read_text(encoding="utf-8"))
     claim["claim"] = "Data movement is always eliminated entirely."
     path.write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
@@ -313,7 +313,7 @@ def test_re_validating_after_the_change_restores_publication(complete_run):
     """The gate must be a binding, not a lock: validate again and the new state can publish."""
     ws, rid, meta = complete_run
     _publishable(ws, rid)
-    path = meta["run_dir"] / "claims" / "c1.json"
+    path = meta["claim_path"]
     claim = json.loads(path.read_text(encoding="utf-8"))
     claim["claim"] = "The paper reports a reduction in data movement."
     path.write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
@@ -329,7 +329,7 @@ def test_a_draft_still_renders_the_run_as_it_stands(complete_run):
     """A draft is explicitly a picture of now, and says so, so it is exempt."""
     ws, rid, meta = complete_run
     _publishable(ws, rid)
-    (meta["run_dir"] / "claims" / "c1.json").unlink()
+    (meta["claim_path"]).unlink()
 
     result = render_report(ws, rid, draft=True)
     assert result.draft is True

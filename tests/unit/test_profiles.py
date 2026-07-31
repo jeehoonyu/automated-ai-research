@@ -85,9 +85,28 @@ def test_an_unknown_profile_is_an_error_not_a_silent_default():
 
 
 def test_declared_unimplemented_keys_are_reported_not_hidden():
+    """`methodology_review` used to be listed here. It is honoured now, which is why this test
+    names a key that is still genuinely unread — a test pinned to a key that got implemented would
+    otherwise have to be deleted rather than updated."""
     medicine = load_profile("medicine")
-    assert "methodology_review" in medicine.unimplemented
-    assert NOT_IMPLEMENTED["methodology_review"], "an unimplemented key must carry its reason"
+    assert "advisory_human_review_triggers" in medicine.unimplemented
+    for key in medicine.unimplemented:
+        assert NOT_IMPLEMENTED[key], f"{key} is declared unimplemented without a reason"
+
+
+def test_the_methodology_requirements_are_read_now():
+    """Three keys `medicine.yaml` has carried since it was written, finally doing something."""
+    assert load_profile("medicine").required_methodology_items == (
+        "controls", "preregistration_check", "sample_size")
+    assert load_profile("default").required_methodology_items == ()
+
+
+def test_a_methodology_item_no_review_can_record_is_rejected(tmp_path: Path):
+    root = _write(tmp_path, "wishful", {
+        "name": "wishful", "methodology_review": {"require_author_sincerity": True}})
+    with pytest.raises(InvalidArguments) as exc:
+        load_profile("wishful", root)
+    assert "author_sincerity" in str(exc.value.detail) or "author_sincerity" in exc.value.message
 
 
 # --------------------------------------------------------------- the rules they now apply

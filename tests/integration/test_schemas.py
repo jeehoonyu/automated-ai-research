@@ -37,9 +37,15 @@ DVER = "DVER-sha256-" + "b" * 64
 SHA = "sha256:" + "c" * 64
 
 
-def artifact(schema_name: str, **body):
+def artifact(schema_name: str, *, actor_type: str = "host_agent", **body):
+    """`actor_type` is a keyword of its own, not a body field.
+
+    It used to be hardcoded, so passing one landed in the artifact body as a stray property while
+    `created_by.actor_type` stayed `host_agent` — which made the human-verification rule below
+    untestable, and would have made it look enforced when it was not.
+    """
     return make_artifact(schema_name=schema_name, artifact_id=body.get("artifact_id", "X"),
-                         body=body, actor_type="host_agent")
+                         body=body, actor_type=actor_type)
 
 
 def claim(**over):
@@ -366,3 +372,52 @@ def test_every_artifact_the_pipeline_produces_validates(tmp_path: Path):
             validate_artifact(data, path=path)
             checked += 1
     assert checked >= 15, f"expected many artifacts, validated only {checked}"
+
+
+# ------------------------------------------------ two questions that were left open, now decided
+
+
+def test_a_human_verification_must_be_recorded_by_a_human():
+    """The two gates these clear are named for the human who looked.
+
+    An agent recording `human_ocr_verification` about its own evidence is the self-attestation
+    those gates exist to refuse. This was called out as undecided rather than slipped in; the
+    enforceable reading is the one the gate name already promises.
+    """
+    body = dict(amendment_id=AMD, run_id=RUN, target_artifact_id=EVD,
+                target_artifact_hash=SHA, amendment_type="human_ocr_verification",
+                changed_fields=["extraction_status"], reason="read against the render",
+                human={"identifier": "someone"}, requires_revalidation=True,
+                replacement_artifact_id=EVD, replacement_artifact_hash=SHA)
+    assert is_valid(artifact("Amendment", actor_type="human", **body))
+    assert not is_valid(artifact("Amendment", actor_type="host_agent", **body))
+    assert not is_valid(artifact("Amendment", actor_type="cli", **body))
+
+
+def test_an_ordinary_amendment_may_still_come_from_an_agent():
+    """Only the two `human_*` types demand a human. A locator correction is ordinary maintenance."""
+    assert is_valid(artifact(
+        "Amendment", actor_type="host_agent",
+        amendment_id=AMD, run_id=RUN, target_artifact_id=EVD, target_artifact_hash=SHA,
+        amendment_type="locator_correction", changed_fields=["locator"],
+        reason="offsets moved after re-extraction", human={"identifier": "n/a"},
+        requires_revalidation=True, replacement_artifact_id=EVD,
+        replacement_artifact_hash=SHA))
+
+
+def test_visual_evidence_must_declare_its_interpretation_certainty():
+    """An absent field read as 'clear', so evidence that never answered the question passed the
+    visual-certainty gate. The CLI cannot check whether an agent read a figure correctly; it can
+    insist the agent say how sure it was."""
+    visual = {
+        "type": "visual_region", "page": 1, "render_sha256": SHA,
+        "coordinate_system": "normalized_top_left_0_to_1",
+        "bounding_box": {"x": 0.1, "y": 0.1, "width": 0.5, "height": 0.5},
+        "render_width": 800, "render_height": 1000,
+    }
+    body = dict(evidence_id=EVD, document_id=DOC, document_version_id=DVER,
+                evidence_type="figure_observation", locator=visual,
+                extraction_status="extracted", human_review_required=False)
+    assert not is_valid(artifact("Evidence", **body))
+    assert is_valid(artifact("Evidence", interpretation_status="clear", **body))
+    assert is_valid(artifact("Evidence", interpretation_status="uncertain", **body))

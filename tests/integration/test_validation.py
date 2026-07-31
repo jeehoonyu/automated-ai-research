@@ -90,7 +90,7 @@ def test_an_empty_run_is_blocked_by_not_evaluated_not_by_silence(tmp_path: Path)
 
 def test_a_claim_without_evidence_blocks_publication(complete_run):
     ws, rid, meta = complete_run
-    path = meta["run_dir"] / "claims" / "c1.json"
+    path = meta["claim_path"]
     claim = json.loads(path.read_text(encoding="utf-8"))
     claim["supporting_evidence_ids"] = []
     # Re-stamped, not tampered: this simulates a run an agent legitimately produced in this
@@ -104,7 +104,7 @@ def test_a_claim_without_evidence_blocks_publication(complete_run):
 
 def test_a_dangling_evidence_reference_blocks_publication(complete_run):
     ws, rid, meta = complete_run
-    path = meta["run_dir"] / "claims" / "c1.json"
+    path = meta["claim_path"]
     claim = json.loads(path.read_text(encoding="utf-8"))
     claim["supporting_evidence_ids"] = ["EVD-sha256-" + "f" * 64]
     path.write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
@@ -117,7 +117,7 @@ def test_a_dangling_evidence_reference_blocks_publication(complete_run):
 def test_an_unresolvable_locator_blocks_publication(complete_run):
     """The citation points at offsets that no longer contain what it claims."""
     ws, rid, meta = complete_run
-    path = meta["run_dir"] / "evidence" / "e1.json"
+    path = meta["evidence_path"]
     ev = json.loads(path.read_text(encoding="utf-8"))
     ev["locator"]["start_offset"] = 999_999
     ev["locator"]["end_offset"] = 1_000_099
@@ -131,7 +131,7 @@ def test_an_unresolvable_locator_blocks_publication(complete_run):
 def test_a_paraphrased_exact_text_blocks_publication(complete_run):
     """exact_text must be the passage at those offsets, not a tidied version of it."""
     ws, rid, meta = complete_run
-    path = meta["run_dir"] / "evidence" / "e1.json"
+    path = meta["evidence_path"]
     ev = json.loads(path.read_text(encoding="utf-8"))
     ev["exact_text"] = "a paraphrase the reviewer would have to take on trust"
     path.write_text(json.dumps(stamp_artifact_hash(ev)), encoding="utf-8")
@@ -155,7 +155,7 @@ def test_a_tampered_original_blocks_publication(complete_run):
                                      "methodology_review", "independent_review"])
 def test_each_required_review_is_individually_required(complete_run, missing):
     ws, rid, meta = complete_run
-    (meta["run_dir"] / "reviews" / f"{missing}.json").unlink()
+    (meta["review_paths"][missing]).unlink()
 
     result = validate_run(ws, rid)
     assert _status(result, f"{missing}_complete") == "not_evaluated"
@@ -164,7 +164,7 @@ def test_each_required_review_is_individually_required(complete_run, missing):
 
 def test_a_failed_review_blocks_publication(complete_run):
     ws, rid, meta = complete_run
-    path = meta["run_dir"] / "reviews" / "citation_review.json"
+    path = meta["review_paths"]["citation_review"]
     review = json.loads(path.read_text(encoding="utf-8"))
     review["decision"] = "failed"
     review["blocking_issues"] = ["the cited passage does not mention the claimed result"]
@@ -178,7 +178,7 @@ def test_a_failed_review_blocks_publication(complete_run):
 def test_a_related_but_non_supporting_citation_blocks_publication(complete_run):
     """Spec §38.5 — the failure mode where a plausible source is nonetheless not support."""
     ws, rid, meta = complete_run
-    path = meta["run_dir"] / "reviews" / "citation_review.json"
+    path = meta["review_paths"]["citation_review"]
     review = json.loads(path.read_text(encoding="utf-8"))
     review["per_claim"][0]["citation_support"] = "related_not_supporting"
     path.write_text(json.dumps(stamp_artifact_hash(review)), encoding="utf-8")
@@ -190,7 +190,7 @@ def test_a_related_but_non_supporting_citation_blocks_publication(complete_run):
 
 def test_an_unassessed_claim_is_not_evaluated_rather_than_assumed_fine(complete_run):
     ws, rid, meta = complete_run
-    path = meta["run_dir"] / "reviews" / "citation_review.json"
+    path = meta["review_paths"]["citation_review"]
     review = json.loads(path.read_text(encoding="utf-8"))
     review["per_claim"] = []
     path.write_text(json.dumps(stamp_artifact_hash(review)), encoding="utf-8")
@@ -202,7 +202,7 @@ def test_an_unassessed_claim_is_not_evaluated_rather_than_assumed_fine(complete_
 
 def test_insufficient_reviewer_independence_blocks_publication(complete_run):
     ws, rid, meta = complete_run
-    path = meta["run_dir"] / "reviews" / "independent_review.json"
+    path = meta["review_paths"]["independent_review"]
     review = json.loads(path.read_text(encoding="utf-8"))
     review["review_independence"]["status"] = "not_independent"
     path.write_text(json.dumps(stamp_artifact_hash(review)), encoding="utf-8")
@@ -214,7 +214,7 @@ def test_insufficient_reviewer_independence_blocks_publication(complete_run):
 
 def test_undeclared_independence_is_not_evaluated(complete_run):
     ws, rid, meta = complete_run
-    path = meta["run_dir"] / "reviews" / "independent_review.json"
+    path = meta["review_paths"]["independent_review"]
     review = json.loads(path.read_text(encoding="utf-8"))
     del review["review_independence"]
     path.write_text(json.dumps(stamp_artifact_hash(review)), encoding="utf-8")
@@ -226,7 +226,7 @@ def test_undeclared_independence_is_not_evaluated(complete_run):
 def test_ocr_evidence_without_human_verification_blocks_publication(complete_run):
     """Spec §26: no OCR ships in v1, so such a page is readable only via a human amendment."""
     ws, rid, meta = complete_run
-    path = meta["run_dir"] / "evidence" / "e1.json"
+    path = meta["evidence_path"]
     ev = json.loads(path.read_text(encoding="utf-8"))
     ev["extraction_status"] = "ocr_required"
     ev["human_review_required"] = True
@@ -241,7 +241,7 @@ def test_ocr_evidence_without_human_verification_blocks_publication(complete_run
 def test_a_recorded_human_verification_amendment_clears_the_ocr_gate(complete_run):
     """The sanctioned route forward must actually work, or the gate is a dead end."""
     ws, rid, meta = complete_run
-    path = meta["run_dir"] / "evidence" / "e1.json"
+    path = meta["evidence_path"]
     ev = json.loads(path.read_text(encoding="utf-8"))
     ev["extraction_status"] = "ocr_required"
     ev["human_review_required"] = True
@@ -270,7 +270,7 @@ def test_a_recorded_human_verification_amendment_clears_the_ocr_gate(complete_ru
 
 def test_an_unresolved_contradiction_blocks_publication(complete_run):
     ws, rid, meta = complete_run
-    path = meta["run_dir"] / "claims" / "c1.json"
+    path = meta["claim_path"]
     claim = json.loads(path.read_text(encoding="utf-8"))
     claim["contradiction_status"] = "unresolved"
     path.write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
@@ -283,8 +283,8 @@ def test_an_unresolved_contradiction_blocks_publication(complete_run):
 def test_verified_without_a_passed_independent_review_blocks_publication(complete_run):
     """The schema constrains the claim's shape; validation checks the run actually earned it."""
     ws, rid, meta = complete_run
-    (meta["run_dir"] / "reviews" / "independent_review.json").unlink()
-    path = meta["run_dir"] / "claims" / "c1.json"
+    meta["review_paths"]["independent_review"].unlink()
+    path = meta["claim_path"]
     claim = json.loads(path.read_text(encoding="utf-8"))
     claim["claim_type"] = "direct_fact"
     claim["support_classification"] = "verified"
@@ -308,7 +308,7 @@ def test_verified_does_not_require_multiple_sources(complete_run):
     conformance run caught it.
     """
     ws, rid, meta = complete_run
-    path = meta["run_dir"] / "claims" / "c1.json"
+    path = meta["claim_path"]
     claim = json.loads(path.read_text(encoding="utf-8"))
     claim["claim_type"] = "direct_fact"
     claim["support_classification"] = "verified"
@@ -324,7 +324,7 @@ def test_verified_does_not_require_multiple_sources(complete_run):
 def test_strongly_supported_still_requires_more_than_one_source(complete_run):
     """The other half of the same rule: corroboration is exactly what this label means."""
     ws, rid, meta = complete_run
-    path = meta["run_dir"] / "claims" / "c1.json"
+    path = meta["claim_path"]
     claim = json.loads(path.read_text(encoding="utf-8"))
     claim["support_classification"] = "strongly_supported"
     path.write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
@@ -345,7 +345,7 @@ def test_an_unreadable_artifact_is_not_evaluated_rather_than_skipped(complete_ru
 
 def test_a_schema_invalid_artifact_blocks_publication(complete_run):
     ws, rid, meta = complete_run
-    path = meta["run_dir"] / "claims" / "c1.json"
+    path = meta["claim_path"]
     claim = json.loads(path.read_text(encoding="utf-8"))
     claim["support_classification"] = "definitely_true"       # not in the enum
     path.write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
@@ -404,8 +404,8 @@ CLEAN_CONTEXT = (
 )
 
 
-def _set_independence(run_dir: Path, status: str) -> str:
-    path = run_dir / "reviews" / "independent_review.json"
+def _set_independence(path: Path, status: str) -> str:
+    """Takes the promoted path, not a guessed filename: the CLI chooses names now."""
     review = json.loads(path.read_text(encoding="utf-8"))
     review["review_independence"]["status"] = status
     review["review_independence"]["host_confirmed_fresh_context"] = (
@@ -442,7 +442,7 @@ def test_procedurally_isolated_needs_no_attestation(complete_run):
 def test_confirmed_independent_without_an_attested_context_blocks(complete_run):
     """The gate this whole exercise exists to close: the strongest status is no longer free."""
     ws, rid, meta = complete_run
-    _set_independence(meta["run_dir"], "confirmed_independent")
+    _set_independence(meta["review_paths"]["independent_review"], "confirmed_independent")
 
     result = validate_run(ws, rid)
     assert _status(result, "independence_context_attested") == "not_evaluated"
@@ -453,7 +453,7 @@ def test_confirmed_independent_without_an_attested_context_blocks(complete_run):
 
 def test_confirmed_independent_with_a_clean_attested_context_passes(complete_run):
     ws, rid, meta = complete_run
-    review = _set_independence(meta["run_dir"], "confirmed_independent")
+    review = _set_independence(meta["review_paths"]["independent_review"], "confirmed_independent")
     _attest(ws, meta["run_dir"], rid, review, CLEAN_CONTEXT)
 
     result = validate_run(ws, rid)
@@ -464,7 +464,7 @@ def test_confirmed_independent_with_a_clean_attested_context_passes(complete_run
 def test_the_real_historical_leak_in_an_attested_context_fails_the_run(complete_run):
     """End to end, with the verbatim sentence that got past every gate in the conformance run."""
     ws, rid, meta = complete_run
-    review = _set_independence(meta["run_dir"], "confirmed_independent")
+    review = _set_independence(meta["review_paths"]["independent_review"], "confirmed_independent")
     _attest(ws, meta["run_dir"], rid, review, CLEAN_CONTEXT + f"\nNote: {THE_REAL_LEAK}.\n")
 
     result = validate_run(ws, rid)
@@ -479,7 +479,7 @@ def test_a_partial_context_cannot_establish_independence(complete_run):
     """A clean scan of an incomplete record proves nothing — the leak may be in the unrecorded part.
     Reporting that as a pass is the fail-open shape exactly (lessons §6b)."""
     ws, rid, meta = complete_run
-    review = _set_independence(meta["run_dir"], "confirmed_independent")
+    review = _set_independence(meta["review_paths"]["independent_review"], "confirmed_independent")
     _attest(ws, meta["run_dir"], rid, review, CLEAN_CONTEXT, complete=False)
 
     result = validate_run(ws, rid)
@@ -493,7 +493,7 @@ def test_an_attested_context_that_does_not_match_its_own_hash_fails(complete_run
     from research.hashing import sha256_text
 
     ws, rid, meta = complete_run
-    review = _set_independence(meta["run_dir"], "confirmed_independent")
+    review = _set_independence(meta["review_paths"]["independent_review"], "confirmed_independent")
     _attest(ws, meta["run_dir"], rid, review, CLEAN_CONTEXT,
             recorded_hash=sha256_text("something else entirely"))
 
@@ -513,7 +513,7 @@ def test_an_attested_context_that_does_not_match_its_own_hash_fails(complete_run
 def test_a_hand_edited_review_is_caught_as_tampering(complete_run):
     """One word, and `citations_support_their_claims` flips from failed to passed."""
     ws, rid, meta = complete_run
-    path = meta["run_dir"] / "reviews" / "citation_review.json"
+    path = meta["review_paths"]["citation_review"]
     review = json.loads(path.read_text(encoding="utf-8"))
     review["per_claim"][0]["citation_support"] = "related_not_supporting"
     path.write_text(json.dumps(review), encoding="utf-8")     # hash deliberately NOT re-stamped
@@ -526,7 +526,7 @@ def test_a_hand_edited_review_is_caught_as_tampering(complete_run):
 
 def test_a_hand_edited_claim_is_caught_as_tampering(complete_run):
     ws, rid, meta = complete_run
-    path = meta["run_dir"] / "claims" / "c1.json"
+    path = meta["claim_path"]
     claim = json.loads(path.read_text(encoding="utf-8"))
     claim["claim"] = "Process-in-memory eliminates off-chip data movement entirely."
     path.write_text(json.dumps(claim), encoding="utf-8")
@@ -555,7 +555,7 @@ def test_an_unchecked_contradiction_status_blocks(complete_run):
     """`not_checked` used to return passed, "none unresolved" — a clean bill of health for a
     question nobody asked, from the check whose module docstring says not_evaluated blocks."""
     ws, rid, meta = complete_run
-    path = meta["run_dir"] / "claims" / "c1.json"
+    path = meta["claim_path"]
     claim = json.loads(path.read_text(encoding="utf-8"))
     claim["contradiction_status"] = "not_checked"
     path.write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
@@ -609,7 +609,7 @@ def test_only_a_positive_assertion_of_independence_clears_the_gate(
                   evidence_type="direct_statement", locator=loc, exact_text=text[:40],
                   extraction_status="extracted", human_review_required=False)), root=ws.root)
 
-    path = run_dir / "claims" / "c1.json"
+    path = meta["claim_path"]
     claim = json.loads(path.read_text(encoding="utf-8"))
     claim["support_classification"] = "strongly_supported"
     claim["supporting_evidence_ids"] = [meta["evidence_id"], eid]
@@ -642,7 +642,7 @@ def test_a_self_consistent_fabrication_is_caught_by_the_document_hash(complete_r
     text_path = ws.root / doc["normalized_text_path"]
     original = text_path.read_text(encoding="utf-8")
 
-    ev_path = meta["run_dir"] / "evidence" / "e1.json"
+    ev_path = meta["evidence_path"]
     ev = json.loads(ev_path.read_text(encoding="utf-8"))
     start, end = ev["locator"]["start_offset"], ev["locator"]["end_offset"]
 
@@ -704,7 +704,7 @@ def test_conflicting_citation_verdicts_are_undecided_in_either_file_order(
     """Order-dependence was the bug; the parametrisation is the point of the test."""
     ws, rid, meta = complete_run
     cid = meta["claim_id"]
-    (meta["run_dir"] / "reviews" / "citation_review.json").unlink()
+    meta["review_paths"]["citation_review"].unlink()
     _citation_review(ws, meta["run_dir"], rid, cid, "related_not_supporting", first)
     _citation_review(ws, meta["run_dir"], rid, cid, "passed", second)
 
@@ -717,7 +717,7 @@ def test_a_not_checked_citation_verdict_counts_as_unjudged(complete_run):
     """`not_checked` is truthy, so it used to register as a verdict and skip the unjudged path."""
     ws, rid, meta = complete_run
     cid = meta["claim_id"]
-    (meta["run_dir"] / "reviews" / "citation_review.json").unlink()
+    meta["review_paths"]["citation_review"].unlink()
     _citation_review(ws, meta["run_dir"], rid, cid, "not_checked", "citation_review.json")
 
     result = validate_run(ws, rid)
@@ -729,7 +729,7 @@ def test_two_reviews_agreeing_still_pass(complete_run):
     """Agreement is not a conflict — the fix must not block honest re-review."""
     ws, rid, meta = complete_run
     cid = meta["claim_id"]
-    (meta["run_dir"] / "reviews" / "citation_review.json").unlink()
+    meta["review_paths"]["citation_review"].unlink()
     _citation_review(ws, meta["run_dir"], rid, cid, "passed", "aaa-citation_review.json")
     _citation_review(ws, meta["run_dir"], rid, cid, "passed", "zzz-citation_review.json")
 
@@ -775,7 +775,7 @@ def _ocr_run(ws, rid, meta, tmp_path, *, declare):
                   human_review_required=(declare == "ocr_required")))
     write_artifact(meta["run_dir"] / "evidence" / "e-ocr.json", ev, root=ws.root)
 
-    path = meta["run_dir"] / "claims" / "c1.json"
+    path = meta["claim_path"]
     claim = json.loads(path.read_text(encoding="utf-8"))
     claim["supporting_evidence_ids"] = [meta["evidence_id"], eid]
     path.write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")

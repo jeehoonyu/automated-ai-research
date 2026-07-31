@@ -50,8 +50,13 @@ KNOWN_TRIGGERS = {
 
 HONOURED_KEYS = {
     "name", "description", "risk", "reviewer_independence", "prohibited_confidence",
-    "human_review_triggers",
+    "human_review_triggers", "methodology_review",
 }
+
+# Methodology items a profile may require the review to have ASSESSED. The names are the profile's
+# `require_<item>` keys with the prefix dropped.
+KNOWN_METHODOLOGY_ITEMS = {"sample_size", "controls", "preregistration_check", "blinding",
+                           "effect_size", "statistical_power"}
 
 # Keys a shipped profile may carry that nothing reads yet. The value is the reason, which is
 # surfaced by `research doctor` and reproduced in docs/validation-rules.md. Adding a key here is a
@@ -61,10 +66,6 @@ NOT_IMPLEMENTED: dict[str, str] = {
         "contradiction review is already required for every profile and already instructed to "
         "search for disagreement, so these keys cannot tighten anything. Kept so a profile that "
         "wanted to LOOSEN them would be visibly rejected rather than silently honoured.",
-    "methodology_review":
-        "requires judging study design from the source text, which is the host agent's job, not "
-        "the CLI's. Making it a real gate needs the methodology review to record a per-item "
-        "assessment the validator can check for presence — not yet built.",
     "report_sections":
         "the report template is fixed (reporting/templates/report.md.j2). Profile-driven sections "
         "would let a profile omit `contradictions` or `limitations`, so this stays unread until "
@@ -87,6 +88,7 @@ class Profile:
     disclose_independence_below: str = "confirmed_independent"
     prohibited_confidence: tuple[str, ...] = ()
     human_review_triggers: tuple[str, ...] = ()
+    required_methodology_items: tuple[str, ...] = ()
     unimplemented: tuple[str, ...] = ()
     source_path: str | None = None
     _raw: dict[str, Any] = field(default_factory=dict, repr=False, compare=False)
@@ -143,6 +145,18 @@ def _parse(data: dict[str, Any], *, name: str, source: str | None) -> Profile:
             detail={"source": source, "detectable": sorted(KNOWN_TRIGGERS),
                     "hint": "a trigger nothing can fire is a promise, not a rule"})
 
+    methodology = data.get("methodology_review") or {}
+    required_items = tuple(sorted(
+        key[len("require_"):] for key, value in methodology.items()
+        if key.startswith("require_") and value))
+    unknown_items = sorted(set(required_items) - KNOWN_METHODOLOGY_ITEMS)
+    if unknown_items:
+        raise InvalidArguments(
+            f"profile {name!r} requires methodology items nothing can check: {unknown_items}",
+            detail={"source": source, "checkable": sorted(KNOWN_METHODOLOGY_ITEMS),
+                    "hint": "the validator checks that an item was ASSESSED, so the item has to "
+                            "have a name the review can record"})
+
     return Profile(
         name=str(data.get("name", name)),
         description=str(data.get("description", "")),
@@ -151,6 +165,7 @@ def _parse(data: dict[str, Any], *, name: str, source: str | None) -> Profile:
         disclose_independence_below=disclose,
         prohibited_confidence=tuple(str(c) for c in (data.get("prohibited_confidence") or [])),
         human_review_triggers=triggers,
+        required_methodology_items=required_items,
         unimplemented=tuple(sorted(set(data) & set(NOT_IMPLEMENTED))),
         source_path=source,
         _raw=data,

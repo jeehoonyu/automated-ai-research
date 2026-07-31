@@ -193,13 +193,32 @@ Still open, and not closeable by iterating:
 - **One green CI run** — GitHub cancels every job before it starts; private repositories bill
   Actions minutes and the account's billing is blocked.
 
-Named, deliberately deferred, and recorded rather than slipped in:
+### The deferred items, now decided
 
-- Validation does not *require* phase progression before publishing; direct writes to canonical
-  directories remain supported (Theme 3).
-- `interpretation_status` on visual evidence is still self-reported, and whether
-  `actor_type == "human"` should be required for `human_*` amendments is undecided (Theme 2).
-- `methodology_review.require_*` profile keys are declared unimplemented with their reason.
+All four were closed on 2026-07-31 rather than left standing.
+
+- **Phase progression is required.** `check_run_progressed` blocks a run that has not reached
+  `independently_reviewed`. This exposed something worse than the deferral: `Phase.REPORT_ELIGIBLE`
+  and `Phase.PUBLISHED` were referenced in exactly one comparison and **nothing ever set them**,
+  `Phase.VALIDATION_PASSED` was referenced nowhere, and `Disposition.VALIDATION_FAILED` was never
+  assigned — so `research status` answered `report_eligible: False` for every run that ever
+  existed, including runs `research validate` had just called eligible and `research report` went
+  on to publish. Two commands disagreeing about the central question. `validate` now records its
+  verdict in the lifecycle and `report` records publication.
+- **Visual evidence must declare its certainty.** An absent `interpretation_status` was
+  indistinguishable from `clear`, so the gate never fired for evidence that simply did not answer.
+  The CLI still cannot judge whether a figure was read correctly — it can insist the agent say how
+  sure it was.
+- **A human verification must come from a human.** `actor_type == "human"` is required for
+  `human_ocr_verification` and `human_visual_verification`. An agent recording one about its own
+  evidence is the self-attestation those gates exist to refuse.
+- **`methodology_review.require_*` is honoured.** Not by judging study design — that remains the
+  agent's job — but by checking the review RECORDED an assessment for each required item. "Was this
+  considered?" is answerable deterministically; "was it considered well?" is not.
+
+Closing the first one forced the suite's own fixture to stop writing canonical artifacts directly
+and start walking the workflow through `research validate --stage`. It had never exercised the loop
+the documentation describes.
 
 ---
 
@@ -265,12 +284,35 @@ Worth writing down before it is reached, so it cannot be quietly redefined: a *n
 after two clean sweeps means the sweeps were not independent enough or the lenses were too narrow.
 The response is to add a lens, not to lower the bar.
 
-### The caveat that most threatens this plan
+### The caveat that threatened this plan, and how it was settled
 
-**Across two rounds, 20 of 20 findings survived refutation.** A verifier that never disagrees is
-indistinguishable from one that is not looking. Until a sweep produces a genuine refutation, step 3
-is doing the real work and steps 2 is unproven. Next round should deliberately seed one false claim
-into the refutation batch and check that it comes back refuted.
+Across two rounds, **20 of 20 findings survived refutation** — and a verifier that never disagrees is
+indistinguishable from one that is not looking.
+
+So the refuter was calibrated on 2026-07-31: six claims about stable parts of the codebase, **three
+of them deliberately false**, each given to a skeptic told nothing about which was which.
+
+| Planted claim | Verdict |
+|---|---|
+| `document_id` includes the filename | **refuted** |
+| `safe_join` follows symlinks out of the workspace | **refuted** |
+| `normalize_query` passes FTS operators through | **refuted** |
+| UUIDv7 has an intra-millisecond counter | upheld |
+| `artifact_hash` omits itself from the digest | upheld |
+| `not_evaluated` blocks exactly as `failed` | upheld |
+
+**3/3 falsehoods caught, 3/3 true claims upheld.** The refutation step works; the 20/20 survival rate
+was because those claims were true — each had already survived a ranking pass and cited a specific
+file and line.
+
+Two refuters also went further than asked, which is the behaviour you want: the `safe_join` one
+refuted the claim *and* noted a genuine TOCTOU gap (the returned path is unresolved, so a symlink
+planted between check and write would be followed — bounded by `atomic_write_bytes` re-checking with
+`assert_within`). The UUIDv7 one confirmed the counter and then established by experiment that it
+saturates at ~3,840 ids inside a single millisecond and is not thread-safe, verifying that nothing
+under `src/` is threaded.
+
+Calibration should be repeated whenever the refuting prompt changes.
 
 ## How this list was produced, and what is weak about it
 

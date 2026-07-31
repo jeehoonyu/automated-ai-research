@@ -148,6 +148,30 @@
           "replacement_artifact_hash"
         ]
       }
+    },
+    {
+      "$comment": "A human verification must be recorded BY a human. The two gates these clear are named for the human who looked; an agent recording `human_ocr_verification` about its own evidence is the self-attestation those gates exist to refuse. Left undecided until 2026-07-31 and settled here: the enforceable reading is the one the gate name already promises.",
+      "if": {
+        "properties": {
+          "amendment_type": {
+            "enum": [
+              "human_ocr_verification",
+              "human_visual_verification"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "created_by": {
+            "properties": {
+              "actor_type": {
+                "const": "human"
+              }
+            }
+          }
+        }
+      }
     }
   ]
 }

@@ -26,7 +26,7 @@ from research.runs.manager import status
 
 def test_status_reports_a_real_unresolved_contradiction(complete_run):
     ws, rid, meta = complete_run
-    path = meta["run_dir"] / "claims" / "c1.json"
+    path = meta["claim_path"]
     claim = json.loads(path.read_text(encoding="utf-8"))
     claim["contradiction_status"] = "unresolved"
     path.write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
@@ -37,7 +37,7 @@ def test_status_reports_a_real_unresolved_contradiction(complete_run):
 def test_status_distinguishes_unchecked_from_none_found(complete_run):
     """"Nobody looked" and "none found" are different answers, here as everywhere else."""
     ws, rid, meta = complete_run
-    path = meta["run_dir"] / "claims" / "c1.json"
+    path = meta["claim_path"]
     claim = json.loads(path.read_text(encoding="utf-8"))
     claim["contradiction_status"] = "not_checked"
     path.write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
@@ -49,7 +49,7 @@ def test_status_distinguishes_unchecked_from_none_found(complete_run):
 
 def test_status_reports_superseded_artifacts(complete_run):
     ws, rid, meta = complete_run
-    path = meta["run_dir"] / "claims" / "c1.json"
+    path = meta["claim_path"]
     claim = json.loads(path.read_text(encoding="utf-8"))
     claim["supersedes"] = "CLM-00000000-0000-7000-8000-000000000000"
     path.write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
@@ -84,7 +84,7 @@ def test_inspect_evidence_reports_a_divergence_instead_of_hiding_it(complete_run
     """An inspector that trusts the artifact it is inspecting cannot detect the failure that
     matters."""
     ws, _, meta = complete_run
-    path = meta["run_dir"] / "evidence" / "e1.json"
+    path = meta["evidence_path"]
     ev = json.loads(path.read_text(encoding="utf-8"))
     ev["exact_text"] = "a tidied-up version of the passage"
     path.write_text(json.dumps(stamp_artifact_hash(ev)), encoding="utf-8")
@@ -105,7 +105,7 @@ def test_inspect_claim_shows_its_evidence_and_its_verdicts(complete_run):
 
 def test_inspect_review_shows_what_it_decided(complete_run):
     ws, _, meta = complete_run
-    review = json.loads((meta["run_dir"] / "reviews" / "independent_review.json")
+    review = json.loads(meta["review_paths"]["independent_review"]
                         .read_text(encoding="utf-8"))
     out = inspect(ws, review["review_id"])
     assert out["kind"] == "review"

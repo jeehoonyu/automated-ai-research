@@ -172,6 +172,18 @@
         "type": "string"
       }
     },
+    "methodology_assessments": {
+      "$comment": "What the methodology review actually considered. A profile may require specific items; the CLI checks that each was ASSESSED, never whether the assessment was right — judging study design means reading the source.",
+      "type": "object",
+      "additionalProperties": {
+        "enum": [
+          "assessed",
+          "not_assessed",
+          "not_applicable",
+          "unknown"
+        ]
+      }
+    },
     "per_claim": {
       "type": "array",
       "items": {

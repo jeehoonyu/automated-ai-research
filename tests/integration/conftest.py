@@ -1,9 +1,18 @@
 """Shared fixtures for the integration suite.
 
-`complete_run` lives here rather than in test_validation.py because two suites need it. Importing a
-fixture across test modules works, but every use then shadows the import — which is a real warning
-about a real hazard, not noise: the name is both a module-level symbol and a parameter. A conftest
-is where pytest expects shared fixtures, and it makes `ruff check tests` clean.
+`complete_run` lives here rather than in test_validation.py because several suites need it.
+Importing a fixture across test modules works, but every use then shadows the import — a real
+warning about a real hazard, not noise.
+
+IT WALKS THE WORKFLOW. The fixture used to write canonical artifacts straight into `evidence/`,
+`claims/` and `reviews/` and leave the run at phase `initialized` forever. That was the only way to
+build a run when this was written, because stage acceptance did not exist — but it meant the suite
+never exercised the loop the documentation describes, and a run could be "complete" without a single
+lifecycle event. It now writes each stage's response and calls `research validate --stage`, which is
+what a host is told to do.
+
+The promoted filenames are chosen by the CLI, so `meta` carries the real paths. Tests that want to
+seed a defect edit `meta["claim_path"]`, not a name they guessed.
 """
 
 from __future__ import annotations
@@ -17,14 +26,24 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from fixtures.make_fixtures import build  # noqa: E402
 
-from research.artifacts.io import make_artifact, write_artifact  # noqa: E402
+from research.artifacts.io import make_artifact  # noqa: E402
 from research.config import load_workspace  # noqa: E402
 from research.identifiers import claim_id, evidence_id, review_id  # noqa: E402
 from research.importers.importer import import_paths  # noqa: E402
 from research.indexing.builder import build_index  # noqa: E402
+from research.runs.lifecycle import Stage  # noqa: E402
 from research.runs.manager import create_run  # noqa: E402
+from research.runs.promotion import promote_stage  # noqa: E402
 from research.search.engine import record_retrieval, search  # noqa: E402
 from research.workspace import init_workspace  # noqa: E402
+
+
+def _accept(ws, rid, run_dir: Path, stage: Stage, filename: str, payload) -> list[str]:
+    """Write a stage response and accept it, the way a host is instructed to."""
+    (run_dir / "responses" / filename).write_text(json.dumps(payload), encoding="utf-8")
+    result = promote_stage(ws, rid, stage)
+    assert result["accepted"], (stage, result["problems"])
+    return result["promoted"]
 
 
 @pytest.fixture
@@ -53,18 +72,30 @@ def complete_run(tmp_path: Path):
     loc = dict(hit["locator"])
     exact = text[loc["start_offset"]:loc["end_offset"]]
 
+    _accept(ws, rid, run_dir, Stage.PLANNING, "plan.json", {
+        "schema_name": "ResearchPlan", "schema_version": "1.0.0",
+        "artifact_id": "PLAN-" + rid, "created_at": "2026-07-31T00:00:00Z",
+        "created_by": {"actor_type": "host_agent", "host": "test"},
+        "run_id": rid, "main_question": "Does process-in-memory reduce data movement?",
+        "subquestions": ["what does the primary study measure?"],
+        "insufficient_evidence_conditions": ["no source states a figure"]})
+
+    _accept(ws, rid, run_dir, Stage.RETRIEVAL, "retrieval.json",
+            {"queries": [found["query"]], "chunk_ids": [r["chunk_id"] for r in found["results"]]})
+
     eid = evidence_id(document_version_id_=hit["document_version_id"], locator=loc,
                       exact_text=exact, evidence_type="direct_statement")
-    evidence = make_artifact(
-        schema_name="Evidence", artifact_id=eid, actor_type="host_agent",
-        body=dict(evidence_id=eid, document_id=hit["document_id"],
-                  document_version_id=hit["document_version_id"],
-                  evidence_type="direct_statement", locator=loc, exact_text=exact,
-                  extraction_status="extracted", human_review_required=False))
-    write_artifact(run_dir / "evidence" / "e1.json", evidence, root=ws.root)
+    evidence_paths = _accept(ws, rid, run_dir, Stage.EVIDENCE_EXTRACTION, "evidence.json",
+                             make_artifact(
+                                 schema_name="Evidence", artifact_id=eid, actor_type="host_agent",
+                                 body=dict(evidence_id=eid, document_id=hit["document_id"],
+                                           document_version_id=hit["document_version_id"],
+                                           evidence_type="direct_statement", locator=loc,
+                                           exact_text=exact, extraction_status="extracted",
+                                           human_review_required=False)))
 
     cid = claim_id()
-    claim = make_artifact(
+    claim_paths = _accept(ws, rid, run_dir, Stage.SYNTHESIS, "claims.json", make_artifact(
         schema_name="Claim", artifact_id=cid, actor_type="host_agent",
         body=dict(claim_id=cid, claim="The paper reports reduced data movement.",
                   claim_type="descriptive_result", claim_status="independently_reviewed",
@@ -72,25 +103,35 @@ def complete_run(tmp_path: Path):
                   contradicting_evidence_ids=[], citation_status="passed",
                   contradiction_status="none_found",
                   independent_review_status="procedurally_isolated",
-                  human_review_required=False, run_id=rid))
-    write_artifact(run_dir / "claims" / "c1.json", claim, root=ws.root)
+                  human_review_required=False, run_id=rid)))
 
-    for rtype, extra in (
-        ("contradiction_review", {}),
-        ("citation_review", {"per_claim": [{"claim_id": cid, "assessment": "supports",
-                                            "citation_support": "passed"}]}),
-        ("methodology_review", {}),
-        ("independent_review", {"review_independence": {
-            "status": "procedurally_isolated", "primary_rationale_excluded": True,
-            "primary_confidence_excluded": True, "prior_review_conclusions_excluded": True,
-            "fresh_agent_context_requested": True, "host_confirmed_fresh_context": False}}),
+    review_paths: dict[str, Path] = {}
+    for stage, rtype, filename, extra in (
+        (Stage.CONTRADICTION_REVIEW, "contradiction_review", "contradiction-review.json", {}),
+        (Stage.CITATION_REVIEW, "citation_review", "citation-review.json",
+         {"per_claim": [{"claim_id": cid, "assessment": "supports",
+                         "citation_support": "passed"}]}),
+        (Stage.METHODOLOGY_REVIEW, "methodology_review", "methodology-review.json", {}),
+        (Stage.INDEPENDENT_REVIEW, "independent_review", "independent-review.json",
+         {"review_independence": {
+             "status": "procedurally_isolated", "primary_rationale_excluded": True,
+             "primary_confidence_excluded": True, "prior_review_conclusions_excluded": True,
+             "fresh_agent_context_requested": True, "host_confirmed_fresh_context": False}}),
     ):
-        rid_ = review_id()
-        review = make_artifact(
-            schema_name="Review", artifact_id=rid_, actor_type="host_agent",
-            body=dict(review_id=rid_, review_type=rtype, run_id=rid,
+        rev = review_id()
+        promoted = _accept(ws, rid, run_dir, stage, filename, make_artifact(
+            schema_name="Review", artifact_id=rev, actor_type="host_agent",
+            body=dict(review_id=rev, review_type=rtype, run_id=rid,
                       reviewed_artifact_ids=[cid], reviewer={"actor_type": "host_agent"},
-                      decision="passed", **extra))
-        write_artifact(run_dir / "reviews" / f"{rtype}.json", review, root=ws.root)
+                      decision="passed", **extra)))
+        review_paths[rtype] = ws.root / promoted[0]
 
-    return ws, rid, {"claim_id": cid, "evidence_id": eid, "doc": doc, "run_dir": run_dir}
+    return ws, rid, {
+        "claim_id": cid,
+        "evidence_id": eid,
+        "doc": doc,
+        "run_dir": run_dir,
+        "evidence_path": ws.root / evidence_paths[0],
+        "claim_path": ws.root / claim_paths[0],
+        "review_paths": review_paths,
+    }

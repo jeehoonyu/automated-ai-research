@@ -279,6 +279,15 @@ def render_report(ws: Workspace, run_id: str, *, draft: bool = False) -> ReportR
     manifest_path = safe_join(run_dir, "report", "report-manifest.json")
     write_artifact(manifest_path, manifest, root=ws.root)
 
+    # A published report is a lifecycle event. `Phase.PUBLISHED` existed and nothing set it.
+    if not draft:
+        from ..runs.lifecycle import Phase
+        from ..runs.manager import load_run, transition
+        if Phase(load_run(ws, run_id)["phase"]) is Phase.REPORT_ELIGIBLE:
+            transition(ws, run_id, to_phase=Phase.PUBLISHED,
+                       triggered_by="research report", reason="report published",
+                       validation_result=(validation or {}).get("artifact_hash"))
+
     return ReportResult(
         run_id=run_id, draft=draft,
         report_path=str(report_path), report_sha256=report_hash,

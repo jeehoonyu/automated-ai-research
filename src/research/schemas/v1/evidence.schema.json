@@ -281,6 +281,25 @@
   },
   "allOf": [
     {
+      "$comment": "Visual evidence must declare its interpretation certainty. An absent field read as 'clear', so evidence that never answered the question passed the visual-certainty gate.",
+      "if": {
+        "properties": {
+          "locator": {
+            "properties": {
+              "type": {
+                "const": "visual_region"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "interpretation_status"
+        ]
+      }
+    },
+    {
       "$comment": "Text evidence must carry the exact passage.",
       "if": {
         "properties": {

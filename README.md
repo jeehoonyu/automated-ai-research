@@ -57,7 +57,7 @@ output checkable.
   outright, OCR-dependent evidence must demand human review, and an independent review must declare
   its independence.
 
-- **Phase 7 (validation and gating)** — 23 checks covering source hashes, locator resolution,
+- **Phase 7 (validation and gating)** — 25 checks covering source hashes, locator resolution,
   claim-evidence links, review completeness, reviewer independence, OCR and visual certainty,
   contradiction disclosure, support classifications, and lifecycle replay. Each check reports
   `passed` / `failed` / `not_evaluated` / `not_applicable`, and **`not_evaluated` blocks publication
@@ -81,7 +81,7 @@ output checkable.
   `CONTRIBUTING.md`, a changelog, CI across Linux/macOS/Windows, and a release checklist that lists
   what is **not** met.
 
-402 tests (399 passing, 3 skipped). A stage is complete only when its artifact exists **and**
+407 tests (404 passing, 3 skipped). A stage is complete only when its artifact exists **and**
 validates — never because a
 file appeared, and never because an artifact says so about itself: every artifact validation loads
 is checked against its own `artifact_hash`, and the derived bytes citations resolve against are
@@ -170,7 +170,7 @@ instructions from untrusted document content explicitly.
   enforced. Worth reading before changing any gate.
 - [`docs/architecture.md`](docs/architecture.md) — trust boundaries, authority model, determinism
 - [`docs/security-model.md`](docs/security-model.md) — threat model, and what is *not* protected
-- [`docs/validation-rules.md`](docs/validation-rules.md) — the 23 checks, the profile rules, and why `not_evaluated` blocks
+- [`docs/validation-rules.md`](docs/validation-rules.md) — the 25 checks, the profile rules, and why `not_evaluated` blocks
 - [`docs/release-checklist.md`](docs/release-checklist.md) — gate status, including the unmet one
 - [`benchmark/README.md`](benchmark/README.md) — the corpus and the ten cases
 - [`CONTRIBUTING.md`](CONTRIBUTING.md), [`SECURITY.md`](SECURITY.md), [`CHANGELOG.md`](CHANGELOG.md)

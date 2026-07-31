@@ -6,6 +6,21 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed — the four deferred questions, decided
+- **`research status` and `research validate` disagreed about report eligibility.**
+  `Phase.REPORT_ELIGIBLE` and `Phase.PUBLISHED` were compared against in `status` and set by
+  nothing; `Phase.VALIDATION_PASSED` was referenced nowhere and `Disposition.VALIDATION_FAILED`
+  never assigned. `status` therefore answered `report_eligible: False` for every run ever created.
+  `validate` now records its verdict in the lifecycle, `report` records publication, and the new
+  `run_reached_a_publishable_phase` check blocks a run that never walked the stages.
+- **Visual evidence must declare `interpretation_status`.** An absent field was indistinguishable
+  from `clear`, so the visual-certainty gate never fired for evidence that did not answer.
+- **`human_ocr_verification` and `human_visual_verification` require `actor_type == "human"`.**
+- **`methodology_review.require_*` is honoured** by the new `methodology_items_assessed` check —
+  presence of an assessment, never its correctness.
+- The suite's `complete_run` fixture now walks the workflow through `research validate --stage`
+  instead of writing canonical artifacts directly. It had never exercised the documented loop.
+
 ### Fixed — the assertions that guard everything else can now fail
 - `compare_hosts.py`, the harness that decides gate 38.10, reduced each host's claims to three
   *independently sorted* lists — throwing away which value belonged to which claim, so two hosts

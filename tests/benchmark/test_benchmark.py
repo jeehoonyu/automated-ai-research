@@ -189,6 +189,25 @@ def _relationship(ws, run_dir, a, b, kind):
     write_artifact(run_dir / "relationships" / "r1.json", art, root=ws.root)
 
 
+def _advance_through_stages(ws, rid):
+    """Walk the run's phases with the real one-step transition API.
+
+    These cases deliberately seed INVALID artifacts (`validate=False`), so they cannot go through
+    `promote_stage`, which validates. They still have to leave a real event log: a run that never
+    advanced a phase has no record of when each stage was accepted, which is what
+    `run_reached_a_publishable_phase` asks for. Every transition here is legal, one step, and
+    logged with a truthful reason.
+    """
+    from research.runs.lifecycle import Phase
+    from research.runs.manager import transition
+
+    for phase in (Phase.PLANNED, Phase.RETRIEVED, Phase.EVIDENCE_EXTRACTED, Phase.SYNTHESIZED,
+                  Phase.CONTRADICTION_REVIEWED, Phase.CITATION_REVIEWED,
+                  Phase.METHODOLOGY_REVIEWED, Phase.INDEPENDENTLY_REVIEWED):
+        transition(ws, rid, to_phase=phase, triggered_by="benchmark harness",
+                   reason="stage artifacts written directly by the case builder")
+
+
 def _setup(ws, question="Does process-in-memory reduce data movement?"):
     from research.search.engine import record_retrieval, search
 
@@ -219,6 +238,8 @@ def test_B1_supported_claim_publishes(workspace):
     cid = claim_id()
     _claim(ws, run_dir, rid, cid, supporting_evidence_ids=[eid])
     _reviews(ws, run_dir, rid, cid)
+
+    _advance_through_stages(ws, rid)
 
     result = validate_run(ws, rid)
     assert result["report_eligible"] is _case("B1")["expect_report_eligible"], \
@@ -280,6 +301,8 @@ def test_each_seeded_defect_is_caught_by_its_own_mechanism(workspace, case_id):
         _claim(ws, run_dir, rid, cid, supporting_evidence_ids=[eid])
         _reviews(ws, run_dir, rid, cid)
 
+    _advance_through_stages(ws, rid)
+
     result = validate_run(ws, rid)
     assert result["report_eligible"] == case["expect_report_eligible"], case["name"]
     assert _check(result, case["expect_check"]) == case["expect_status"], (
@@ -300,6 +323,8 @@ def test_B9_insufficient_evidence_is_a_successful_outcome(workspace):
            support_classification="unable_to_determine",
            supporting_evidence_ids=[])
     _reviews(ws, run_dir, rid, cid)
+
+    _advance_through_stages(ws, rid)
 
     result = validate_run(ws, rid)
     assert result["report_eligible"] is True, result["blocking_errors"]

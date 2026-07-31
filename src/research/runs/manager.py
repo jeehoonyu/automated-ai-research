@@ -206,6 +206,9 @@ def status(ws: Workspace, run_id: str) -> dict[str, Any]:
             break
 
     validation_path = _run_dir(ws, run_id) / "validation" / "validation-result.json"
+    # Nothing ever set these phases, so this was False for every run that ever existed — including
+    # runs `research validate` had just called eligible. `validate` records its verdict in the
+    # lifecycle now, so the two commands answer the same question the same way.
     report_eligible = phase in {Phase.REPORT_ELIGIBLE, Phase.PUBLISHED}
 
     return {

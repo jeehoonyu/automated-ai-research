@@ -70,6 +70,9 @@ wrong gate fired.
 | `independent_review_complete` | as above |
 | `reviewer_independence_sufficient` | independence declared and meeting the profile's bar |
 | `independence_context_attested` | `confirmed_independent` is backed by an attested reviewer context containing no excluded material |
+| `run_reached_a_publishable_phase` | the run walked the stages, so when each was accepted is on the record |
+| `methodology_items_assessed` | the methodology review recorded an assessment for each item the profile requires |
+| `retrieval_provenance_recorded` | the searches that produced this evidence are on disk and ran against the run's pinned index |
 | `ocr_evidence_human_verified` | evidence on a page **the Document manifest flags** `ocr_required` has a valid human-verification amendment naming that version of it |
 | `visual_interpretation_certain` | uncertain visual readings were human-verified |
 | `contradictions_disclosed` | every claim was actually checked, and none carries an unresolved contradiction |
@@ -140,10 +143,14 @@ deterministic record to cross-check it against — the CLI cannot know whether a
 correctly. What is enforced is the amendment discipline above. Stated here rather than left to be
 discovered.
 
-**Open question, deliberately not decided:** whether `created_by.actor_type == "human"` should be
-required for `human_ocr_verification` and `human_visual_verification`. The gate names a human; the
-schema does not demand one. Requiring it would be enforceable and is probably right, but it changes
-what existing workspaces can do, so it is called out rather than slipped in.
+**Decided 2026-07-31:** `created_by.actor_type == "human"` **is** required for
+`human_ocr_verification` and `human_visual_verification`. The gate names a human; an agent recording
+one about its own evidence is the self-attestation the gate exists to refuse. Ordinary amendment
+types — a locator correction, a metadata fix — may still come from an agent.
+
+**Also decided:** visual evidence must declare `interpretation_status`. An absent field read as
+`clear`, so the gate never fired for evidence that simply did not answer the question. The CLI still
+cannot judge whether a figure was read correctly; it can insist the agent say how sure it was.
 
 ## The verdict is bound to the artifacts it was computed over
 

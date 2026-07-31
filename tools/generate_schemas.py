@@ -191,6 +191,10 @@ SCHEMAS["evidence"] = schema(
         "human_review_required": {"type": "boolean"},
         "interpretation_status": {
             "enum": ["not_applicable", "clear", "uncertain", "human_review_required"]},
+        # A visual reading has to declare its own certainty. Omitting the field used to be
+        # indistinguishable from "clear", so the gate never fired for evidence that simply did not
+        # answer the question. The CLI cannot check whether an agent read a figure correctly; it
+        # can insist the agent say how sure it was.
         "caption": {"type": "string"},
         "region_type": {"enum": ["figure", "table", "chart", "diagram", "page", "other"]},
         "notes": {"type": "string"},
@@ -199,6 +203,14 @@ SCHEMAS["evidence"] = schema(
      "extraction_status", "human_review_required"],
     {
         "allOf": [
+            {
+                "$comment": "Visual evidence must declare its interpretation certainty. An absent "
+                            "field read as 'clear', so evidence that never answered the question "
+                            "passed the visual-certainty gate.",
+                "if": {"properties": {"locator": {"properties": {
+                    "type": {"const": "visual_region"}}}}},
+                "then": {"required": ["interpretation_status"]},
+            },
             {
                 "$comment": "Text evidence must carry the exact passage.",
                 "if": {"properties": {"locator": {"properties": {"type": {"const": "text_span"}}}}},
@@ -331,6 +343,15 @@ SCHEMAS["review"] = schema(
         "blocking_issues": {"type": "array", "items": {"type": "string"}},
         "warnings": {"type": "array", "items": {"type": "string"}},
         "required_amendments": {"type": "array", "items": {"type": "string"}},
+        "methodology_assessments": {
+            "$comment": "What the methodology review actually considered. A profile may require "
+                        "specific items; the CLI checks that each was ASSESSED, never whether the "
+                        "assessment was right — judging study design means reading the source.",
+            "type": "object",
+            "additionalProperties": {
+                "enum": ["assessed", "not_assessed", "not_applicable", "unknown"]
+            },
+        },
         "per_claim": {
             "type": "array",
             "items": {
@@ -452,12 +473,27 @@ SCHEMAS["amendment"] = schema(
     ["amendment_id", "target_artifact_id", "target_artifact_hash", "amendment_type",
      "changed_fields", "reason", "human", "requires_revalidation"],
     {
-        "allOf": [{
-            "$comment": "Spec §31: an amendment that replaces content must name the replacement, "
-                        "and any amendment touching published content forces revalidation.",
-            "if": {"properties": {"amendment_type": {"not": {"const": "withdrawal"}}}},
-            "then": {"required": ["replacement_artifact_id", "replacement_artifact_hash"]},
-        }]
+        "allOf": [
+            {
+                "$comment": "Spec §31: an amendment that replaces content must name the "
+                            "replacement, and any amendment touching published content forces "
+                            "revalidation.",
+                "if": {"properties": {"amendment_type": {"not": {"const": "withdrawal"}}}},
+                "then": {"required": ["replacement_artifact_id", "replacement_artifact_hash"]},
+            },
+            {
+                "$comment": "A human verification must be recorded BY a human. The two gates "
+                            "these clear are named for the human who looked; an agent recording "
+                            "`human_ocr_verification` about its own evidence is the "
+                            "self-attestation those gates exist to refuse. Left undecided until "
+                            "2026-07-31 and settled here: the enforceable reading is the one the "
+                            "gate name already promises.",
+                "if": {"properties": {"amendment_type": {"enum": ["human_ocr_verification",
+                                                                 "human_visual_verification"]}}},
+                "then": {"properties": {"created_by": {"properties": {
+                    "actor_type": {"const": "human"}}}}},
+            },
+        ]
     })
 
 SCHEMAS["source-relationship"] = schema(

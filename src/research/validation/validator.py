@@ -743,6 +743,42 @@ def _unverified(ctx: RunContext, candidates: list[dict[str, Any]],
     return missing, stale
 
 
+def check_methodology_assessed(ctx: RunContext) -> CheckResult:
+    """A profile may require the methodology review to have considered specific things.
+
+    `medicine.yaml` has asked for `require_sample_size`, `require_controls` and
+    `require_preregistration_check` since it was written, and nothing read them — the key was
+    declared unimplemented with the reason that judging study design is the agent's job.
+
+    That reason still holds, and this does not judge anything. It checks that the review RECORDED an
+    assessment for each required item. "Was this considered?" is answerable deterministically; "was
+    it considered well?" is not, and pretending otherwise would be the overreach the whole project
+    is built to avoid.
+    """
+    name = "methodology_items_assessed"
+    required = ctx.rules.required_methodology_items
+    if not required:
+        return CheckResult(name, "not_applicable",
+                           f"profile {ctx.rules.name!r} requires no specific methodology item")
+    reviews = [r for r in ctx.reviews if r["review_type"] == "methodology_review"]
+    if not reviews:
+        return CheckResult(name, "not_evaluated", "no methodology review was produced")
+
+    recorded: dict[str, str] = {}
+    for review in reviews:
+        for item, verdict in (review.get("methodology_assessments") or {}).items():
+            recorded[item] = verdict
+
+    missing = [item for item in required if recorded.get(item) not in
+               ("assessed", "not_applicable")]
+    if missing:
+        return CheckResult(name, "not_evaluated",
+                           f"profile {ctx.rules.name!r} requires these to be assessed and the "
+                           f"methodology review does not record them: {sorted(missing)}")
+    return CheckResult(name, "passed",
+                       f"{len(required)} required methodology item(s) assessed")
+
+
 def check_ocr_evidence(ctx: RunContext) -> CheckResult:
     """OCR-required material may back a claim only through a recorded human verification.
 
@@ -960,6 +996,36 @@ def _relationships(ctx: RunContext) -> list[dict[str, Any]]:
     return [r for r in ctx.relationships if r.get("schema_name") == "SourceRelationship"]
 
 
+# A run has to have reached this before a verdict about it means anything: every stage that
+# produces evidence, claims and reviews sits below it.
+PUBLISHABLE_FROM = Phase.INDEPENDENTLY_REVIEWED
+
+
+def check_run_progressed(ctx: RunContext) -> CheckResult:
+    """The run must have walked the workflow, not merely accumulated files in the right folders.
+
+    Direct writes into `evidence/` and `claims/` still work — that is a legitimate way to build a
+    run — but a run that never advanced a phase has no event log to audit, so nothing recorded WHEN
+    each stage was accepted or in what order. `research validate --stage <stage>` is what advances
+    it.
+    """
+    name = "run_reached_a_publishable_phase"
+    order = list(Phase)
+    try:
+        current = Phase(str(ctx.manifest.get("phase")))
+    except ValueError:
+        return CheckResult(name, "not_evaluated",
+                           f"the manifest records an unknown phase "
+                           f"{ctx.manifest.get('phase')!r}")
+    if order.index(current) < order.index(PUBLISHABLE_FROM):
+        return CheckResult(
+            name, "not_evaluated",
+            f"the run is at {current}; publication requires it to have reached "
+            f"{PUBLISHABLE_FROM} through `research validate --stage <stage>`, so that when each "
+            f"stage was accepted is on the record")
+    return CheckResult(name, "passed", f"run reached {current}")
+
+
 def check_lifecycle(ctx: RunContext) -> CheckResult:
     """Replay the event log: every recorded transition must have been legal.
 
@@ -1032,7 +1098,9 @@ CHECKS = [
     lambda ctx: _review_check(ctx, "citation_review"),
     lambda ctx: _review_check(ctx, "methodology_review"),
     lambda ctx: _review_check(ctx, "independent_review"),
+    check_run_progressed,
     check_profile_confidence_permitted,
+    check_methodology_assessed,
     check_independence,
     check_independence_attested,
     check_ocr_evidence,
@@ -1090,6 +1158,40 @@ def compare_inputs(recorded: dict[str, Any] | None,
     return diffs or ["the artifact roster digest changed"]
 
 
+def _record_verdict(ws: Workspace, run_id: str, *, report_eligible: bool,
+                    human_review_required: bool, result_hash: str) -> str:
+    """Move the run to match the verdict, where the state machine allows it.
+
+    Transitions are one-step and enforced, so this can only advance a run that actually reached
+    `independently_reviewed` — which `check_run_progressed` is what requires. A run built by direct
+    writes stays where it is and is told so, rather than being silently promoted.
+    """
+    from ..runs.manager import transition
+
+    manifest = load_run(ws, run_id)
+    current = Phase(manifest["phase"])
+    if not report_eligible:
+        if Disposition(manifest["disposition"]) is not Disposition.VALIDATION_FAILED:
+            transition(ws, run_id, to_disposition=(
+                Disposition.HUMAN_REVIEW_REQUIRED if human_review_required
+                else Disposition.VALIDATION_FAILED),
+                triggered_by="research validate", reason="validation did not clear the gates",
+                validation_result=result_hash)
+        return "recorded as not eligible"
+
+    if current is not Phase.INDEPENDENTLY_REVIEWED:
+        return f"left at {current}: the lifecycle only advances a run that walked the stages"
+
+    transition(ws, run_id, to_phase=Phase.VALIDATION_PASSED,
+               to_disposition=Disposition.ACTIVE,
+               triggered_by="research validate", reason="every gate cleared",
+               validation_result=result_hash)
+    transition(ws, run_id, to_phase=Phase.REPORT_ELIGIBLE,
+               triggered_by="research validate", reason="report eligibility established",
+               validation_result=result_hash)
+    return f"advanced to {Phase.REPORT_ELIGIBLE}"
+
+
 def validate_run(ws: Workspace, run_id: str) -> dict[str, Any]:
     """Run every check and decide report eligibility."""
     ctx = build_context(ws, run_id)
@@ -1122,9 +1224,20 @@ def validate_run(ws: Workspace, run_id: str) -> dict[str, Any]:
     path = safe_join(ws.root, "runs", run_id, "validation", "validation-result.json")
     write_artifact(path, artifact, root=ws.root)
 
+    # RECORD THE VERDICT IN THE LIFECYCLE.
+    #
+    # `Phase.VALIDATION_PASSED`, `Phase.REPORT_ELIGIBLE` and `Disposition.VALIDATION_FAILED` existed
+    # and were never once set, so `research status` computed `report_eligible` from a phase nothing
+    # could reach and answered False for every run — including runs this function had just called
+    # eligible. Two commands disagreeing about the central question of the system.
+    lifecycle_note = _record_verdict(ws, run_id, report_eligible=report_eligible,
+                                     human_review_required=human_review_required,
+                                     result_hash=artifact["artifact_hash"])
+
     return {
         "run_id": run_id,
         "report_eligible": report_eligible,
+        "lifecycle": lifecycle_note,
         "checks": artifact["checks"],
         "passed": sum(1 for r in results if r.status == "passed"),
         "failed": sum(1 for r in results if r.status == "failed"),
