@@ -93,6 +93,7 @@ class RunContext:
     review_contexts: list[dict[str, Any]] = field(default_factory=list)
     relationships: list[dict[str, Any]] = field(default_factory=list)
     amendments: list[dict[str, Any]] = field(default_factory=list)
+    retrieval: list[dict[str, Any]] = field(default_factory=list)
     documents: dict[str, dict[str, Any]] = field(default_factory=dict)
     load_errors: list[str] = field(default_factory=list)
 
@@ -187,7 +188,8 @@ def build_context(ws: Workspace, run_id: str) -> RunContext:
     # verdict was computed over. Loading them lazily meant a malformed one was silently dropped.
     for name, target in (("evidence", "evidence"), ("claims", "claims"), ("reviews", "reviews"),
                          ("review_contexts", "review-contexts"),
-                         ("relationships", "relationships"), ("amendments", "amendments")):
+                         ("relationships", "relationships"), ("amendments", "amendments"),
+                         ("retrieval", "retrieval")):
         items, errors = _load_json_dir(run_dir / target)
         setattr(ctx, name, items)
         ctx.load_errors.extend(f"{target}/{e}" for e in errors)
@@ -313,6 +315,39 @@ def check_derived_text_hashes(ctx: RunContext) -> CheckResult:
                            f"{len(unverifiable)} document(s) record no normalized_text_sha256, so "
                            f"the text citations resolve against cannot be verified", unverifiable)
     return CheckResult(name, "passed", f"{len(relevant)} document(s)")
+
+
+def check_retrieval_provenance(ctx: RunContext) -> CheckResult:
+    """Which searches produced this evidence, and were they run against this run's corpus?
+
+    Spec §29 requires retrieval provenance. `research search` computed the entire record and a
+    stable `retrieval_log_hash` and then discarded it, so nothing recorded how the evidence was
+    found — while reports asserted the search was reproducible.
+
+    Evidence can legitimately arrive without a search: a host may cite a passage found through
+    `research inspect`. So an absent record is `not_evaluated` (unknown, therefore blocking) rather
+    than `failed` (known-bad), and a run that genuinely used no search says so by recording none and
+    accepting that it cannot claim retrieval provenance.
+    """
+    name = "retrieval_provenance_recorded"
+    logs = [r for r in ctx.retrieval if r.get("schema_name") == "RetrievalLog"]
+    if not ctx.evidence:
+        return CheckResult(name, "not_applicable", "no evidence to account for")
+    if not logs:
+        return CheckResult(name, "not_evaluated",
+                           "no retrieval record: which queries produced this evidence is unknown. "
+                           "Run `research search ... --run <run-id>`, or record that the evidence "
+                           "was located another way.")
+
+    pinned = ctx.manifest.get("source_collection", {}).get("index_hash")
+    wrong_corpus = [log["retrieval_id"] for log in logs if log.get("index_hash") != pinned]
+    if wrong_corpus:
+        return CheckResult(name, "failed",
+                           f"{len(wrong_corpus)} search(es) ran against a different index than the "
+                           f"one this run pinned ({pinned}); their results describe another corpus",
+                           wrong_corpus)
+    return CheckResult(name, "passed",
+                       f"{len(logs)} search(es) recorded against the run's pinned index")
 
 
 def check_evidence_references(ctx: RunContext) -> CheckResult:
@@ -987,6 +1022,7 @@ CHECKS = [
     check_artifacts_conform,
     check_source_hashes,
     check_derived_text_hashes,
+    check_retrieval_provenance,
     check_evidence_references,
     check_text_locators,
     check_visual_locators,
@@ -1022,7 +1058,7 @@ def validated_inputs(ctx: RunContext) -> dict[str, Any]:
     pair list makes the answer legible — added, removed, or re-stamped, by id.
     """
     artifacts = [*ctx.evidence, *ctx.claims, *ctx.reviews, *ctx.review_contexts,
-                 *ctx.relationships, *ctx.amendments]
+                 *ctx.relationships, *ctx.amendments, *ctx.retrieval]
     if ctx.plan:
         artifacts.append(ctx.plan)
     roster = sorted({(str(a.get("artifact_id")), str(a.get("artifact_hash"))) for a in artifacts})

@@ -38,6 +38,7 @@ SCHEMA_FILES: dict[str, str] = {
     "Claim": "claim",
     "Review": "review",
     "ReviewContext": "review-context",
+    "RetrievalLog": "retrieval-log",
     "ValidationResult": "validation-result",
     "Amendment": "amendment",
     "SourceRelationship": "source-relationship",

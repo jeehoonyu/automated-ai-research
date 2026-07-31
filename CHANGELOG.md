@@ -6,6 +6,16 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added — retrieval provenance is persisted (spec §29)
+- `research search` computed the entire retrieval record and a stable `retrieval_log_hash` — under
+  a docstring calling the log "reproducible and auditable" — and discarded it. Nothing recorded
+  which queries produced the evidence a run rests on.
+- New `RetrievalLog` artifact and `RTL-sha256-` identifier, content-derived including the
+  `index_hash`. `research search --run <run-id>` records it.
+- New check `retrieval_provenance_recorded`: `not_evaluated` when a run has evidence and no record
+  (evidence can arrive through `inspect`, so "unknown" is the honest verdict), `failed` when a
+  recorded search ran against an index the run did not pin. The report manifest names the hashes.
+
 ### Fixed — the read surface answers from the artifacts
 - `research status` hardcoded `unresolved_contradictions: []` and `superseded_artifacts: []` under
   the comments "populated by validation in Phase 7" and "populated by amendments in Phase 6". Both

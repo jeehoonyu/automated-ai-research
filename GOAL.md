@@ -126,7 +126,7 @@ note.
 Adding the computation exposed that **nothing exercised `status` at all** — a missing `import json`
 sat there through a full green run.
 
-### 5. Persist the retrieval record — `weakens-a-guarantee`
+### 5. Persist the retrieval record — **done**
 
 *Restores: the missing half of spec §29.*
 
@@ -134,9 +134,18 @@ sat there through a full green run.
 then **discards it**. Nothing on disk records which queries produced the evidence a run rests on,
 while reports assert the search was reproducible.
 
-**Done when** a run cannot validate with no retrieval record on disk; a search executed against a
-different corpus than the run pins fails; the report's Provenance section names the retrieval log
-hashes; and a run whose evidence came from `inspect` rather than `search` still passes.
+**Done.** New `RetrievalLog` artifact (15 schemas) with a content-derived `RTL-sha256-` id that
+includes the `index_hash`, because the same words over a different corpus are a different retrieval.
+`research search --run <run-id>` records it; `check_retrieval_provenance` (23 checks) blocks when a
+run has evidence and no record, and **fails** when a recorded search ran against an index the run
+did not pin. The report manifest names the retrieval log hashes.
+
+An absent record is `not_evaluated`, not `failed`: evidence can legitimately arrive through
+`research inspect`, so the honest verdict is "how this was found is unknown" — which blocks without
+calling it wrong.
+
+The suite's own fixture and the benchmark harness both had to start recording their searches, which
+is the point: they were not exercising the pipeline they claimed to.
 
 ### 6. Make the assertions that guard all of the above capable of failing — `weakens-a-guarantee`
 

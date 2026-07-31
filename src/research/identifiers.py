@@ -9,11 +9,15 @@ Identifiers that name a *thing in the world* are content-derived. Identifiers th
 (a run) or a mutable-text object (a claim, whose wording changes through superseding versions) are
 random, because there is no content to derive them from that stays fixed.
 
-    DOC-sha256-<64hex>    original source bytes DVER-sha256-<64hex>   a specific normalized
-    extraction of a document CHK-sha256-<64hex>    a retrieval unit within a document version EVD-
-    sha256-<64hex>    an exact passage cited as evidence CTX-sha256-<64hex>    the exact context
-    handed to a reviewer CLM-<uuid7>           a claim (wording is mutable; identity is not
-    derivable) REV-<uuid7>, AMD-<uuid7> RUN-<uuid4>           a run is an event, not a content hash
+    DOC-sha256-<64hex>    original source bytes
+    DVER-sha256-<64hex>   a specific normalized extraction of a document
+    CHK-sha256-<64hex>    a retrieval unit within a document version
+    EVD-sha256-<64hex>    an exact passage cited as evidence
+    CTX-sha256-<64hex>    the exact context handed to a reviewer
+    RTL-sha256-<64hex>    one executed search over one index
+    CLM-<uuid7>           a claim (wording is mutable; identity is not derivable)
+    REV-<uuid7>, AMD-<uuid7>
+    RUN-<uuid4>           a run is an event, not a content hash
 
 Abbreviated forms are display-only. The full identifier is what is stored and compared.
 """
@@ -33,6 +37,7 @@ DVER_PREFIX = "DVER-sha256-"
 CHUNK_PREFIX = "CHK-sha256-"
 EVIDENCE_PREFIX = "EVD-sha256-"
 CONTEXT_PREFIX = "CTX-sha256-"
+RETRIEVAL_PREFIX = "RTL-sha256-"
 CLAIM_PREFIX = "CLM-"
 REVIEW_PREFIX = "REV-"
 AMENDMENT_PREFIX = "AMD-"
@@ -40,7 +45,7 @@ RUN_PREFIX = "RUN-"
 PACKET_PREFIX = "PKT-"
 
 _ID_RE = re.compile(
-    r"^(DOC|DVER|CHK|EVD|CTX)-sha256-[0-9a-f]{64}$"
+    r"^(DOC|DVER|CHK|EVD|CTX|RTL)-sha256-[0-9a-f]{64}$"
     r"|^(CLM|REV|AMD|RUN|PKT)-[0-9a-fA-F-]{36}$"
 )
 
@@ -107,6 +112,19 @@ def evidence_id(
         "locator": locator,
         "exact_text": exact_text,
         "evidence_type": evidence_type,
+    })
+
+
+def retrieval_id(*, query_normalization: dict[str, Any], filters: dict[str, Any],
+                 limit: int, chunk_ids: list[str], index_hash: str | None) -> str:
+    """Identity of one executed search: the same query over the same index returns the same id.
+
+    `index_hash` is part of it because the same words over a different corpus are a different
+    retrieval, and the point of the record is to say what was searched.
+    """
+    return RETRIEVAL_PREFIX + _composite({
+        "query_normalization": query_normalization, "filters": filters, "limit": limit,
+        "chunk_ids": chunk_ids, "index_hash": index_hash,
     })
 
 

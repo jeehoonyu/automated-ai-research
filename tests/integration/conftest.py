@@ -23,7 +23,7 @@ from research.identifiers import claim_id, evidence_id, review_id  # noqa: E402
 from research.importers.importer import import_paths  # noqa: E402
 from research.indexing.builder import build_index  # noqa: E402
 from research.runs.manager import create_run  # noqa: E402
-from research.search.engine import search  # noqa: E402
+from research.search.engine import record_retrieval, search  # noqa: E402
 from research.workspace import init_workspace  # noqa: E402
 
 
@@ -39,8 +39,12 @@ def complete_run(tmp_path: Path):
     rid = run["run_id"]
     run_dir = ws.root / "runs" / rid
 
-    # Real evidence, built from a real search hit so its locator genuinely resolves.
-    hit = search(ws, "process-in-memory data movement")["results"][0]
+    # Real evidence, built from a real search hit so its locator genuinely resolves — and the
+    # search is RECORDED, because retrieval provenance is what spec §29 asks for and a fixture that
+    # skips it cannot exercise the check.
+    found = search(ws, "process-in-memory data movement")
+    record_retrieval(ws, rid, found)
+    hit = found["results"][0]
     doc_path = next(p for p in (ws.root / "documents" / "manifests").glob("*.json")
                     if json.loads(p.read_text(encoding="utf-8"))["document_id"]
                     == hit["document_id"])

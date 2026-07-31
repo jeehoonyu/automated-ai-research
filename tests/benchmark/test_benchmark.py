@@ -190,7 +190,12 @@ def _relationship(ws, run_dir, a, b, kind):
 
 
 def _setup(ws, question="Does process-in-memory reduce data movement?"):
+    from research.search.engine import record_retrieval, search
+
     run = create_run(ws, question=question)
+    # Record the retrieval, as spec §29 requires and `retrieval_provenance_recorded` now checks.
+    # A benchmark case that skips it is not exercising the pipeline it claims to.
+    record_retrieval(ws, run["run_id"], search(ws, "process-in-memory data movement", limit=20))
     return run["run_id"], ws.root / "runs" / run["run_id"]
 
 

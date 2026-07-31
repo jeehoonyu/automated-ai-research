@@ -69,6 +69,55 @@ class SearchResult:
         }
 
 
+def record_retrieval(ws: Workspace, run_id: str, result: dict[str, Any]) -> dict[str, Any]:
+    """Persist one executed search into a run (spec §29).
+
+    `search` computed the whole record and a stable `retrieval_log_hash` — under a module docstring
+    calling the log "reproducible and auditable" — and then threw it away. Nothing on disk recorded
+    which queries produced the evidence a run rests on, while reports asserted the search was
+    reproducible.
+
+    The `index_hash` is stored alongside, because the same words over a different corpus are a
+    different retrieval and `check_retrieval_provenance` compares it against what the run pinned.
+    """
+    from ..artifacts.io import make_artifact, now_rfc3339, write_artifact
+    from ..identifiers import retrieval_id
+    from ..runs.manager import load_run
+    from ..security.paths import safe_join
+
+    manifest = load_run(ws, run_id)
+    index_hash = manifest["source_collection"].get("index_hash")
+    chunk_ids = [r["chunk_id"] for r in result["results"]]
+    rid = retrieval_id(query_normalization=result["query_normalization"],
+                       filters=result["filters"], limit=result["limit"],
+                       chunk_ids=chunk_ids, index_hash=index_hash)
+    artifact = make_artifact(
+        schema_name="RetrievalLog", artifact_id=rid, actor_type="cli",
+        body={
+            "retrieval_id": rid,
+            "run_id": run_id,
+            "query": result["query"],
+            "query_normalization": result["query_normalization"],
+            "filters": result["filters"],
+            "limit": result["limit"],
+            "ranking": result["ranking"],
+            "index_hash": index_hash,
+            "result_count": result["result_count"],
+            "results": [
+                {"rank": r["rank"], "chunk_id": r["chunk_id"], "document_id": r["document_id"],
+                 "document_version_id": r["document_version_id"], "page": r["page"],
+                 "bm25_score": r["bm25_score"]}
+                for r in result["results"]
+            ],
+            "retrieval_log_hash": result["retrieval_log_hash"],
+            "executed_at": now_rfc3339(),
+        })
+    short = rid[len("RTL-sha256-"):][:16]
+    path = safe_join(ws.root, "runs", run_id, "retrieval", f"rtl-{short}.json")
+    write_artifact(path, artifact, root=ws.root)
+    return {"retrieval_id": rid, "path": str(path.relative_to(ws.root)).replace("\\", "/")}
+
+
 def normalize_query(raw: str) -> tuple[str, dict[str, Any]]:
     """Reduce arbitrary text to a safe FTS5 expression of quoted literals.
 

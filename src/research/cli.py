@@ -196,18 +196,22 @@ def cmd_index(workspace_path: str | None, as_json: bool) -> None:
 @click.option("--document-type", help="Filter by document type (pdf, markdown).")
 @click.option("--document-id", help="Restrict to one document.")
 @click.option("--limit", type=int, default=20, show_default=True)
+@click.option("--run", "run_id", default=None,
+              help="Record this search into a run, as the retrieval provenance spec §29 requires.")
 @_WS_OPT
 @_JSON_OPT
 def cmd_search(query: str, document_type: str | None, document_id: str | None, limit: int,
-               workspace_path: str | None, as_json: bool) -> None:
+               run_id: str | None, workspace_path: str | None, as_json: bool) -> None:
     """Return ranked passages with exact citation locators."""
-    from .search.engine import search
+    from .search.engine import record_retrieval, search
 
     env = Envelope(command="search")
     try:
         ws = load_workspace(workspace_path)
         env.data = search(ws, query, document_type=document_type, document_id=document_id,
                           limit=limit)
+        if run_id:
+            env.data["recorded"] = record_retrieval(ws, run_id, env.data)
     except ResearchError as exc:
         env.status = "failed"
         env.errors.append(exc.to_dict())
@@ -223,6 +227,8 @@ def cmd_search(query: str, document_type: str | None, document_id: str | None, l
         lines.append(f"  {r['rank']:2d}. {title:34s} {where:>6s}  {section}")
         lines.append(f"      {r['snippet'][:96]}")
         lines.append(f"      {r['chunk_id']}")
+    if d.get("recorded"):
+        lines.append(f"  recorded as {d['recorded']['retrieval_id']}")
     _emit(env, as_json, human="\n".join(lines))
 
 

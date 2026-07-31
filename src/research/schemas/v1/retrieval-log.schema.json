@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.automated-ai-research.org/v1/retrieval-log.schema.json",
+  "title": "RetrievalLog",
+  "description": "One executed search, kept. `research search` already computed the whole record and a stable `retrieval_log_hash` under a docstring calling the log 'reproducible and auditable' — and then discarded it, so nothing recorded which queries produced the evidence a run rests on.",
+  "type": "object",
+  "required": [
+    "schema_name",
+    "schema_version",
+    "artifact_id",
+    "artifact_hash",
+    "created_at",
+    "created_by",
+    "retrieval_id",
+    "run_id",
+    "query",
+    "query_normalization",
+    "index_hash",
+    "result_count",
+    "results",
+    "retrieval_log_hash"
+  ],
+  "properties": {
+    "schema_name": {
+      "type": "string"
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "artifact_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "artifact_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_by": {
+      "type": "object",
+      "required": [
+        "actor_type"
+      ],
+      "properties": {
+        "actor_type": {
+          "enum": [
+            "cli",
+            "host_agent",
+            "human"
+          ]
+        },
+        "host": {
+          "type": "string"
+        },
+        "model_identifier": {
+          "type": "string"
+        }
+      },
+      "not": {
+        "required": [
+          "reasoning_trace"
+        ]
+      }
+    },
+    "retrieval_id": {
+      "type": "string",
+      "pattern": "^RTL-sha256-[0-9a-f]{64}$"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^RUN-[0-9a-fA-F-]{36}$"
+    },
+    "query": {
+      "type": "string"
+    },
+    "query_normalization": {
+      "type": "object"
+    },
+    "filters": {
+      "type": "object"
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "ranking": {
+      "type": "object"
+    },
+    "index_hash": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "result_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "rank",
+          "chunk_id",
+          "document_id"
+        ],
+        "properties": {
+          "rank": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "chunk_id": {
+            "type": "string",
+            "pattern": "^CHK-sha256-[0-9a-f]{64}$"
+          },
+          "document_id": {
+            "type": "string",
+            "pattern": "^DOC-sha256-[0-9a-f]{64}$"
+          },
+          "document_version_id": {
+            "type": "string",
+            "pattern": "^DVER-sha256-[0-9a-f]{64}$"
+          },
+          "page": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "bm25_score": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "retrieval_log_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "executed_at": {
+      "type": "string"
+    }
+  }
+}

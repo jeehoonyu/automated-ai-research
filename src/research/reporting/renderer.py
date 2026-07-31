@@ -267,6 +267,9 @@ def render_report(ws: Workspace, run_id: str, *, draft: bool = False) -> ReportR
             "draft": draft,
             "validation_result_hash": (validation or {}).get("artifact_hash"),
             "claim_ids": [c["claim_id"] for c in ctx.claims],
+            "retrieval_log_hashes": sorted(
+                r["retrieval_log_hash"] for r in ctx.retrieval
+                if r.get("schema_name") == "RetrievalLog"),
             "evidence_ids": sorted(evidence_by_id),
             "citation_index": [{k: v for k, v in entry.items() if k != "quote"}
                                for entry in citation_index],

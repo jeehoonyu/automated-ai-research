@@ -24,6 +24,7 @@ CLAIM_ID = {"type": "string", "pattern": "^CLM-[0-9a-fA-F-]{36}$"}
 REVIEW_ID = {"type": "string", "pattern": "^REV-[0-9a-fA-F-]{36}$"}
 RUN_ID = {"type": "string", "pattern": "^RUN-[0-9a-fA-F-]{36}$"}
 CONTEXT_ID = {"type": "string", "pattern": "^CTX-sha256-[0-9a-f]{64}$"}
+RETRIEVAL_ID = {"type": "string", "pattern": "^RTL-sha256-[0-9a-f]{64}$"}
 
 EXTRACTION_STATUS = ["extracted", "partially_extracted", "ambiguous", "unsupported_format",
                      "ocr_required", "processing_failed", "human_review_required"]
@@ -738,6 +739,43 @@ SCHEMAS["review-context"] = schema(
                 "method": {"const": "verbatim_transcript"}}}}},
         }]
     })
+
+
+SCHEMAS["retrieval-log"] = schema(
+    "retrieval-log", "RetrievalLog",
+    "One executed search, kept. `research search` already computed the whole record and a stable "
+    "`retrieval_log_hash` under a docstring calling the log 'reproducible and auditable' — and then "
+    "discarded it, so nothing recorded which queries produced the evidence a run rests on.",
+    {
+        "retrieval_id": RETRIEVAL_ID,
+        "run_id": RUN_ID,
+        "query": {"type": "string"},
+        "query_normalization": {"type": "object"},
+        "filters": {"type": "object"},
+        "limit": {"type": "integer", "minimum": 1},
+        "ranking": {"type": "object"},
+        "index_hash": {"anyOf": [SHA, {"type": "null"}]},
+        "result_count": {"type": "integer", "minimum": 0},
+        "results": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["rank", "chunk_id", "document_id"],
+                "properties": {
+                    "rank": {"type": "integer", "minimum": 1},
+                    "chunk_id": CHUNK_ID,
+                    "document_id": DOC_ID,
+                    "document_version_id": DVER_ID,
+                    "page": {"type": ["integer", "null"]},
+                    "bm25_score": {"type": "number"},
+                },
+            },
+        },
+        "retrieval_log_hash": SHA,
+        "executed_at": {"type": "string"},
+    },
+    ["retrieval_id", "run_id", "query", "query_normalization", "index_hash", "result_count",
+     "results", "retrieval_log_hash"])
 
 
 def main() -> int:
