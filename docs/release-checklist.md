@@ -69,7 +69,31 @@ authenticated on this machine, but two things stopped the run:
 
 The run was **not simulated**. A Claude subagent role-playing as Codex, with its output committed
 under `benchmark/expected/codex/`, would be a fabricated conformance record — the precise failure
-this platform exists to refuse. The directory stays empty until Codex actually runs.
+this platform exists to refuse. The directory stays empty until Codex actually runs *this* build.
+
+### A real Codex run exists, and it does not close this gate
+
+The repository history now contains a second, independent implementation of `PROJECT_GOAL.md` — the
+one Codex built — merged in on 2026-07-31 and reachable at the tag `codex-implementation`:
+
+```bash
+git checkout codex-implementation
+```
+
+That tree carries a genuine Codex benchmark run, `RUN-563cd90e-af4d-46fa-9302-f48c030cb398`, with
+claims, reviews, validation results and rendered reports. It is real evidence and it was not
+fabricated, which is why it is preserved rather than discarded.
+
+**It still does not close 38.10, and it must not be counted as if it did.** The gate requires both
+hosts to complete the *same* benchmark against the *same* packets. That run was produced by the other
+implementation, whose artifact layout differs from this one's — it stores validation results under a
+sharded `validation/7b/957105…/` path where this build writes `validation/validation-result.json`.
+`compare_hosts.py` compares outcomes per claim, anchored to content-derived evidence ids; two tools
+with two artifact shapes have nothing it can line up.
+
+What would close the gate is Codex running **this** build's benchmark, by the procedure below. What
+exists today is two implementations that were never compared. Recording the second one as half of a
+comparison that never happened would be exactly the rounding-up this checklist exists to refuse.
 
 The procedure, kept for whoever picks it up:
 

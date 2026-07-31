@@ -269,6 +269,17 @@ re-hashed too.
 
 ### What is not established
 
+**This repository contains two independent implementations of `PROJECT_GOAL.md`.** The one at the tip
+was built by Claude Code. The one Codex built is preserved in this history at the tag
+`codex-implementation` (`git checkout codex-implementation`), and it carries a real Codex benchmark
+run that this build does not have. They were developed separately, on purpose — a conformance gate
+that compares two hosts proves nothing if both run the same code — and merged into one repository on
+2026-07-31 without discarding either.
+
+That preserved run **does not** close the cross-host gate, and is not counted as if it did; see
+[`docs/release-checklist.md`](docs/release-checklist.md) for why (different artifact layouts, so
+there is nothing to compare).
+
 Spec §37 requires that Codex **and** Claude Code both complete the benchmark against the same
 packets. **Claude Code has** — two real runs with artifacts committed under
 [`benchmark/expected/claude-code/`](benchmark/expected/claude-code/), one correctly blocked on a

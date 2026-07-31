@@ -6,6 +6,23 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Changed — one repository, both histories
+Two independent implementations of `PROJECT_GOAL.md` lived in two repositories, deliberately: spec
+§37/§38.10 compares what Codex and Claude Code each produce, and two repositories holding the same
+code would make that comparison prove nothing. They are now one repository.
+
+- The tip is the Claude Code implementation. Nothing was deleted to achieve that: the merge used
+  `-s ours`, so every commit of the Codex implementation is in this history and reachable at the tag
+  **`codex-implementation`** (`git checkout codex-implementation`).
+- That preserved tree carries a **real Codex benchmark run** —
+  `RUN-563cd90e-af4d-46fa-9302-f48c030cb398`, with claims, reviews, validation results and reports —
+  which this build's `benchmark/expected/codex/` does not have.
+- **It does not close gate 38.10.** The gate requires both hosts to complete the *same* benchmark
+  against the *same* packets; that run came from the other implementation, whose artifact layout
+  differs, so `compare_hosts.py` has nothing to line up. Two implementations that were never compared
+  are not a cross-host comparison. `docs/release-checklist.md` says so at length, and the gate stays
+  half met.
+
 ### Added — the UI shows pages, and says where files actually are
 - **`/renders/<document-id>/<page>.png`.** A quote cannot settle a figure or a table; someone has to
   look, and the UI previously showed a page render's *hash* and nothing else. Renders are now
