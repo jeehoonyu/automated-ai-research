@@ -508,7 +508,16 @@ def cmd_ui(host: str | None, port: int | None, open_browser: bool, allow_remote:
     except ResearchError as exc:
         env.status = "failed"
         env.errors.append(exc.to_dict())
-        _emit(env, as_json, human=f"research ui: {exc.message}")
+        # This is the first thing a new user hits, and "no research.yaml found" does not tell
+        # someone what to type next. The UI opens an existing workspace; it cannot create one.
+        hint = (f"research ui: {exc.message}\n"
+                f"\n"
+                f"  point it at one   research ui --workspace \"C:\\path\\to\\workspace\"\n"
+                f"  or cd into one    a workspace is any directory containing research.yaml\n"
+                f"  or make one       research init \"C:\\path\\to\\new-workspace\"\n"
+                f"\n"
+                f"Paths with spaces or non-ASCII characters are fine; quote them.")
+        _emit(env, as_json, human=hint)
         return
 
     bind_host = host or DEFAULT_HOST

@@ -15,6 +15,8 @@
     <a href="/documents">Documents</a>
     <a href="/search">Search</a>
   </nav>
+  {# `direction: rtl` used to truncate this from the left. It reorders mixed-script text, which
+     mangles a path like `…\OneDrive\문서\ws` rather than merely shortening it. #}
   <span class="ws" title="{{ workspace_root }}">{{ workspace_root }}</span>
 </header>
 

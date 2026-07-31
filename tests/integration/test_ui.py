@@ -60,6 +60,16 @@ class Client:
     def get(self, path: str, **kwargs: Any) -> tuple[int, dict[str, str], str]:
         return self.request("GET", path, **kwargs)
 
+    def get_bytes(self, path: str) -> tuple[int, dict[str, str], bytes]:
+        """Undecoded, for the one route that answers with an image."""
+        conn = http.client.HTTPConnection(self.host, self.port, timeout=10)
+        try:
+            conn.request("GET", path)
+            response = conn.getresponse()
+            return response.status, dict(response.getheaders()), response.read()
+        finally:
+            conn.close()
+
 
 @pytest.fixture
 def ui(complete_run: tuple[Workspace, str, dict[str, Any]]) -> Iterator[tuple[Client, Workspace,
@@ -362,6 +372,87 @@ def test_browsing_the_whole_workspace_changes_nothing(ui):
     assert not before.keys() - after.keys(), "the UI removed files"
     changed = {k for k in before.keys() & after.keys() if before[k] != after[k]}
     assert not changed, f"the UI modified {sorted(changed)}"
+
+
+# ------------------------------------------------------------------------------ page renders
+
+
+def _a_rendered_document(ws) -> tuple[str, int, Path]:
+    """(document_id, page_number, path to the render) for a document that has one."""
+    for manifest in sorted((ws.root / "documents" / "manifests").glob("*.json")):
+        doc = json.loads(manifest.read_text(encoding="utf-8"))
+        for entry in doc.get("pages", []):
+            if entry.get("render"):
+                return (doc["document_id"], int(entry["page_number"]),
+                        ws.root / entry["render"]["path"])
+    raise AssertionError("the fixture corpus has no page render")
+
+
+def test_a_page_render_is_served_so_a_figure_can_actually_be_looked_at(ui):
+    """A quote cannot settle a figure or a table. The UI showed only the render's hash."""
+    client, ws, _run_id, _meta = ui
+    document_id, page, _path = _a_rendered_document(ws)
+
+    code, headers, body = client.get_bytes(f"/renders/{document_id}/{page:04d}.png")
+    assert code == 200
+    assert headers["Content-Type"] == "image/png"
+    assert body.startswith(b"\x89PNG\r\n\x1a\n"), "not a PNG"
+    assert body == _path.read_bytes(), "the served bytes are not the bytes on disk"
+
+    # And the document page links to it, rather than the route existing unreferenced.
+    _code, _headers, html = client.get(f"/artifacts/{document_id}")
+    assert f'src="/renders/{document_id}/{page:04d}.png"' in html
+
+
+def test_a_render_whose_bytes_changed_is_refused_not_shown(ui):
+    """The case that decides whether serving images is safe at all.
+
+    `locators.py` already draws this distinction for citations: a missing render is an accident, a
+    changed one is *a different image sitting under someone's existing citation*. An image is the
+    most convincing thing on a page, so serving one unverified would be worse than not serving it.
+    """
+    client, ws, _run_id, _meta = ui
+    document_id, page, path = _a_rendered_document(ws)
+    original = path.read_bytes()
+    path.write_bytes(original[:-40] + b"\x00" * 40)
+
+    code, _headers, body = client.get(f"/renders/{document_id}/{page:04d}.png")
+    assert code == 404
+    assert "does not hash to the value cited for it" in body
+
+
+def test_a_missing_render_says_so_rather_than_serving_something_else(ui):
+    client, ws, _run_id, _meta = ui
+    document_id, page, path = _a_rendered_document(ws)
+    path.unlink()
+
+    code, _headers, body = client.get(f"/renders/{document_id}/{page:04d}.png")
+    assert code == 404
+    assert "not on disk" in body
+
+
+@pytest.mark.parametrize("path", [
+    "/renders/../../research.yaml.png",
+    "/renders/DOC-sha256-0000/0001.png",
+    "/renders/DOC-sha256-0000/9999.png",
+])
+def test_the_render_route_refuses_anything_it_does_not_recognise(ui, path: str):
+    client, _ws, _run_id, _meta = ui
+    code, _headers, _body = client.get(path)
+    assert code == 404
+
+
+def test_the_render_route_serves_only_files_a_manifest_names(ui):
+    """It resolves through the Document manifest, so an arbitrary file under the workspace — the
+    normalized text, an artifact, research.yaml — has no route to reach it."""
+    client, ws, _run_id, _meta = ui
+    decoy = ws.root / "documents" / "renders" / "0001.png"
+    decoy.parent.mkdir(parents=True, exist_ok=True)
+    decoy.write_bytes(b"\x89PNG\r\n\x1a\n" + b"not a real render")
+
+    for attempt in ("/renders/documents/0001.png", "/renders/renders/0001.png"):
+        code, _headers, _body = client.get(attempt)
+        assert code == 404, attempt
 
 
 def test_a_request_body_cannot_smuggle_a_second_request(ui):

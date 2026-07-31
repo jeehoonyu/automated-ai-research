@@ -36,6 +36,22 @@ exactly the quote this evidence record carries.</p>
 <h2>In place</h2>
 {{ m.untrusted(a['untrusted_content_note']) }}
 
+{% set loc = a.get('locator') or {} %}
+{% if loc.get('type') == 'visual_region' and loc.get('page') is not none %}
+<p class="note">This evidence cites a region of a rendered page, so the text below cannot settle it.
+The page is shown as the CLI rendered it, re-hashed before serving. Whether the region was read
+correctly is a judgement no gate here can make — <code>interpretation_status</code> records how sure
+the agent was, and an uncertain reading needs a recorded human verification.</p>
+<figure class="page page-wide">
+  <img src="/renders/{{ a['document_id'] }}/{{ '%04d'|format(loc['page']) }}.png"
+       alt="Page {{ loc['page'] }} of the cited document, rendered from the original file"
+       loading="lazy">
+  <figcaption>page {{ loc['page'] }}
+    {% if a.get('interpretation_status') %}· reading recorded as
+      <code>{{ a['interpretation_status'] }}</code>{% endif %}</figcaption>
+</figure>
+{% endif %}
+
 <div class="passage">
   <span class="context">{{ a.get('context_before') or '' }}</span><mark>{{ a.get('resolved_text') or '' }}</mark><span class="context">{{ a.get('context_after') or '' }}</span>
 </div>

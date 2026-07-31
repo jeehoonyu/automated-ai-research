@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import http.server
 import os
+import re
 import socket
 import socketserver
 import sys
@@ -43,6 +44,9 @@ DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8787
 
 LOOPBACK_NAMES = {"localhost", "127.0.0.1", "::1", "[::1]", "0000:0000:0000:0000:0000:0000:0000:1"}
+
+#: `/renders/<document-id>/<page>.png` — the one route that answers with something other than HTML.
+RENDER_PATH = re.compile(r"^/renders/(?P<document_id>[^/]+)/(?P<page>\d{1,6})\.png$")
 
 #: Cap on a request body this handler will read and throw away. Past it the connection is closed
 #: instead, because the only reason to read a body here is to keep the connection's framing honest.
@@ -169,6 +173,21 @@ class ReadOnlyHandler(http.server.BaseHTTPRequestHandler):
             self._send(404, b"", "text/plain; charset=utf-8", body=body)
             return
 
+        # The only binary route. Handled here rather than through `resolve` because a page render
+        # is bytes, not a template — and because it is the one response whose payload does not pass
+        # through autoescaping, which is worth having in one obvious place.
+        render = RENDER_PATH.match(path)
+        if render:
+            try:
+                payload, content_type = views.page_render(
+                    self.workspace, render["document_id"], int(render["page"]))
+            except views.NotFound as exc:
+                self._send_page(views.error_page(exc.message, code=404, detail=exc.detail),
+                                body=body)
+            else:
+                self._send(200, payload, content_type, body=body)
+            return
+
         try:
             page = views.resolve(self.workspace, path, params)
         except views.NotFound as exc:
@@ -180,6 +199,9 @@ class ReadOnlyHandler(http.server.BaseHTTPRequestHandler):
         except Exception as exc:  # noqa: BLE001 - a view bug must not take the server down
             page = views.error_page(f"{type(exc).__name__}: {exc}", code=500)
 
+        self._send_page(page, body=body)
+
+    def _send_page(self, page: views.Page, *, body: bool) -> None:
         html = render(page.template, {**page.model, "page_title": page.title,
                                       "workspace_root": str(self.workspace.root)})
         self._send(page.status, html.encode("utf-8"), "text/html; charset=utf-8", body=body)

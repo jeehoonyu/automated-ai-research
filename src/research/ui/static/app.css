@@ -98,15 +98,20 @@ body {
 .topbar nav a { color: var(--ink-soft); text-decoration: none; }
 .topbar nav a:hover { color: var(--accent); }
 
+/* The workspace path. `direction: rtl` truncated it from the left, which is the useful end to keep
+ * — but it also REORDERS mixed-script text, so a path through `OneDrive\문서\` came out scrambled
+ * rather than merely shortened. Clipped from the left with a flex trick instead, which is purely
+ * visual and leaves the characters in the order they were written. */
 .topbar .ws {
   margin-left: auto;
-  font: 12px/1 var(--mono);
+  font: 12px/1.4 var(--mono);
   color: var(--ink-soft);
-  max-width: 45ch;
+  max-width: 46ch;
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
-  direction: rtl;
+  display: flex;
+  justify-content: flex-end;
+  direction: ltr;
 }
 
 main {
@@ -370,6 +375,49 @@ blockquote.claim {
 .event-head { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; font-size: 0.85rem; }
 .event-move { font: 600 0.8rem/1.4 var(--sans); }
 .event-body { font-size: 0.85rem; color: var(--ink-soft); margin-top: 0.25rem; }
+
+/* ------------------------------------------------------------------ page renders */
+
+.pages {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+.page {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 0.6rem;
+  overflow: hidden;
+}
+.page img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 4px;
+  /* Renders are white pages. In dark mode an unbounded white rectangle is painful, and inverting
+   * would misrepresent the document — so it is dimmed slightly and lifts on hover. */
+  background: #fff;
+}
+@media (prefers-color-scheme: dark) {
+  .page img { filter: brightness(0.86); transition: filter 0.15s; }
+  .page img:hover { filter: none; }
+}
+:root[data-theme="light"] .page img { filter: none; }
+.page figcaption {
+  margin-top: 0.5rem;
+  font: 0.75rem/1.5 var(--sans);
+  color: var(--ink-soft);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+.page-wide { max-width: 44rem; margin: 1rem 0; }
+
+.path { overflow-wrap: anywhere; }
 
 pre.report {
   background: var(--panel);

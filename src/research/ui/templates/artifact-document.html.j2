@@ -37,21 +37,36 @@
 {% endif %}
 
 {% if a.get('renders') %}
-<h2>Page renders <span class="count">{{ a['renders']|length }}</span></h2>
-<table>
-  <thead><tr><th>Page</th><th>Size</th><th>Render hash</th></tr></thead>
-  <tbody>
-  {% for r in a['renders'] %}
-    <tr><td>{{ r['page'] }}</td><td>{{ r['width'] }}×{{ r['height'] }}</td>
-        <td>{{ m.hash_badge(r['render_sha256'], 'render') }}</td></tr>
-  {% endfor %}
-  </tbody>
-</table>
+<h2>Pages <span class="count">{{ a['renders']|length }}</span></h2>
+<p class="note">A quote cannot settle a figure or a table — someone has to look. Each image below is
+re-hashed against the digest the manifest recorded before it is served, so a page whose bytes changed
+under an existing citation is refused rather than shown. A missing render is an accident; a changed
+one is a different image.</p>
+<div class="pages">
+{% for r in a['renders'] %}
+  <figure class="page">
+    <img src="/renders/{{ a['document_id'] }}/{{ '%04d'|format(r['page']) }}.png"
+         alt="Page {{ r['page'] }} of this document, rendered from the original file"
+         width="{{ r['width'] }}" height="{{ r['height'] }}" loading="lazy">
+    <figcaption>page {{ r['page'] }} · {{ r['width'] }}×{{ r['height'] }}
+      {{ m.hash_badge(r['render_sha256'], 'render') }}</figcaption>
+  </figure>
+{% endfor %}
+</div>
 {% endif %}
 
-<h2>Stored original</h2>
-<p class="muted mono">{{ a.get('stored_original') or '—' }}</p>
+<h2>Where these files are</h2>
 <p class="note">The original bytes are kept content-addressed and unmodified. Extraction, chunking
-and every locator built later are derived from them; the file itself is never rewritten.</p>
+and every locator built later are derived from them; the file itself is never rewritten. Paths are
+absolute so you can open them.</p>
+<table class="kv"><tbody>
+{% for f in a.get('on_disk') or [] %}
+  <tr>
+    <th>{{ f['label'] }}</th>
+    <td class="mono path">{{ f['path'] }}
+      {% if not f['present'] %}<span class="chip chip-blocking">not on disk</span>{% endif %}</td>
+  </tr>
+{% endfor %}
+</tbody></table>
 
 {% endblock %}

@@ -20,6 +20,7 @@ from typing import Any, get_args
 from ..artifacts.io import read_artifact
 from ..config import Workspace
 from ..errors import ResearchError
+from ..hashing import sha256_file
 from ..runs.inspector import UNTRUSTED_NOTE, inspect
 from ..runs.lifecycle import PHASE_ORDER, STAGE_ORDER, Phase
 from ..runs.manager import list_runs
@@ -418,6 +419,12 @@ def artifact_page(ws: Workspace, artifact_id: str) -> Page:
     if template is None:  # pragma: no cover - inspect only returns the kinds above
         raise NotFound(f"no view for artifact kind {kind!r}")
 
+    if kind == "document":
+        # WHERE THE FILE ACTUALLY IS. `stored_original` and `normalized_text_path` are recorded
+        # relative to the workspace, which is right for the artifacts — a workspace has to survive
+        # being moved — but useless to a person who wants to open the thing in Explorer.
+        detail = {**detail, "on_disk": _on_disk_paths(ws, detail)}
+
     if kind == "claim":
         detail = {**detail,
                   "chips": claim_chips(detail),
@@ -426,6 +433,58 @@ def artifact_page(ws: Workspace, artifact_id: str) -> Page:
 
     return Page(template=template, title=f"{kind} {artifact_id}",
                 model={"a": detail, "kind": kind, "untrusted_note": UNTRUSTED_NOTE})
+
+
+def _on_disk_paths(ws: Workspace, detail: dict[str, Any]) -> list[dict[str, Any]]:
+    """Absolute locations for a document's files, with whether each is actually there."""
+    document = next((d for d in _documents(ws)
+                     if d.get("document_id") == detail.get("document_id")), None)
+    out: list[dict[str, Any]] = []
+    for label, relative in (("original bytes", (document or {}).get("stored_original")),
+                            ("normalized text", (document or {}).get("normalized_text_path")),
+                            ("chunks", (document or {}).get("chunk_set_path"))):
+        if not relative:
+            continue
+        path = ws.root / str(relative)
+        out.append({"label": label, "path": str(path), "present": path.is_file()})
+    return out
+
+
+def page_render(ws: Workspace, document_id: str, page: int) -> tuple[bytes, str]:
+    """The PNG a page render points at — but only after re-hashing it.
+
+    The whole reason to show a page image is that a text quote cannot settle a figure or a table:
+    someone has to look. That makes the image evidence, and evidence gets the same treatment as
+    everything else here — the bytes on disk are hashed and compared against the digest the Document
+    manifest recorded. `locators.py` already draws the distinction this enforces: a missing render
+    is an accident, a *changed* one is a different image under someone's existing citation.
+
+    Serving it unverified would be worse than not serving it at all, because a picture is the most
+    convincing thing on the page.
+    """
+    if not ID_RE.match(document_id):
+        raise NotFound(f"not a well-formed document id: {document_id!r}")
+    for doc in _documents(ws):
+        if doc.get("document_id") != document_id:
+            continue
+        for entry in doc.get("pages", []):
+            render = entry.get("render")
+            if not render or int(entry.get("page_number", -1)) != page:
+                continue
+            path = safe_join(ws.root, *str(render["path"]).split("/"))
+            if not path.is_file():
+                raise NotFound(f"the render recorded for page {page} is not on disk: "
+                               f"{render['path']}")
+            recorded = str(render.get("sha256", ""))
+            actual = sha256_file(path)
+            if actual != recorded:
+                raise NotFound(
+                    f"the render for page {page} does not hash to the value cited for it "
+                    f"(recorded {recorded}, found {actual}) — a changed image under an existing "
+                    f"citation is not something this interface will display")
+            return path.read_bytes(), "image/png"
+        raise NotFound(f"document {document_id} has no render for page {page}")
+    raise NotFound(f"no document {document_id!r} in this workspace")
 
 
 def _evidence_summary(ws: Workspace, evidence_id: str) -> dict[str, Any]:

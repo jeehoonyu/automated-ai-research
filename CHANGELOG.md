@@ -6,6 +6,32 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added — the UI shows pages, and says where files actually are
+- **`/renders/<document-id>/<page>.png`.** A quote cannot settle a figure or a table; someone has to
+  look, and the UI previously showed a page render's *hash* and nothing else. Renders are now
+  displayed on the document page, and visual evidence shows the page it cites. Each image is
+  re-hashed against the digest the Document manifest recorded before it is served — a render whose
+  bytes changed is refused with an explanation, because `locators.py` already draws the distinction
+  this enforces: a missing render is an accident, a **changed** one is a different image under
+  someone's existing citation, and an image is the most convincing thing on a page. The route
+  resolves through the manifest, so no other file under the workspace can be reached by it.
+- **Absolute on-disk locations** for a document's original bytes, normalized text and chunk set.
+  Artifacts record workspace-relative paths, which is right for a workspace that gets moved and
+  useless to someone trying to open the file.
+- **`research ui` outside a workspace** now says what to type — `--workspace`, `cd`, or
+  `research init` — instead of only "no research.yaml found".
+- The workspace path in the header no longer uses `direction: rtl` to truncate from the left. That
+  reorders mixed-script text, so a path through `OneDrive\문서\` came out scrambled rather than
+  merely shortened.
+
+### Verified — real Windows paths, because "it works locally" is a claim like any other
+Tested against directories with spaces, Korean (`한글 폴더`), mixed unicode (`café — ünïcode`), dots
+in directory names, and twelve levels of nesting: every page serves, and `--workspace` accepts the
+path with backslashes, forward slashes, a trailing separator, or relative. Workspace discovery walks
+up correctly from inside a non-ASCII path. OneDrive cloud-only placeholders are not symlinks, so
+`reject_symlink` accepts them — 295 of 400 sampled files on this machine are placeholders, and every
+one would import.
+
 ### Fixed — nine defects from a sweep for restated vocabularies
 The UI's worst defect was a *shape*, not a typo: a template restated a schema enum from memory and
 lost. There are 53 enums across the 15 shipped schemas, and Python throughout the package restated

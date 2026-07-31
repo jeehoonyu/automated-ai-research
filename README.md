@@ -82,7 +82,7 @@ output checkable.
   `CONTRIBUTING.md`, a changelog, CI across Linux/macOS/Windows, and a release checklist that lists
   what is **not** met.
 
-568 tests (565 passing, 3 skipped). A stage is complete only when its artifact exists **and**
+575 tests (572 passing, 3 skipped). A stage is complete only when its artifact exists **and**
 validates — never because a
 file appeared, and never because an artifact says so about itself: every artifact validation loads
 is checked against its own `artifact_hash`, and the derived bytes citations resolve against are
@@ -164,6 +164,26 @@ Three properties are enforced rather than intended, and each has a test that fai
 It binds to loopback and refuses anything else without `--allow-remote`, because it exposes every
 document and artifact in the workspace and has no authentication. See
 [`docs/security-model.md`](docs/security-model.md).
+
+**Page renders are shown.** A quote cannot settle a figure or a table — someone has to look — so a
+document's pages are displayed as the CLI rendered them, and visual evidence shows the page it cites.
+Each image is re-hashed against the digest the manifest recorded before it is served; a render whose
+bytes changed under an existing citation is refused with an explanation rather than displayed.
+
+### Running it on your own machine
+
+The UI opens an existing workspace and never creates one. A workspace is any directory containing
+`research.yaml`; pass `--workspace`, or run from inside one and it walks up to find it.
+
+Paths are not a special case. Verified on Windows against directories with spaces, non-ASCII names
+(`한글 폴더`, `café — ünïcode`), dots in directory names, and twelve levels of nesting — every page
+serves, and `--workspace` accepts the path with backslashes, forward slashes, a trailing separator,
+or relative. Files stored under OneDrive work too, including cloud-only placeholders: they are not
+symlinks, so import accepts them, though reading one triggers a download and needs the network.
+
+The document page lists the **absolute** location of the original bytes, the normalized text and the
+chunk set, so you can open them yourself — the artifacts record workspace-relative paths, which are
+right for a workspace that gets moved and useless for finding a file.
 
 ## Why it is built this way
 
