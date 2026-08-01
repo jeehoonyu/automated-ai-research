@@ -18,7 +18,45 @@ python -m venv .venv && . .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e .
 ```
 
-Then, **outside this repository**, make a workspace and put a question to it:
+### One folder, many topics
+
+Most people research more than one thing. A **project** is a folder of independent **studies**, each
+with its own field, corpus, runs and rules:
+
+```bash
+research project init ~/ai-research --name "My research"
+research project new "Statins and cardiac outcomes" --field medicine --profile medicine
+research project new "PIM architecture" --field computer-architecture
+research project list
+```
+
+```
+project My research
+  2 study(ies) across 2 field(s): computer-architecture, medicine
+
+  PIM architecture  [computer-architecture]  profile=default
+    8 document(s), indexed, 2 run(s) — 2 blocked
+
+  Statins and cardiac outcomes  [medicine]  profile=medicine
+    0 document(s), NOT INDEXED, 0 run(s)
+
+  totals: 2 run(s); 0 awaiting a human, 2 blocked, 0 published
+```
+
+`research ui --project ~/ai-research` shows the same thing in a browser, ordered so that studies
+needing attention come first. Drop a profile into `~/ai-research/profiles/` and every study can use
+it; a study can override it with a stricter one of the same name, never a looser one.
+
+**Studies do not share a corpus, on purpose.** A run pins its sources when it is created, and that
+pinning is what makes it answerable months later. Sharing one document store would let an import in
+one topic move ground under another topic's citations. Import the same PDF into two studies and
+content-addressing gives it the same identity in both — you pay disk, not agreement.
+
+A study is just a workspace. Move its directory out of the project and it still works.
+
+### A single study on its own
+
+Skip projects entirely if you only have one topic:
 
 ```bash
 research init ~/my-research
@@ -261,7 +299,7 @@ instructions from untrusted document content explicitly.
   `CONTRIBUTING.md`, a changelog, CI across Linux/macOS/Windows, and a release checklist that lists
   what is **not** met.
 
-575 tests (572 passing, 3 skipped). A stage is complete only when its artifact exists **and**
+599 tests (596 passing, 3 skipped). A stage is complete only when its artifact exists **and**
 validates — never because a
 file appeared, and never because an artifact says so about itself: every artifact validation loads
 is checked against its own `artifact_hash`, and the derived bytes citations resolve against are

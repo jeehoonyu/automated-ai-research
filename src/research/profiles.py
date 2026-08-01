@@ -189,12 +189,31 @@ def _parse(data: dict[str, Any], *, name: str, source: str | None) -> Profile:
 
 
 def profile_search_path(workspace_root: Path | None = None) -> list[Path]:
-    """Workspace profiles win over packaged ones, so a workspace can tighten its own rules."""
+    """Most specific first: the workspace, then its project, then the packaged defaults.
+
+    A workspace can tighten its own rules; a project can set rules for every study in it. The order
+    is one-way — a study may make itself stricter than its project, and the search stops at the
+    first file with the right name, so a project cannot loosen a study that has already spoken.
+    """
     paths = []
     if workspace_root is not None:
-        paths.append(Path(workspace_root) / "profiles")
+        root = Path(workspace_root)
+        paths.append(root / "profiles")
+        project = _enclosing_project(root)
+        if project is not None:
+            paths.append(project / "profiles")
     paths.append(PACKAGED_PROFILE_DIR)
     return paths
+
+
+def _enclosing_project(workspace_root: Path) -> Path | None:
+    """The project directory a study sits in, if any. Imported lazily to avoid a cycle."""
+    from .projects import PROJECT_FILE
+
+    for candidate in workspace_root.resolve().parents:
+        if (candidate / PROJECT_FILE).is_file():
+            return candidate
+    return None
 
 
 def known_profiles(workspace_root: Path | None = None) -> list[str]:

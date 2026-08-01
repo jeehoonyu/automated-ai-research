@@ -18,18 +18,27 @@ sets of rules quietly become two standards of evidence.
 
 ## 1. The one thing to understand first
 
-**There are two trees, and confusing them causes most mistakes.**
+**There are three trees, and confusing them causes most mistakes.**
 
-| | The repository | A workspace |
-|---|---|---|
-| What it is | the tool — deterministic Python that checks things | your data — a corpus, and research runs over it |
-| Created by | `git clone` | `research init <path>` |
-| Contains | `src/`, `tests/`, `docs/`, `benchmark/` | `research.yaml`, `documents/`, `indexes/`, `runs/` |
-| Who writes it | you, editing code | the CLI and your research agent |
-| Lives | wherever you cloned it | **anywhere else** — never inside the repository |
+| | The repository | A project | A study (= workspace) |
+|---|---|---|---|
+| What it is | the tool — deterministic Python that checks things | a folder of studies | your data — one corpus, and the runs over it |
+| Created by | `git clone` | `research project init <path>` | `research project new <name> --field <f>`, or `research init <path>` |
+| Contains | `src/`, `tests/`, `docs/`, `benchmark/` | `research-project.yaml`, `profiles/`, and study directories | `research.yaml`, `documents/`, `indexes/`, `runs/` |
+| Who writes it | you, editing code | almost nobody — it is discovery, not state | the CLI and your research agent |
+| Lives | wherever you cloned it | **anywhere else** — never inside the repository | inside a project, or standalone anywhere |
 
-If the task is "help me research something", you want a **workspace** and section 4.
+If the task is "help me research something", you want a **study** and section 4.
 If the task is "change how the tool behaves", you want the **repository** and section 5.
+
+A project is optional and thin. A study inside one is an ordinary workspace: move it out and it
+still works, with nothing to unregister. What the project adds is a place to keep several topics
+together, a profile directory they all share, and one view across them.
+
+**Studies deliberately do not share a corpus.** A run pins its source collection when it is created,
+and pinning is what makes it answerable later — if two studies shared a document store, importing
+into one would move ground under the other's citations, silently. Re-importing the same PDF into a
+second study is normal; content-addressing means both derive the same `document_id` anyway.
 
 The package performs **no network requests** in core processing. There is no model API, no agent
 framework, no vector database, and no web fetch anywhere in import, extraction, indexing, search,
@@ -69,6 +78,7 @@ wrong even if it makes something else better.
 | `src/research/validation/` | **the 25 checks and the publication gate** | changing what blocks a report |
 | `src/research/reporting/` | Markdown renderer, overstatement detection, template | changing report output |
 | `src/research/profiles/` | `default.yaml`, `medicine.yaml` — per-domain strictness | **the first thing most forks customize** |
+| `src/research/projects.py` | projects: discovery of studies, and the record across them | changing how many topics live in one folder |
 | `src/research/ui/` | read-only local web view (`research ui`) | changing how a run is displayed |
 | `src/research/security/` | path containment, filename sanitization, atomic writes | almost never — read section 5 first |
 
@@ -98,10 +108,21 @@ wrong even if it makes something else better.
 | `workflow/canonical-workflow.md` | the research loop, shipped into every generated workspace | keep |
 | `prompts/` | copy-paste prompts for running research, reviewing, and auditing | keep |
 
+### Inside a project (not this repo)
+
+```
+research-project.yaml      names the project. Studies are DISCOVERED, never listed here
+profiles/                  rules offered to every study — most specific wins:
+                           study/profiles → project/profiles → packaged
+<study-directory>/         each one a full workspace; `field:` in its research.yaml
+                           says what discipline it is in
+```
+
 ### Inside a workspace (not this repo)
 
 ```
 research.yaml              configuration; its hash is recorded in every run
+                           `field:` and `study_name:` when it belongs to a project
 originals/sha256/ab/cd/…   imported bytes, content-addressed, never modified
 documents/manifests/       one Document artifact per source
 documents/normalized/      the single canonical text every locator resolves against

@@ -83,6 +83,8 @@ class ReadOnlyHandler(http.server.BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
     workspace: Workspace
+    #: Set when serving a project. `/` then lists its studies instead of one workspace's runs.
+    project: Any = None
     allow_remote: bool = False
     quiet: bool = False
 
@@ -189,7 +191,10 @@ class ReadOnlyHandler(http.server.BaseHTTPRequestHandler):
             return
 
         try:
-            page = views.resolve(self.workspace, path, params)
+            if self.project is not None and path == "/":
+                page = views.project_page(self.project)
+            else:
+                page = views.resolve(self.workspace, path, params)
         except views.NotFound as exc:
             page = views.error_page(exc.message, code=404, detail=exc.detail)
         except ResearchError as exc:
@@ -262,7 +267,8 @@ class _Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
 
 
 def build_server(ws: Workspace, *, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT,
-                 allow_remote: bool = False, quiet: bool = False) -> _Server:
+                 allow_remote: bool = False, quiet: bool = False,
+                 project: Any = None) -> _Server:
     """Construct a bound server. Separate from `serve` so tests can drive it without blocking."""
     if not allow_remote and not _is_loopback_address(host):
         raise UnsafeExposureError(
@@ -271,7 +277,8 @@ def build_server(ws: Workspace, *, host: str = DEFAULT_HOST, port: int = DEFAULT
             detail={"host": host, "how_to_override": "--allow-remote, on a network you control"})
 
     handler = type("BoundHandler", (ReadOnlyHandler,),
-                   {"workspace": ws, "allow_remote": allow_remote, "quiet": quiet})
+                   {"workspace": ws, "project": project,
+                    "allow_remote": allow_remote, "quiet": quiet})
     return _Server((host, port), handler)
 
 
@@ -301,9 +308,10 @@ def _is_loopback_address(host: str) -> bool:
 
 def serve(ws: Workspace, *, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT,
           allow_remote: bool = False, open_browser: bool = False,
-          quiet: bool = False) -> None:
+          quiet: bool = False, project: Any = None) -> None:
     """Bind and serve until interrupted."""
-    server = build_server(ws, host=host, port=port, allow_remote=allow_remote, quiet=quiet)
+    server = build_server(ws, host=host, port=port, allow_remote=allow_remote, quiet=quiet,
+                          project=project)
     bound_host, bound_port = str(server.server_address[0]), server.server_address[1]
     url = f"http://{bound_host}:{bound_port}/"
     sys.stderr.write(

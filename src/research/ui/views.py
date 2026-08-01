@@ -302,6 +302,21 @@ def overview(ws: Workspace) -> Page:
         })
 
 
+def project_page(project: Any) -> Page:
+    """Every study in a project, ordered by what needs attention.
+
+    Deliberately not a scoreboard. `project_overview` sorts unreadable studies first, then those
+    awaiting a human, then those with blocked runs — and the template prints those counts before it
+    prints anything that went well. A project view is the most tempting place in this codebase to
+    average a blocked run together with a published one, and averaging is what the whole platform
+    exists to refuse.
+    """
+    from ..projects import project_overview
+
+    return Page(template="project.html.j2", title=f"Project — {project.name}",
+                model=project_overview(project))
+
+
 def documents(ws: Workspace) -> Page:
     docs = _documents(ws)
     return Page(template="documents.html.j2", title="Documents",

@@ -1,0 +1,117 @@
+{% extends "base.html.j2" %}
+{% import "_macros.html.j2" as m %}
+{% block content %}
+
+<h1>{{ project }}</h1>
+<p class="mono muted">{{ root }}</p>
+
+<dl class="facts">
+  <div><dt>Studies</dt><dd>{{ study_count }}</dd></div>
+  <div><dt>Fields</dt><dd>{{ fields|join(', ') or '—' }}</dd></div>
+  <div><dt>Runs</dt><dd>{{ totals['runs'] }}</dd></div>
+</dl>
+
+{# Attention first. A project page that opens with a published count teaches its reader to skim
+   past everything else, which is exactly how a blocked run gets averaged into a good impression. #}
+{% if totals['unreadable_studies'] %}
+<div class="banner banner-bad">
+  <h2>{{ totals['unreadable_studies'] }} study(ies) could not be read</h2>
+  <p>Listed below with the error. A study that cannot be opened is not a study with no findings.</p>
+</div>
+{% endif %}
+{% if totals['needs_human'] %}
+<div class="banner banner-warn">
+  <h2>{{ totals['needs_human'] }} run(s) are waiting on a human</h2>
+  <p>Human review is cleared by a recorded amendment or review artifact, not by validating again.</p>
+</div>
+{% endif %}
+{% if totals['blocked'] %}
+<div class="banner banner-bad">
+  <h2>{{ totals['blocked'] }} run(s) are blocked from publication</h2>
+  <p>Open the run to see which gates, and why. A blocked run is the platform working, not a defect —
+  but it is also not an answer.</p>
+</div>
+{% endif %}
+{% if not totals['blocked'] and not totals['needs_human'] and not totals['unreadable_studies'] %}
+<div class="banner banner-good">
+  <h2>Nothing is blocked</h2>
+  <p>{{ totals['published'] }} run(s) published across {{ study_count }} study(ies). Each run's own
+  page is still where its verdict lives; this page only counts them.</p>
+</div>
+{% endif %}
+
+<h2>Studies</h2>
+
+{% if not studies %}
+<p class="muted">No studies yet. <code>research project new "&lt;name&gt;" --field &lt;discipline&gt;</code>
+creates one.</p>
+{% else %}
+{% for s in studies %}
+<div class="study{{ ' study-bad' if s.get('unreadable') or s.get('blocked_count') else '' }}">
+  <div class="study-head">
+    <h3>{{ s['study'] }}</h3>
+    <span class="chip chip-neutral">{{ s['field'] }}</span>
+    <span class="muted mono">profile={{ s['profile'] }}</span>
+  </div>
+
+  {% if s.get('unreadable') %}
+    <p><span class="chip chip-blocking">unreadable</span>
+       <span class="mono">{{ s['unreadable'] }}</span></p>
+    <p class="muted mono">{{ s['root'] }}</p>
+  {% else %}
+    <p class="muted">
+      {{ s['document_count'] }} document(s) ·
+      {% if s['indexed'] %}indexed{% else %}<span class="chip chip-blocking">not indexed</span>{% endif %} ·
+      {{ s['run_count'] }} run(s)
+    </p>
+
+    {% if s['runs'] %}
+    <table>
+      <thead><tr><th>Question</th><th>Phase</th><th>State</th></tr></thead>
+      <tbody>
+      {% for r in s['runs'] %}
+        <tr>
+          <td>
+            {% if r.get('unreadable') %}
+              <span class="mono">{{ r['run_id'] }}</span>
+              <span class="chip chip-blocking">unreadable</span>
+            {% else %}
+              {{ r['question'] }}
+              <div class="muted mono">{{ r['run_id']|shortid }}</div>
+            {% endif %}
+          </td>
+          <td>{% if not r.get('unreadable') %}
+            <span class="phase">{{ r['phase']|replace('_', ' ') }}</span>{% endif %}</td>
+          <td>
+            {% if r.get('unreadable') %}—
+            {% elif r['human_review_required'] %}
+              <span class="chip chip-blocking">awaiting a human</span>
+            {% elif r['published'] %}
+              <span class="chip chip-passed">published</span>
+            {% elif r['report_eligible'] %}
+              <span class="chip chip-passed">eligible</span>
+            {% else %}
+              <span class="chip chip-blocking">blocked</span>
+              {% if r['blocking'] %}<div class="meaning">{{ r['blocking'][0] }}</div>{% endif %}
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">No runs yet.</p>
+    {% endif %}
+
+    <p class="muted mono study-path">{{ s['root'] }}</p>
+  {% endif %}
+</div>
+{% endfor %}
+{% endif %}
+
+<p class="note">Each study is a full workspace and opens on its own —
+<code>research ui --workspace "&lt;path above&gt;"</code>. Studies deliberately do not share a corpus:
+a run pins its sources when it is created, and one study importing a document must never move ground
+under another study's citations.</p>
+
+{% endblock %}

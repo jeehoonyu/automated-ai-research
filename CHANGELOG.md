@@ -6,6 +6,37 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added — projects: one folder, many studies
+A workspace answers questions about one corpus. That is the right unit for a piece of research and
+the wrong unit for a person, who has several topics and no way to see where any of them stand.
+
+- `research project init <path>` creates a project; `research project new "<name>" --field <f>
+  [--profile <p>]` creates a study inside it; `research project list` shows every study, its field,
+  and what it has actually established. `research ui --project <path>` is the same in a browser.
+- **A study *is* a workspace.** No second artifact model, no second lifecycle, nothing to keep in
+  step. Move a study directory out of its project and it is still a working workspace, with nothing
+  to unregister.
+- **Studies are discovered, not registered.** Any immediate subdirectory holding a `research.yaml`
+  is a study. A manifest can claim a study exists when it does not, and miss one that does; the
+  filesystem cannot.
+- **Studies deliberately do not share a corpus.** Tempting — the same paper would be imported once —
+  but a run *pins its source collection* at creation, and pinning is what makes it answerable later.
+  A shared document store would let an import in one study move ground under another study's
+  citations, silently, since those runs would still resolve against a corpus that no longer matches
+  what they pinned. Isolation costs disk; sharing costs the property the platform exists to provide.
+  Content-addressing means both studies still derive the same `document_id`.
+- **Profiles resolve most-specific-first**: `study/profiles` → `project/profiles` → packaged. A
+  project sets house rules for every study in it; a study may override one with a stricter profile
+  of the same name, and the search stopping at the first match means a project cannot loosen a study
+  that has already spoken.
+- **The cross-study view leads with what is wrong.** Unreadable studies sort first, then those
+  awaiting a human, then those with blocked runs; counts of what succeeded come last. A project page
+  is the most tempting place in this codebase to average a blocked run together with a published one,
+  and a run counts as published only when its own lifecycle says so — `project_overview` derives no
+  opinion of its own. One unreadable study is reported, not allowed to hide the others.
+- `doctor` lists `project`, because it must describe what the CLI has rather than what the spec
+  asked for.
+
 ### Changed — one repository, both histories
 Two independent implementations of `PROJECT_GOAL.md` lived in two repositories, deliberately: spec
 §37/§38.10 compares what Codex and Claude Code each produce, and two repositories holding the same

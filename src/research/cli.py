@@ -482,6 +482,140 @@ def cmd_report(run_id: str, draft: bool, workspace_path: str | None, as_json: bo
           f"validated classification"] if result.overstatements else [])))
 
 
+_PROJECT_OPT = click.option("--project", "project_path", type=click.Path(),
+                            help="Project root. Defaults to the nearest parent "
+                                 "research-project.yaml.")
+
+
+@main.group("project")
+def cmd_project() -> None:
+    """Hold many separate studies in one folder.
+
+    A study is an ordinary workspace with a field recorded on it. Studies do not share a corpus: a
+    run pins its sources, and pinning is what makes it answerable later — one study importing a
+    document must never move ground under another study's citations.
+    """
+
+
+@cmd_project.command("init")
+@click.argument("path", type=click.Path(), default=".")
+@click.option("--name", default=None, help="Display name. Defaults to the directory name.")
+@_JSON_OPT
+def cmd_project_init(path: str, name: str | None, as_json: bool) -> None:
+    """Create a project: a folder that holds studies."""
+    from .projects import init_project
+
+    env = Envelope(command="project init")
+    try:
+        env.data = init_project(path, name=name)
+    except ResearchError as exc:
+        env.status = "failed"
+        env.errors.append(exc.to_dict())
+        _emit(env, as_json, human=f"research project init: {exc.message}")
+
+    d = env.data
+    _emit(env, as_json, human="\n".join([
+        f"project {d['name']}",
+        f"  root        {d['project_root']}",
+        f"  profiles    {d['profiles_dir']}  (offered to every study here)",
+        f"  studies     {d['study_count']}",
+        "",
+        "Next: research project new \"<study name>\" --field <discipline>",
+    ]))
+
+
+@cmd_project.command("new")
+@click.argument("name")
+@click.option("--field", "field_name", required=True,
+              help="The discipline this study is in, e.g. medicine, computer-architecture.")
+@click.option("--profile", default="default", show_default=True,
+              help="Rules to apply. `research doctor` lists what is available.")
+@_PROJECT_OPT
+@_JSON_OPT
+def cmd_project_new(name: str, field_name: str, profile: str, project_path: str | None,
+                    as_json: bool) -> None:
+    """Create a study inside a project."""
+    from .projects import load_project, new_study
+
+    env = Envelope(command="project new")
+    try:
+        project = load_project(project_path)
+        env.data = new_study(project, name, field_name=field_name, profile=profile)
+    except ResearchError as exc:
+        env.status = "failed"
+        env.errors.append(exc.to_dict())
+        _emit(env, as_json, human=f"research project new: {exc.message}")
+
+    d = env.data
+    _emit(env, as_json, human="\n".join([
+        f"study {d['study']}",
+        f"  field       {d['field']}",
+        f"  profile     {d['profile']}",
+        f"  path        {d['workspace']}",
+        "",
+        f"Next: research import <sources> --workspace \"{d['workspace']}\"",
+    ]))
+
+
+@cmd_project.command("list")
+@_PROJECT_OPT
+@_JSON_OPT
+def cmd_project_list(project_path: str | None, as_json: bool) -> None:
+    """Every study, its field, and what it has actually established."""
+    from .projects import load_project, project_overview
+
+    env = Envelope(command="project list")
+    try:
+        project = load_project(project_path)
+        env.data = project_overview(project)
+    except ResearchError as exc:
+        env.status = "failed"
+        env.errors.append(exc.to_dict())
+        _emit(env, as_json, human=f"research project list: {exc.message}")
+
+    d = env.data
+    totals = d["totals"]
+    if totals["unreadable_studies"]:
+        env.status = "partial"
+        env.warn("unreadable_study",
+                 f"{totals['unreadable_studies']} study(ies) could not be read")
+    if totals["needs_human"]:
+        env.warn("human_review_required",
+                 f"{totals['needs_human']} run(s) are waiting on a human")
+
+    lines = [f"project {d['project']}",
+             f"  {d['study_count']} study(ies) across {len(d['fields'])} field(s): "
+             f"{', '.join(d['fields']) or '—'}"]
+    for record in d["studies"]:
+        lines.append("")
+        if record.get("unreadable"):
+            lines += [f"  {record['study']}  [{record['field']}]",
+                      f"    UNREADABLE  {record['unreadable']}"]
+            continue
+        # Blocked and human-review first. A study line that leads with what succeeded invites
+        # exactly the reading this project refuses.
+        state = []
+        if record["needs_human_count"]:
+            state.append(f"{record['needs_human_count']} awaiting a human")
+        if record["blocked_count"]:
+            state.append(f"{record['blocked_count']} blocked")
+        if record["eligible_count"]:
+            state.append(f"{record['eligible_count']} eligible")
+        if record["published_count"]:
+            state.append(f"{record['published_count']} published")
+        lines += [
+            f"  {record['study']}  [{record['field']}]  profile={record['profile']}",
+            f"    {record['document_count']} document(s), "
+            f"{'indexed' if record['indexed'] else 'NOT INDEXED'}, "
+            f"{record['run_count']} run(s)"
+            + (f" — {', '.join(state)}" if state else ""),
+        ]
+    lines += ["",
+              f"  totals: {totals['runs']} run(s); {totals['needs_human']} awaiting a human, "
+              f"{totals['blocked']} blocked, {totals['published']} published"]
+    _emit(env, as_json, human="\n".join(lines))
+
+
 @main.command("ui")
 @click.option("--host", default=None, help="Address to bind. Loopback unless --allow-remote.")
 @click.option("--port", type=int, default=None, show_default=False,
@@ -490,21 +624,32 @@ def cmd_report(run_id: str, draft: bool, workspace_path: str | None, as_json: bo
 @click.option("--allow-remote", is_flag=True,
               help="Permit a non-loopback bind. There is no authentication: anyone who can reach "
                    "the port can read every document and artifact in the workspace.")
+@_PROJECT_OPT
 @_WS_OPT
 @_JSON_OPT
 def cmd_ui(host: str | None, port: int | None, open_browser: bool, allow_remote: bool,
-           workspace_path: str | None, as_json: bool) -> None:
+           project_path: str | None, workspace_path: str | None, as_json: bool) -> None:
     """Serve a read-only web view of this workspace.
 
     Everything here is already available from the CLI. What the browser adds is following a chain:
     a claim, the evidence under it, the locator, and the source text it resolves to, without copying
     identifiers between commands. The interface never writes to the workspace.
     """
+    from .config import Workspace
+    from .projects import load_project
     from .ui import DEFAULT_HOST, DEFAULT_PORT, serve
 
     env = Envelope(command="ui")
+    project = None
     try:
-        ws = load_workspace(workspace_path)
+        if project_path is not None:
+            # Project mode. `/` lists the studies; there is no single workspace behind it, so the
+            # per-workspace routes answer from an empty stand-in rather than from some arbitrary
+            # study that happened to sort first.
+            project = load_project(project_path)
+            ws = Workspace(root=project.root)
+        else:
+            ws = load_workspace(workspace_path)
     except ResearchError as exc:
         env.status = "failed"
         env.errors.append(exc.to_dict())
@@ -513,6 +658,7 @@ def cmd_ui(host: str | None, port: int | None, open_browser: bool, allow_remote:
         hint = (f"research ui: {exc.message}\n"
                 f"\n"
                 f"  point it at one   research ui --workspace \"C:\\path\\to\\workspace\"\n"
+                f"  a whole project   research ui --project \"C:\\path\\to\\project\"\n"
                 f"  or cd into one    a workspace is any directory containing research.yaml\n"
                 f"  or make one       research init \"C:\\path\\to\\new-workspace\"\n"
                 f"\n"
@@ -536,7 +682,7 @@ def cmd_ui(host: str | None, port: int | None, open_browser: bool, allow_remote:
 
     try:
         serve(ws, host=bind_host, port=bind_port, allow_remote=allow_remote,
-              open_browser=open_browser)
+              open_browser=open_browser, project=project)
     except ResearchError as exc:
         env.status = "failed"
         env.errors.append(exc.to_dict())
@@ -556,7 +702,7 @@ def cmd_doctor(workspace_path: str | None, as_json: bool) -> None:
     """Report what this build can actually do. Used by the honesty test."""
     env = Envelope(command="doctor")
     implemented = ["init", "import", "index", "search", "run", "status", "inspect",
-                   "validate", "report", "ui"]
+                   "validate", "report", "ui", "project"]
     pending: list[str] = []
     ws: dict[str, Any] | None = None
     try:

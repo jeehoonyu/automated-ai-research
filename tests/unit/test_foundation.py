@@ -327,11 +327,11 @@ def _run_cli(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess
     )
 
 
-# The nine public commands of spec §8, plus `ui`. `ui` is NOT in the specification — it is a
-# read-only local view added on top of them, and it is listed here because `doctor` must describe
-# what the CLI actually has rather than what the spec asked for.
+# The nine public commands of spec §8, plus `ui` and `project`. Neither is in the specification —
+# one is a read-only local view, the other a folder of studies — and both are listed here because
+# `doctor` must describe what the CLI actually has rather than what the spec asked for.
 IMPLEMENTED = ["init", "import", "index", "search", "run", "status", "inspect", "validate",
-               "report", "ui"]
+               "report", "ui", "project"]
 NOT_IMPLEMENTED: list[str] = []   # all nine public commands are implemented
 
 
