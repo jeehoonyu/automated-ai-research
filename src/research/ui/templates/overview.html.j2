@@ -1,5 +1,5 @@
 {% extends "base.html.j2" %}
-{% import "_macros.html.j2" as m %}
+{% import "_macros.html.j2" as m with context %}
 {% block content %}
 
 <h1>Workspace</h1>
@@ -42,7 +42,7 @@
   <tbody>
   {% for r in runs %}
     <tr>
-      <td><a class="mono" href="/runs/{{ r['run_id'] }}" title="{{ r['run_id'] }}">{{ r['run_id']|shortid }}</a></td>
+      <td><a class="mono" href="{{ base }}/runs/{{ r['run_id'] }}" title="{{ r['run_id'] }}">{{ r['run_id']|shortid }}</a></td>
       <td>{{ r['research_question'] }}</td>
       <td><span class="phase">{{ r['phase']|replace('_', ' ') }}</span></td>
       <td><span class="disp disp-{{ 'ok' if r['disposition'] == 'active' else 'warn' }}">{{ r['disposition']|replace('_', ' ') }}</span></td>

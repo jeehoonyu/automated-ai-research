@@ -6,7 +6,7 @@
 {%- endmacro %}
 
 {% macro artifact_link(id) -%}
-<a class="mono" href="/artifacts/{{ id }}" title="{{ id }}">{{ id|shortid }}</a>
+<a class="mono" href="{{ base }}/artifacts/{{ id }}" title="{{ id }}">{{ id|shortid }}</a>
 {%- endmacro %}
 
 {% macro hash_badge(value, label='hash') -%}

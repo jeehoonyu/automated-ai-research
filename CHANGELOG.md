@@ -36,6 +36,15 @@ the wrong unit for a person, who has several topics and no way to see where any 
   opinion of its own. One unreadable study is reported, not allowed to hide the others.
 - `doctor` lists `project`, because it must describe what the CLI has rather than what the spec
   asked for.
+- **Studies are browsable in place.** A study opens at `/studies/<directory>/` and every page inside
+  it — runs, artifacts, documents, search, page renders — stays under that prefix, with a link back
+  out to the project. Every internal URL in the templates is written `{{ base }}/…`; `base` is empty
+  for a standalone workspace, so an ordinary install is unchanged, and a test asserts that (a leaked
+  prefix would break every non-project install at once).
+- The study segment is resolved by **matching it against the studies the project actually contains**,
+  never by joining it onto a path. `/studies/../../etc/passwd`, `/studies/profiles/` and an
+  unknown name are all 404 — pinned by test, because a URL prefix that reaches the filesystem is
+  exactly how a read-only viewer stops being read-only.
 
 ### Changed — one repository, both histories
 Two independent implementations of `PROJECT_GOAL.md` lived in two repositories, deliberately: spec

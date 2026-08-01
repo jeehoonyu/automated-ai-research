@@ -1,12 +1,12 @@
 {% extends "base.html.j2" %}
-{% import "_macros.html.j2" as m %}
+{% import "_macros.html.j2" as m with context %}
 {% block content %}
 
 <h1>Evidence</h1>
 <p class="mono muted">{{ a['evidence_id'] }}</p>
 
 <dl class="facts">
-  <div><dt>Run</dt><dd><a class="mono" href="/runs/{{ a['run_id'] }}">{{ a['run_id']|shortid }}</a></dd></div>
+  <div><dt>Run</dt><dd><a class="mono" href="{{ base }}/runs/{{ a['run_id'] }}">{{ a['run_id']|shortid }}</a></dd></div>
   <div><dt>Document</dt><dd>{{ m.artifact_link(a['document_id']) }}</dd></div>
   <div><dt>Type</dt><dd>{{ a.get('evidence_type') or '—' }}</dd></div>
   <div><dt>Extraction</dt><dd>{{ a.get('extraction_status') or '—' }}</dd></div>
@@ -43,7 +43,7 @@ The page is shown as the CLI rendered it, re-hashed before serving. Whether the 
 correctly is a judgement no gate here can make — <code>interpretation_status</code> records how sure
 the agent was, and an uncertain reading needs a recorded human verification.</p>
 <figure class="page page-wide">
-  <img src="/renders/{{ a['document_id'] }}/{{ '%04d'|format(loc['page']) }}.png"
+  <img src="{{ base }}/renders/{{ a['document_id'] }}/{{ '%04d'|format(loc['page']) }}.png"
        alt="Page {{ loc['page'] }} of the cited document, rendered from the original file"
        loading="lazy">
   <figcaption>page {{ loc['page'] }}

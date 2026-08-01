@@ -44,8 +44,10 @@ project My research
 ```
 
 `research ui --project ~/ai-research` shows the same thing in a browser, ordered so that studies
-needing attention come first. Drop a profile into `~/ai-research/profiles/` and every study can use
-it; a study can override it with a stricter one of the same name, never a looser one.
+needing attention come first. Click a study and it opens in place at `/studies/<name>/` — its runs,
+claims, evidence, documents, search and page renders, with a link back out. Drop a profile into
+`~/ai-research/profiles/` and every study can use it; a study can override it with a stricter one of
+the same name, never a looser one.
 
 **Studies do not share a corpus, on purpose.** A run pins its sources when it is created, and that
 pinning is what makes it answerable months later. Sharing one document store would let an import in
@@ -299,7 +301,7 @@ instructions from untrusted document content explicitly.
   `CONTRIBUTING.md`, a changelog, CI across Linux/macOS/Windows, and a release checklist that lists
   what is **not** met.
 
-599 tests (596 passing, 3 skipped). A stage is complete only when its artifact exists **and**
+609 tests (606 passing, 3 skipped). A stage is complete only when its artifact exists **and**
 validates — never because a
 file appeared, and never because an artifact says so about itself: every artifact validation loads
 is checked against its own `artifact_hash`, and the derived bytes citations resolve against are

@@ -1,12 +1,12 @@
 {% extends "base.html.j2" %}
-{% import "_macros.html.j2" as m %}
+{% import "_macros.html.j2" as m with context %}
 {% block content %}
 
 <h1>Review</h1>
 <p class="mono muted">{{ a['review_id'] }}</p>
 
 <dl class="facts">
-  <div><dt>Run</dt><dd><a class="mono" href="/runs/{{ a['run_id'] }}">{{ a['run_id']|shortid }}</a></dd></div>
+  <div><dt>Run</dt><dd><a class="mono" href="{{ base }}/runs/{{ a['run_id'] }}">{{ a['run_id']|shortid }}</a></dd></div>
   <div><dt>Type</dt><dd>{{ (a.get('review_type') or '—')|replace('_', ' ') }}</dd></div>
   <div><dt>Decision</dt><dd>{{ m.status_chip(a.get('decision') or 'not recorded',
       'passed' if a.get('decision') == 'passed' else 'blocking') }}</dd></div>

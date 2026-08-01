@@ -237,7 +237,11 @@ def study_record(study: Study) -> dict[str, Any]:
 
     record: dict[str, Any] = {
         "study": study.name, "field": study.field, "profile": study.profile,
-        "root": str(study.root), "runs": [], "unreadable": None,
+        "root": str(study.root),
+        # The directory name, not the display name: this is what a URL and a path are built from,
+        # and the two differ the moment someone types a study name with a space in it.
+        "directory": study.root.name,
+        "runs": [], "unreadable": None,
     }
     try:
         ws = study.workspace

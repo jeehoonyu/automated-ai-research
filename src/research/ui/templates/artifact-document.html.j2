@@ -1,5 +1,5 @@
 {% extends "base.html.j2" %}
-{% import "_macros.html.j2" as m %}
+{% import "_macros.html.j2" as m with context %}
 {% block content %}
 
 <h1>Document</h1>
@@ -45,7 +45,7 @@ one is a different image.</p>
 <div class="pages">
 {% for r in a['renders'] %}
   <figure class="page">
-    <img src="/renders/{{ a['document_id'] }}/{{ '%04d'|format(r['page']) }}.png"
+    <img src="{{ base }}/renders/{{ a['document_id'] }}/{{ '%04d'|format(r['page']) }}.png"
          alt="Page {{ r['page'] }} of this document, rendered from the original file"
          width="{{ r['width'] }}" height="{{ r['height'] }}" loading="lazy">
     <figcaption>page {{ r['page'] }} · {{ r['width'] }}×{{ r['height'] }}

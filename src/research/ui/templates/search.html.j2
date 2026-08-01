@@ -1,10 +1,10 @@
 {% extends "base.html.j2" %}
-{% import "_macros.html.j2" as m %}
+{% import "_macros.html.j2" as m with context %}
 {% block content %}
 
 <h1>Search</h1>
 
-<form method="get" action="/search" class="searchform">
+<form method="get" action="{{ base }}/search" class="searchform">
   <input type="search" name="q" value="{{ query }}" placeholder="words to find in the corpus" autofocus>
   <button type="submit">Search</button>
 </form>

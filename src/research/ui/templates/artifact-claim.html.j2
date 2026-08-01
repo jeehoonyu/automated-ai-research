@@ -1,5 +1,5 @@
 {% extends "base.html.j2" %}
-{% import "_macros.html.j2" as m %}
+{% import "_macros.html.j2" as m with context %}
 {% block content %}
 
 <h1>Claim</h1>
@@ -7,7 +7,7 @@
 <blockquote class="claim">{{ a.get('claim') }}</blockquote>
 
 <dl class="facts">
-  <div><dt>Run</dt><dd><a class="mono" href="/runs/{{ a['run_id'] }}">{{ a['run_id']|shortid }}</a></dd></div>
+  <div><dt>Run</dt><dd><a class="mono" href="{{ base }}/runs/{{ a['run_id'] }}">{{ a['run_id']|shortid }}</a></dd></div>
   <div><dt>Type</dt><dd>{{ a.get('claim_type') or '—' }}</dd></div>
   <div><dt>Lifecycle</dt><dd>{{ (a.get('claim_status') or '—')|replace('_', ' ') }}</dd></div>
   {# Decided in views.claim_chips. This template used to restate the schema enum and get it wrong. #}

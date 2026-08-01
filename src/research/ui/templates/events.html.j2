@@ -2,7 +2,7 @@
 {% block content %}
 
 <h1>Events</h1>
-<p class="mono muted">{{ run_id }} · <a href="/runs/{{ run_id }}">back to the run</a></p>
+<p class="mono muted">{{ run_id }} · <a href="{{ base }}/runs/{{ run_id }}">back to the run</a></p>
 
 <p class="note">Append-only. The manifest says where a run is; this says how it got there, and the
 second question is the one an auditor asks. Rendered from the raw log rather than from the manifest,

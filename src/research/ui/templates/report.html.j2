@@ -2,7 +2,7 @@
 {% block content %}
 
 <h1>Report</h1>
-<p class="mono muted">{{ name }} · <a href="/runs/{{ run_id }}">back to the run</a></p>
+<p class="mono muted">{{ name }} · <a href="{{ base }}/runs/{{ run_id }}">back to the run</a></p>
 
 {% if draft %}
 <div class="banner banner-bad">

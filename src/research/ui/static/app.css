@@ -94,9 +94,25 @@ body {
   text-decoration: none;
 }
 
-.topbar nav { display: flex; gap: 1rem; }
+.topbar nav { display: flex; gap: 1rem; align-items: baseline; }
 .topbar nav a { color: var(--ink-soft); text-decoration: none; }
 .topbar nav a:hover { color: var(--accent); }
+/* The way back out of a study to the project that holds it. */
+.topbar nav .crumb { color: var(--accent); font-weight: 600; }
+
+/* ------------------------------------------------------------------ project view */
+
+.study {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 0.9rem 1.1rem;
+  margin: 0.9rem 0;
+}
+.study-bad { border-color: var(--bad-line); }
+.study-head { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: baseline; }
+.study-head h3 { margin: 0; font-size: 1.05rem; }
+.study-path { margin-top: 0.6rem; overflow-wrap: anywhere; }
 
 /* The workspace path. `direction: rtl` truncated it from the left, which is the useful end to keep
  * — but it also REORDERS mixed-script text, so a path through `OneDrive\문서\` came out scrambled

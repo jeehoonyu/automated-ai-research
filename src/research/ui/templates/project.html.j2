@@ -1,5 +1,5 @@
 {% extends "base.html.j2" %}
-{% import "_macros.html.j2" as m %}
+{% import "_macros.html.j2" as m with context %}
 {% block content %}
 
 <h1>{{ project }}</h1>
@@ -49,7 +49,8 @@ creates one.</p>
 {% for s in studies %}
 <div class="study{{ ' study-bad' if s.get('unreadable') or s.get('blocked_count') else '' }}">
   <div class="study-head">
-    <h3>{{ s['study'] }}</h3>
+    <h3>{% if not s.get('unreadable') %}<a href="/studies/{{ s['directory'] }}/">{{ s['study'] }}</a>
+        {%- else %}{{ s['study'] }}{% endif %}</h3>
     <span class="chip chip-neutral">{{ s['field'] }}</span>
     <span class="muted mono">profile={{ s['profile'] }}</span>
   </div>
@@ -76,7 +77,7 @@ creates one.</p>
               <span class="mono">{{ r['run_id'] }}</span>
               <span class="chip chip-blocking">unreadable</span>
             {% else %}
-              {{ r['question'] }}
+              <a href="/studies/{{ s['directory'] }}/runs/{{ r['run_id'] }}">{{ r['question'] }}</a>
               <div class="muted mono">{{ r['run_id']|shortid }}</div>
             {% endif %}
           </td>

@@ -246,6 +246,108 @@ def test_one_unreadable_study_does_not_hide_the_others(project):
 # --------------------------------------------------------------------------------------- the UI
 
 
+def _serve(project):
+    """A running project server plus a fetcher. Returns (get, shutdown)."""
+    server = build_server(Workspace(root=project.root), host="127.0.0.1", port=0,
+                          quiet=True, project=project)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    port = server.server_address[1]
+
+    def get(path: str) -> tuple[int, str]:
+        import urllib.error
+        try:
+            with urllib.request.urlopen(f"http://127.0.0.1:{port}{path}", timeout=10) as r:
+                return r.status, r.read().decode("utf-8", "replace")
+        except urllib.error.HTTPError as exc:
+            return exc.code, exc.read().decode("utf-8", "replace")
+
+    def shutdown() -> None:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+    return get, shutdown
+
+
+def test_a_study_is_browsable_in_place_from_the_project_page(project):
+    """Clicking a study opens it under `/studies/<dir>/`, and every link inside stays there."""
+    import re
+
+    busy = load_workspace(new_study(project, "Busy", field_name="medicine")["workspace"])
+    create_run(busy, question="a question nobody has answered yet")
+
+    get, shutdown = _serve(project)
+    try:
+        code, home = get("/")
+        assert code == 200
+        links = sorted(set(re.findall(r'href="(/studies/[^"]+)"', home)))
+        assert links, "the project page offers no way into a study"
+
+        prefix = "/studies/Busy"
+        code, study_home = get(prefix + "/")
+        assert code == 200
+        # The way back out, and the study's own name in the nav rather than a generic label.
+        assert 'href="/" class="crumb"' in study_home
+        assert "Busy" in study_home
+
+        for path in (prefix + "/documents", prefix + "/search?q=anything"):
+            assert get(path)[0] == 200, path
+
+        # Every internal link on the study's pages carries the prefix. One that did not would
+        # silently jump to the project root and 404, or worse, to another study's page.
+        run_links = re.findall(r'href="(/studies/Busy/runs/[^"]+)"', study_home)
+        assert run_links, "the study overview does not link to its run"
+        code, run_page = get(run_links[0])
+        assert code == 200
+        assert 'href="/runs/' not in run_page, "a link escaped the study prefix"
+        assert 'href="/artifacts/' not in run_page, "a link escaped the study prefix"
+    finally:
+        shutdown()
+
+
+@pytest.mark.parametrize("hostile", [
+    "/studies/../../etc/passwd",
+    "/studies/nope/",
+    "/studies/profiles/",
+    "/studies/..%2f..%2fresearch-project.yaml",
+    "/studies//",
+])
+def test_the_study_prefix_is_not_a_way_out_of_the_project(project, hostile: str):
+    """The workspace is resolved by MATCHING the segment against the studies the project actually
+    contains — never by joining it onto a path. `profiles/` is the project's own and is not a
+    study, so it is refused like anything else that is not one."""
+    new_study(project, "Real", field_name="x")
+    get, shutdown = _serve(project)
+    try:
+        code, body = get(hostile)
+        assert code == 404, hostile
+        assert "research-project.yaml" not in body or "no study" in body
+    finally:
+        shutdown()
+
+
+def test_a_plain_workspace_still_has_unprefixed_links(complete_run):
+    """`base` is empty outside a project. If it leaked a prefix, every ordinary install would break.
+    """
+    ws, run_id, _meta = complete_run
+    server = build_server(ws, host="127.0.0.1", port=0, quiet=True)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        url = f"http://127.0.0.1:{server.server_address[1]}/"
+        with urllib.request.urlopen(url, timeout=10) as response:
+            body = response.read().decode("utf-8")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+    assert f'href="/runs/{run_id}"' in body
+    assert "/studies/" not in body
+    assert 'class="crumb"' not in body, "a standalone workspace has no project to go back to"
+
+
 def test_the_project_page_lists_every_study_and_leads_with_the_blocked_one(project):
     new_study(project, "Quiet", field_name="physics")
     busy = load_workspace(new_study(project, "Busy", field_name="medicine")["workspace"])

@@ -48,6 +48,9 @@ LOOPBACK_NAMES = {"localhost", "127.0.0.1", "::1", "[::1]", "0000:0000:0000:0000
 #: `/renders/<document-id>/<page>.png` — the one route that answers with something other than HTML.
 RENDER_PATH = re.compile(r"^/renders/(?P<document_id>[^/]+)/(?P<page>\d{1,6})\.png$")
 
+#: `/studies/<directory>/...` — the same workspace pages, served inside a project.
+STUDY_PATH = re.compile(r"^/studies/(?P<study>[^/]+)(?P<rest>/.*)?$")
+
 #: Cap on a request body this handler will read and throw away. Past it the connection is closed
 #: instead, because the only reason to read a body here is to keep the connection's framing honest.
 MAX_DRAIN_BYTES = 1 << 20
@@ -168,6 +171,33 @@ class ReadOnlyHandler(http.server.BaseHTTPRequestHandler):
         path = urllib.parse.unquote(parsed.path)
         params = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
 
+        # A study is served under a prefix so its pages can link to each other in place. The
+        # workspace is resolved by MATCHING the directory name against the studies the project
+        # actually contains — never by joining the URL segment onto a path. An unknown segment is a
+        # 404, not a filesystem lookup.
+        workspace, base, study_name = self.workspace, "", None
+        study_match = STUDY_PATH.match(path) if self.project is not None else None
+        if study_match:
+            from ..projects import studies as project_studies
+
+            wanted = study_match["study"]
+            found = next((s for s in project_studies(self.project) if s.root.name == wanted), None)
+            if found is None:
+                self._send_page(views.error_page(
+                    f"no study {wanted!r} in this project", code=404,
+                    detail={"project": str(self.project.root)}), body=body)
+                return
+            try:
+                workspace = found.workspace
+            except ResearchError as exc:
+                self._send_page(views.error_page(
+                    f"study {found.name!r} could not be opened: {exc.message}", code=500,
+                    detail=exc.detail), body=body)
+                return
+            base = "/studies/" + urllib.parse.quote(found.root.name)
+            study_name = found.name
+            path = study_match["rest"] or "/"
+
         if path == "/static/app.css":
             self._send(200, stylesheet(), "text/css; charset=utf-8", body=body)
             return
@@ -178,23 +208,23 @@ class ReadOnlyHandler(http.server.BaseHTTPRequestHandler):
         # The only binary route. Handled here rather than through `resolve` because a page render
         # is bytes, not a template — and because it is the one response whose payload does not pass
         # through autoescaping, which is worth having in one obvious place.
-        render = RENDER_PATH.match(path)
-        if render:
+        render_match = RENDER_PATH.match(path)
+        if render_match:
             try:
                 payload, content_type = views.page_render(
-                    self.workspace, render["document_id"], int(render["page"]))
+                    workspace, render_match["document_id"], int(render_match["page"]))
             except views.NotFound as exc:
                 self._send_page(views.error_page(exc.message, code=404, detail=exc.detail),
-                                body=body)
+                                body=body, workspace=workspace, base=base, study=study_name)
             else:
                 self._send(200, payload, content_type, body=body)
             return
 
         try:
-            if self.project is not None and path == "/":
+            if self.project is not None and not study_match and path == "/":
                 page = views.project_page(self.project)
             else:
-                page = views.resolve(self.workspace, path, params)
+                page = views.resolve(workspace, path, params)
         except views.NotFound as exc:
             page = views.error_page(exc.message, code=404, detail=exc.detail)
         except ResearchError as exc:
@@ -204,11 +234,20 @@ class ReadOnlyHandler(http.server.BaseHTTPRequestHandler):
         except Exception as exc:  # noqa: BLE001 - a view bug must not take the server down
             page = views.error_page(f"{type(exc).__name__}: {exc}", code=500)
 
-        self._send_page(page, body=body)
+        self._send_page(page, body=body, workspace=workspace, base=base, study=study_name)
 
-    def _send_page(self, page: views.Page, *, body: bool) -> None:
-        html = render(page.template, {**page.model, "page_title": page.title,
-                                      "workspace_root": str(self.workspace.root)})
+    def _send_page(self, page: views.Page, *, body: bool, workspace: Workspace | None = None,
+                   base: str = "", study: str | None = None) -> None:
+        ws = workspace or self.workspace
+        html = render(page.template, {
+            **page.model,
+            "page_title": page.title,
+            "workspace_root": str(ws.root),
+            # Every internal link is written `{{ base }}/…`. Empty for a plain workspace; the study
+            # prefix when the same pages are served inside a project.
+            "base": base,
+            "study_name": study,
+        })
         self._send(page.status, html.encode("utf-8"), "text/html; charset=utf-8", body=body)
 
     # ------------------------------------------------------------------ plumbing

@@ -1,5 +1,5 @@
 {% extends "base.html.j2" %}
-{% import "_macros.html.j2" as m %}
+{% import "_macros.html.j2" as m with context %}
 {% block content %}
 
 <h1>Run</h1>
@@ -11,7 +11,7 @@
   <div><dt>Profile</dt><dd>{{ run['profile'] }}</dd></div>
   <div><dt>Sources pinned</dt><dd>{{ status['source_document_count'] }} document(s)</dd></div>
   <div><dt>Index</dt><dd>{{ m.hash_badge(status['index_hash'], 'index') or '—' }}</dd></div>
-  <div><dt>Events</dt><dd><a href="/runs/{{ run['run_id'] }}/events">{{ run['event_count'] }} recorded</a></dd></div>
+  <div><dt>Events</dt><dd><a href="{{ base }}/runs/{{ run['run_id'] }}/events">{{ run['event_count'] }} recorded</a></dd></div>
 </dl>
 
 {# ------------------------------------------------------------------ the verdict, stated plainly #}
@@ -144,7 +144,7 @@ outcome, not an empty page to be filled.</p>
           <span class="chip chip-blocking">unreadable</span> <span class="mono">{{ c.get('claim_id') }}</span>
           <div class="muted">{{ c.get('unreadable') }}</div>
         {% else %}
-          <a href="/artifacts/{{ c['claim_id'] }}">{{ c.get('claim') }}</a>
+          <a href="{{ base }}/artifacts/{{ c['claim_id'] }}">{{ c.get('claim') }}</a>
           <div class="muted mono">{{ c['claim_id']|shortid }} · {{ c.get('claim_type') }}</div>
         {% endif %}
       </td>
@@ -196,7 +196,7 @@ outcome, not an empty page to be filled.</p>
 <h2>Reports</h2>
 <ul class="idlist">
 {% for name in reports %}
-  <li><a href="/runs/{{ run['run_id'] }}/report/{{ name }}">{{ name }}</a></li>
+  <li><a href="{{ base }}/runs/{{ run['run_id'] }}/report/{{ name }}">{{ name }}</a></li>
 {% endfor %}
 </ul>
 {% endif %}

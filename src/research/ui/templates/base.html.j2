@@ -11,9 +11,12 @@
 <header class="topbar">
   <a class="brand" href="/">research</a>
   <nav>
-    <a href="/">Workspace</a>
-    <a href="/documents">Documents</a>
-    <a href="/search">Search</a>
+    {# In a project, `base` is /studies/<dir> and these stay inside the study you are looking at.
+       The brand link above always goes to the server root, which is the way back out. #}
+    {% if base %}<a href="/" class="crumb">← all studies</a>{% endif %}
+    <a href="{{ base }}/">{{ study_name or "Workspace" }}</a>
+    <a href="{{ base }}/documents">Documents</a>
+    <a href="{{ base }}/search">Search</a>
   </nav>
   {# `direction: rtl` used to truncate this from the left. It reorders mixed-script text, which
      mangles a path like `…\OneDrive\문서\ws` rather than merely shortening it. #}
