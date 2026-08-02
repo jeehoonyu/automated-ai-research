@@ -331,7 +331,7 @@ def _run_cli(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess
 # one is a read-only local view, the other a folder of studies — and both are listed here because
 # `doctor` must describe what the CLI actually has rather than what the spec asked for.
 IMPLEMENTED = ["init", "import", "index", "search", "run", "status", "inspect", "validate",
-               "report", "ui", "project"]
+               "report", "ui", "project", "amend"]
 NOT_IMPLEMENTED: list[str] = []   # all nine public commands are implemented
 
 

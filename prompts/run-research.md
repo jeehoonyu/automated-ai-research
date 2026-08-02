@@ -100,6 +100,21 @@ research ui       --workspace <workspace> --open      # to read it, and check it
 Do not work around it: read the blocking checks, and either fix the underlying gap or report that the
 question could not be answered from these sources.
 
+## Two gates you cannot clear
+
+`ocr_evidence_human_verified` and `visual_interpretation_certain` require
+`created_by.actor_type == "human"`. **No agent can clear them, including you.** If a run blocks on
+either, stop and tell me which evidence needs a person to look at it. The command *I* will run is:
+
+```bash
+research amend <run-id> --type human_ocr_verification --target <evidence-id> \
+  --reason "…" --by "…" --workspace <workspace>
+```
+
+Do not run it yourself, and do not suggest working around it by re-labelling the evidence's
+`extraction_status` — that label is cross-checked against the Document manifest the CLI wrote, and
+changing it is the self-attestation the gate exists to refuse.
+
 ## Report back to me
 
 - The answer, or `unable_to_determine` with what was missing.

@@ -482,6 +482,67 @@ def cmd_report(run_id: str, draft: bool, workspace_path: str | None, as_json: bo
           f"validated classification"] if result.overstatements else [])))
 
 
+@main.command("amend")
+@click.argument("run_id")
+@click.option("--type", "amendment_type", required=True,
+              type=click.Choice(["human_ocr_verification", "human_visual_verification",
+                                 "metadata_correction", "locator_correction", "claim_rewording",
+                                 "evidence_reclassification", "review_override", "withdrawal"]),
+              help="What kind of amendment this is.")
+@click.option("--target", required=True, help="The artifact id being amended.")
+@click.option("--reason", required=True,
+              help="Why. This is the record; a blank one documents nothing.")
+@click.option("--by", "human_identifier", required=True,
+              help="Who made it. Required by the schema: a verification nobody is named for is "
+                   "not accountability.")
+@click.option("--role", default=None, help="Their role, if it matters to the record.")
+@click.option("--replacement", default=None,
+              help="For an amendment that replaces content, the artifact id that replaces it.")
+@click.option("--field", "changed_fields", multiple=True,
+              help="A field this amendment changes. Repeatable.")
+@_WS_OPT
+@_JSON_OPT
+def cmd_amend(run_id: str, amendment_type: str, target: str, reason: str, human_identifier: str,
+              role: str | None, replacement: str | None, changed_fields: tuple[str, ...],
+              workspace_path: str | None, as_json: bool) -> None:
+    """Record a human amendment against an artifact — the way past a gate that needs a person.
+
+    Two gates can only be cleared this way: `ocr_evidence_human_verified` and
+    `visual_interpretation_certain`. Until this command existed there was no way to clear them, so a
+    corpus with one scanned page could not be published from at all.
+
+    The amendment is bound to the artifact's hash AS IT IS NOW, so a verification cannot outlive the
+    thing it verified. Re-run `research validate` afterwards.
+    """
+    from .runs.amendments import record_amendment
+
+    env = Envelope(command="amend")
+    try:
+        ws = load_workspace(workspace_path)
+        env.data = record_amendment(
+            ws, run_id, amendment_type=amendment_type, target_artifact_id=target, reason=reason,
+            human_identifier=human_identifier, human_role=role,
+            changed_fields=list(changed_fields) or None,
+            replacement_artifact_id=replacement)
+    except ResearchError as exc:
+        env.status = "failed"
+        env.errors.append(exc.to_dict())
+        _emit(env, as_json, human=f"research amend: {exc.message}")
+
+    d = env.data
+    env.warn("attestation_not_verified", d["attestation_note"])
+    _emit(env, as_json, human="\n".join([
+        f"amendment {d['amendment_id']}",
+        f"  type        {d['amendment_type']}",
+        f"  target      {d['target_artifact_id']}",
+        f"  bound to    {d['target_artifact_hash']}",
+        f"  by          {d['human']}",
+        f"  written     {d['path']}",
+        "",
+        f"Next: research validate {run_id}",
+    ]))
+
+
 _PROJECT_OPT = click.option("--project", "project_path", type=click.Path(),
                             help="Project root. Defaults to the nearest parent "
                                  "research-project.yaml.")
@@ -702,7 +763,7 @@ def cmd_doctor(workspace_path: str | None, as_json: bool) -> None:
     """Report what this build can actually do. Used by the honesty test."""
     env = Envelope(command="doctor")
     implemented = ["init", "import", "index", "search", "run", "status", "inspect",
-                   "validate", "report", "ui", "project"]
+                   "validate", "report", "ui", "project", "amend"]
     pending: list[str] = []
     ws: dict[str, Any] | None = None
     try:

@@ -121,12 +121,21 @@ _STAGES: dict[Stage, dict[str, Any]] = {
         "allowed_inputs": ["question", "plan", "evidence"],
         "excluded_inputs": [],
         "required_outputs": ["responses/claims.json"],
-        "schemas": ["Claim"],
+        # `SourceRelationship` is declared here because this is where it was already possible —
+        # bundling one into claims.json promoted it — and nothing said so. An undocumented route is
+        # not a route: `check_source_independence` blocks a `strongly_supported` claim until
+        # relationships are assessed, and an agent had no way to learn how. Declared, so the packet
+        # itself tells the next agent.
+        "schemas": ["Claim", "SourceRelationship"],
         "completion_criteria": [
             "every claim references at least one evidence id",
             "claim type distinguishes direct fact from inference, interpretation and hypothesis",
             "assumptions stated explicitly",
             "an 'insufficient_evidence_finding' recorded where the evidence does not reach",
+            "a `strongly_supported` claim also records a SourceRelationship for each pair of "
+            "documents it rests on — in the SAME file, alongside the claims. Two sources that turn "
+            "out to be one study republished are not corroboration, and unassessed independence "
+            "blocks rather than passes",
         ],
         "failure_conditions": [
             "a claim with no supporting evidence id",

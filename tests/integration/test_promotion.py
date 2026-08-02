@@ -202,3 +202,117 @@ def test_a_manifest_phase_the_log_does_not_support_fails(fresh_run):
     status = next(c["status"] for c in result["checks"]
                   if c["check"] == "lifecycle_transitions_valid")
     assert status == "failed"
+
+
+# --------------------------------------------------- a stage may not accept and silently discard
+
+
+def test_a_stage_with_no_canonical_form_refuses_artifacts_instead_of_dropping_them(fresh_run):
+    """`retrieval` has no canonical artifact, so it ignored its file's contents — and returned
+    `accepted: True`. That was the only route anyone could find for an `Amendment`, which meant a
+    human verification could be "recorded" and simply not exist. Accepted-and-discarded is not an
+    outcome this package may have.
+    """
+    from research.artifacts.io import make_artifact
+    from research.identifiers import amendment_id
+
+    ws, rid, run_dir = fresh_run
+    (run_dir / "responses" / "plan.json").write_text(json.dumps(_plan(rid)), encoding="utf-8")
+    assert promote_stage(ws, rid, Stage.PLANNING)["accepted"]
+
+    aid = amendment_id()
+    (run_dir / "responses" / "retrieval.json").write_text(json.dumps(make_artifact(
+        schema_name="Amendment", artifact_id=aid, actor_type="human",
+        body=dict(amendment_id=aid, run_id=rid, amendment_type="human_ocr_verification",
+                  target_artifact_id="EVD-sha256-" + "0" * 64,
+                  target_artifact_hash="sha256:" + "0" * 64,
+                  changed_fields=["x"], reason="r", human={"identifier": "someone"},
+                  requires_revalidation=True))), encoding="utf-8")
+
+    result = promote_stage(ws, rid, Stage.RETRIEVAL)
+    assert result["accepted"] is False
+    assert any("discard" in p for p in result["problems"]), result["problems"]
+    assert any("research amend" in p for p in result["problems"]), \
+        "the refusal must say where the artifact should go instead"
+
+
+def test_a_schemaless_stage_still_accepts_its_ordinary_response(fresh_run):
+    """The refusal above must not break the stage. A retrieval record is not an artifact."""
+    ws, rid, run_dir = fresh_run
+    (run_dir / "responses" / "plan.json").write_text(json.dumps(_plan(rid)), encoding="utf-8")
+    promote_stage(ws, rid, Stage.PLANNING)
+    (run_dir / "responses" / "retrieval.json").write_text(
+        json.dumps({"queries": ["memory"], "chunk_ids": []}), encoding="utf-8")
+
+    assert promote_stage(ws, rid, Stage.RETRIEVAL)["accepted"] is True
+
+
+# ------------------------------------------------------------------- re-accepting a stage is said
+
+
+def test_re_accepting_a_stage_is_allowed_and_reported(fresh_run):
+    """`transition` skips the state machine when the phase would not change, so a second
+    `--stage planning` silently re-ran and overwrote canonical artifacts. Allowed is right — it is
+    how you fix a response you just accepted — but silence is not."""
+    ws, rid, run_dir = fresh_run
+    (run_dir / "responses" / "plan.json").write_text(json.dumps(_plan(rid)), encoding="utf-8")
+
+    first = promote_stage(ws, rid, Stage.PLANNING)
+    assert first["accepted"] and first["re_promoted"] is False
+
+    second = promote_stage(ws, rid, Stage.PLANNING)
+    assert second["accepted"] and second["re_promoted"] is True
+    assert "stale" in second["note"]
+
+    events = [json.loads(line) for line in
+              (run_dir / "events.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert any("re-accepted" in str(e.get("reason", "")) for e in events), \
+        "the run's history must show the stage was accepted twice"
+
+
+def test_a_stage_cannot_be_re_accepted_once_the_run_has_moved_on(fresh_run):
+    """The window is narrow by construction: promoting an earlier stage would move backwards, and
+    the lifecycle refuses that — so re-acceptance can never rewrite work a later stage reviewed."""
+    ws, rid, run_dir = fresh_run
+    (run_dir / "responses" / "plan.json").write_text(json.dumps(_plan(rid)), encoding="utf-8")
+    promote_stage(ws, rid, Stage.PLANNING)
+    (run_dir / "responses" / "retrieval.json").write_text(
+        json.dumps({"queries": ["m"], "chunk_ids": []}), encoding="utf-8")
+    promote_stage(ws, rid, Stage.RETRIEVAL)
+
+    with pytest.raises(ResearchError) as exc:
+        promote_stage(ws, rid, Stage.PLANNING)
+    assert "backwards" in str(exc.value.message) or "backwards" in str(exc.value.detail)
+
+
+# ------------------------------------------------------------------------ source relationships
+
+
+def test_the_synthesis_packet_declares_source_relationships(fresh_run):
+    """`check_source_independence` blocks a `strongly_supported` claim until relationships are
+    assessed. Bundling one into claims.json always worked; nothing said so, and a route nobody can
+    discover is not a route."""
+    from research.runs.packets import build_packet
+
+    ws, rid, _run_dir = fresh_run
+    packet = build_packet(run_id=rid, stage=Stage.SYNTHESIS, question="q", profile="default",
+                          workspace_root=str(ws.root))
+    assert "SourceRelationship" in packet["schema_versions"]
+    assert any("SourceRelationship" in c for c in packet["completion_criteria"]), \
+        "the packet must tell the agent when to produce one"
+
+
+def test_a_relationship_id_is_content_derived_and_order_independent():
+    """"A duplicates B" and "B duplicates A" are one fact. Two ids would let the same assessment be
+    recorded twice and counted as two. There was no factory at all, and no pattern in the schema."""
+    from research.identifiers import relationship_id
+
+    a, b = "DOC-sha256-" + "1" * 64, "DOC-sha256-" + "2" * 64
+    forward = relationship_id(source_document_id=a, related_document_id=b,
+                              relationship_type="duplicate")
+    backward = relationship_id(source_document_id=b, related_document_id=a,
+                               relationship_type="duplicate")
+    assert forward == backward
+    assert forward.startswith("REL-sha256-")
+    assert forward != relationship_id(source_document_id=a, related_document_id=b,
+                                      relationship_type="independent")

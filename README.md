@@ -79,6 +79,25 @@ research ui       --workspace ~/my-research --open
 
 `research report` exits 5 and refuses if any gate blocks. **That refusal is the product working.**
 
+### When a gate needs a person
+
+Two gates cannot be cleared by any agent, deliberately — `ocr_evidence_human_verified` and
+`visual_interpretation_certain` both require `created_by.actor_type == "human"`. A scanned page or an
+uncertain reading of a figure needs someone to look:
+
+```bash
+research amend <run-id> --type human_ocr_verification \
+  --target <evidence-id> --reason "read page 2 myself; the quotation is accurate" --by "your name"
+research validate <run-id>
+```
+
+The amendment binds to the evidence's hash **as it stands when you record it** — edit that evidence
+afterwards and the gate blocks again, because a verification must not outlive what it verified.
+
+`research amend` records a claim, not a proof. It cannot check that a human ran it, and it says so
+every time. What you get is accountability: a named identifier, a stated reason, hashed, and tied to
+one exact version.
+
 Want to see it work before pointing it at your own sources? The benchmark corpus is synthetic and
 ships with the repo:
 
@@ -301,7 +320,7 @@ instructions from untrusted document content explicitly.
   `CONTRIBUTING.md`, a changelog, CI across Linux/macOS/Windows, and a release checklist that lists
   what is **not** met.
 
-609 tests (606 passing, 3 skipped). A stage is complete only when its artifact exists **and**
+622 tests (619 passing, 3 skipped). A stage is complete only when its artifact exists **and**
 validates — never because a
 file appeared, and never because an artifact says so about itself: every artifact validation loads
 is checked against its own `artifact_hash`, and the derived bytes citations resolve against are

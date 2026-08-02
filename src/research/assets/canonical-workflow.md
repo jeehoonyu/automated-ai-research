@@ -91,6 +91,32 @@ nothing checked the artifact before it landed.
 | **final_validation** | `ValidationResult` | *(performed by the CLI)* |
 | **report** | Markdown + manifest | *(performed by the CLI)* |
 
+`synthesis` also accepts `SourceRelationship` artifacts **in the same file, alongside the claims**.
+A `strongly_supported` claim needs its sources assessed for independence, and two documents that turn
+out to be one study republished are not corroboration — unassessed independence blocks rather than
+passes, so record the relationship when you make the claim.
+
+## When a gate needs a human
+
+Two gates cannot be cleared by any agent, deliberately: `ocr_evidence_human_verified` and
+`visual_interpretation_certain`. Both name a human, and both require `created_by.actor_type ==
+"human"` — an agent recording a verification about its own evidence is the self-attestation those
+gates exist to refuse.
+
+A person clears them:
+
+```bash
+research amend <run-id> --type human_ocr_verification \
+  --target <evidence-id> --reason "…what you actually checked…" --by "<who>"
+research validate <run-id>
+```
+
+The amendment is bound to the artifact's hash **as it stands when you record it**. Edit that evidence
+afterwards and the gate blocks again, because a verification must not outlive the thing it verified.
+
+The CLI cannot check that a human ran that command, and says so every time it writes one. What the
+record buys is accountability, not proof.
+
 ---
 
 ## Independence

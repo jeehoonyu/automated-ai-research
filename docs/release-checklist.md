@@ -171,7 +171,18 @@ Finally, wire that command into CI.
 
 ## Known limitations to state in release notes
 
-- No OCR engine. `ocr_required` content becomes usable only through a recorded human amendment.
+- No OCR engine. `ocr_required` content becomes usable only through a recorded human amendment —
+  `research amend <run-id> --type human_ocr_verification --target <evidence-id> --reason … --by …`.
+  **That sentence was in this file before the command existed**, and there was no way to record such
+  an amendment at all: no stage's packet declared `Amendment`, a schema-less stage accepted and
+  silently discarded one, and a completed stage could not be re-promoted. A corpus with a single
+  scanned page was a dead end — the gate fired correctly and the only documented remedy did not
+  exist. Fixed 2026-08-01.
+- **`research amend` records a claim, not a proof.** It writes `actor_type: human` because the
+  schema requires it, and it cannot verify that a human ran it — a script can invoke a CLI. What the
+  record buys is accountability: the amendment names an identifier, states a reason, is hashed, and
+  is bound to the exact version of the artifact checked, so a verification cannot silently outlive
+  the thing it verified. The command says so in its own output, every time.
 - Table and figure detection reports `not_detected` — it is not implemented, and the full-page render
   is the fallback.
 - PDF parsing is not sandboxed and runs in-process.

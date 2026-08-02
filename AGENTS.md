@@ -74,7 +74,7 @@ wrong even if it makes something else better.
 | `src/research/extraction/` | PDF and Markdown → normalized text, chunks, seven extraction statuses | changing how sources are read |
 | `src/research/importers/` | content-addressed import, dedup, page rendering | changing what import accepts |
 | `src/research/indexing/`, `search/` | SQLite FTS5 build and query, reproducible `index_hash` | changing retrieval |
-| `src/research/runs/` | lifecycle (phase + disposition), work packets, stage promotion, `inspect` | changing the workflow's state machine |
+| `src/research/runs/` | lifecycle (phase + disposition), work packets, stage promotion, amendments, `inspect` | changing the workflow's state machine |
 | `src/research/validation/` | **the 25 checks and the publication gate** | changing what blocks a report |
 | `src/research/reporting/` | Markdown renderer, overstatement detection, template | changing report output |
 | `src/research/profiles/` | `default.yaml`, `medicine.yaml` — per-domain strictness | **the first thing most forks customize** |
@@ -160,6 +160,15 @@ research validate <run-id> --stage <stage>  # accept ONE stage; this is what pro
 ```
 
 Then `research validate <run-id>` for the whole run, and `research report <run-id>`.
+
+`synthesis` also accepts `SourceRelationship` artifacts in the same file as the claims — a
+`strongly_supported` claim needs its sources assessed for independence, and unassessed blocks.
+
+**Two gates can only be cleared by a person**: `ocr_evidence_human_verified` and
+`visual_interpretation_certain`. Both require `created_by.actor_type == "human"`, so no agent can
+clear them. `research amend <run-id> --type human_ocr_verification --target <id> --reason … --by …`
+is the route, and the amendment binds to the artifact's hash as it stands — edit the evidence
+afterwards and the gate blocks again.
 
 Four rules that catch people out:
 

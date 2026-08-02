@@ -38,6 +38,7 @@ CHUNK_PREFIX = "CHK-sha256-"
 EVIDENCE_PREFIX = "EVD-sha256-"
 CONTEXT_PREFIX = "CTX-sha256-"
 RETRIEVAL_PREFIX = "RTL-sha256-"
+RELATIONSHIP_PREFIX = "REL-sha256-"
 CLAIM_PREFIX = "CLM-"
 REVIEW_PREFIX = "REV-"
 AMENDMENT_PREFIX = "AMD-"
@@ -112,6 +113,22 @@ def evidence_id(
         "locator": locator,
         "exact_text": exact_text,
         "evidence_type": evidence_type,
+    })
+
+
+def relationship_id(*, source_document_id: str, related_document_id: str,
+                    relationship_type: str) -> str:
+    """Identity of a claim that two documents stand in some relation.
+
+    Content-derived and **order-independent**: "A duplicates B" and "B duplicates A" are one fact,
+    and giving them two ids would let the same assessment be recorded twice and counted as two.
+    Source relationships had no factory at all and no pattern in the schema, so `REL-111111111111`
+    validated — which meant nothing stopped a run from carrying two contradictory assessments of the
+    same pair.
+    """
+    return RELATIONSHIP_PREFIX + _composite({
+        "documents": sorted([source_document_id, related_document_id]),
+        "relationship_type": relationship_type,
     })
 
 

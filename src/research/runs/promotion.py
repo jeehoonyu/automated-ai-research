@@ -138,8 +138,19 @@ def promote_stage(ws: Workspace, run_id: str, stage: Stage) -> dict[str, Any]:
     # yet (Theme 5 in GOAL.md). Such a stage is accepted when its file is present and readable, and
     # promotes nothing — stated here rather than silently succeeding as though it had.
     if not declares_schemas:
+        # ACCEPTED AND SILENTLY DISCARDED is not an outcome this package may have. A stage with no
+        # canonical form ignores its file's contents, so an artifact placed there vanished while
+        # the command reported success — and that was the only route anyone could find for an
+        # Amendment, which meant a human verification could be "recorded" and never exist.
+        # Anything that looks like an artifact is now refused, by name.
+        stray = sorted({str(a.get("schema_name")) for a in artifacts if a.get("schema_name")})
         for artifact in artifacts:
             artifact.pop("_source_path", None)
+        if stray:
+            problems.append(
+                f"this stage has no canonical artifact, so it would discard the "
+                f"{', '.join(stray)} artifact(s) in its response file. Nothing here is saved — "
+                f"use `research amend` for an Amendment, or the stage that owns that artifact.")
         if problems:
             return {"run_id": run_id, "stage": str(stage), "accepted": False,
                     "promoted": [], "problems": problems,
@@ -187,10 +198,26 @@ def promote_stage(ws: Workspace, run_id: str, stage: Stage) -> dict[str, Any]:
         write_artifact(path, artifact, root=ws.root)
         promoted.append(str(path.relative_to(ws.root)).replace("\\", "/"))
 
-    moved = transition(ws, run_id, to_phase=STAGE_PHASE[stage],
-                       triggered_by=f"research validate --stage {stage}",
-                       reason=f"{len(promoted)} artifact(s) validated and promoted")
+    # RE-ACCEPTING A STAGE THE RUN IS ALREADY AT is allowed, and is now said out loud.
+    #
+    # `transition` skips the state machine when the phase would not change, so a second
+    # `--stage synthesis` on a run already at `synthesized` silently re-ran and re-wrote canonical
+    # artifacts. Allowed is the right answer — it is how you fix a response you have just accepted
+    # and immediately noticed was wrong — but silence is not: the run's history should show that a
+    # stage was accepted twice, and the caller should be told which of the two happened.
+    #
+    # The window is narrow by construction. Once the run advances, promoting an earlier stage moves
+    # backwards and the lifecycle refuses it, so this cannot rewrite work a later stage reviewed.
+    re_promoted = load_run(ws, run_id)["phase"] == str(STAGE_PHASE[stage])
+    moved = transition(
+        ws, run_id, to_phase=STAGE_PHASE[stage],
+        triggered_by=f"research validate --stage {stage}",
+        reason=(f"stage re-accepted; {len(promoted)} artifact(s) re-validated and overwritten"
+                if re_promoted else f"{len(promoted)} artifact(s) validated and promoted"))
 
     return {"run_id": run_id, "stage": str(stage), "accepted": True,
-            "promoted": promoted, "problems": [],
-            "phase": moved["phase"], "previous_phase": moved["previous_phase"]}
+            "promoted": promoted, "problems": [], "re_promoted": re_promoted,
+            "phase": moved["phase"], "previous_phase": moved["previous_phase"],
+            **({"note": "this stage had already been accepted; its artifacts were overwritten. "
+                        "Any validation result from before this point is stale."}
+               if re_promoted else {})}

@@ -6,6 +6,45 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed — Tier 0: the ways forward a blocked run was promised and did not have
+Found by asking a question the test suite cannot: *when a gate blocks, can the user actually perform
+the remedy the documentation names?* All four verified by running the code, and each fix confirmed by
+re-introducing the defect and watching a named test go red.
+
+- **`research amend` exists.** `docs/release-checklist.md` had always said `ocr_required` content
+  becomes usable *"only through a recorded human amendment"*. There was no way to record one: no
+  stage's packet declared `Amendment`, so none would promote it; bundling one into a schema-less
+  stage's response file returned `accepted: True` and silently discarded it; and once a run advanced,
+  that stage could not be re-promoted. **A corpus with a single scanned page was a dead end** — the
+  gate fired correctly and the only sanctioned remedy did not exist. `ocr_evidence_human_verified`
+  and `visual_interpretation_certain` are the two gates this clears, and both require
+  `actor_type: human`, which rules out an agent doing it.
+  - The amendment is bound to the target's hash **as it is now**, so a verification cannot outlive
+    the artifact it verified — edit the evidence afterwards and the gate blocks again.
+  - A verification names its own target as the replacement (the schema requires one for every
+    non-withdrawal amendment), so `research status` does not report a verified artifact as
+    superseded.
+  - It says in its own output that it **cannot verify a human ran it**. It records the claim, names
+    an identifier, states a reason, and hashes the result. Accountability, not proof.
+- **A stage with no canonical form now refuses artifacts instead of accepting and discarding them.**
+  `retrieval` ignored its file's contents and returned success, which is the exact shape — reporting
+  success about something it never did — that every audit in this repository has been hunting. It
+  was also the only route anyone could find for an `Amendment`, so a human verification could be
+  "recorded" and simply not exist. The refusal names the artifact type and points at `research amend`.
+- **Source relationships are a declared route rather than an undocumented trick.** Bundling a
+  `SourceRelationship` into `responses/claims.json` during `synthesis` always worked, and nothing
+  said so, while `check_source_independence` blocked `strongly_supported` claims until relationships
+  were assessed. The synthesis packet now declares the schema and states when to produce one.
+- **`relationship_id` exists and is order-independent.** There was no factory and no pattern in the
+  schema, so `REL-111111111111` validated. "A duplicates B" and "B duplicates A" are one fact; two
+  ids would let the same assessment be recorded twice and counted as two.
+- **Re-accepting a stage is allowed, and said out loud.** `transition` skips the state machine when
+  the phase would not change, so a second `--stage synthesis` silently re-ran and overwrote canonical
+  artifacts. Allowed is right — it is how you fix a response you just accepted — but silence is not:
+  the result now carries `re_promoted`, warns that any earlier validation is stale, and the event log
+  records the stage as re-accepted. The window stays narrow by construction, since promoting an
+  earlier stage after the run moves on is a backwards transition the lifecycle refuses.
+
 ### Added — projects: one folder, many studies
 A workspace answers questions about one corpus. That is the right unit for a piece of research and
 the wrong unit for a person, who has several topics and no way to see where any of them stand.

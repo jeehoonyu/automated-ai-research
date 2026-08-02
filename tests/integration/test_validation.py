@@ -938,6 +938,111 @@ def test_evidence_that_asks_for_human_review_in_the_schemas_own_field_gets_it(co
     assert result["report_eligible"] is False
 
 
+def test_a_human_amendment_actually_unblocks_an_ocr_blocked_run(complete_run, tmp_path):
+    """The end-to-end proof that the documented way forward exists.
+
+    `docs/release-checklist.md` has always said `ocr_required` content becomes usable *only through
+    a recorded human amendment*. There was no way to record one: no stage declared `Amendment`, a
+    schema-less stage silently discarded it, and a completed stage could not be re-promoted. A
+    corpus with one scanned page was a dead end — the gate fired correctly and the only sanctioned
+    remedy did not exist.
+    """
+    from research.runs.amendments import record_amendment
+
+    ws, rid, meta = complete_run
+    eid = _ocr_run(ws, rid, meta, tmp_path, declare="ocr_required")
+
+    blocked = validate_run(ws, rid)
+    assert _status(blocked, "ocr_evidence_human_verified") == "failed"
+    assert blocked["report_eligible"] is False
+
+    result = record_amendment(
+        ws, rid, amendment_type="human_ocr_verification", target_artifact_id=eid,
+        reason="Read the scanned page myself; the quoted sentence is what it says.",
+        human_identifier="j.yu", human_role="reviewer")
+
+    assert result["target_artifact_hash"], "the amendment must be bound to a version"
+    assert "cannot verify" in result["attestation_note"]
+
+    after = validate_run(ws, rid)
+    assert _status(after, "ocr_evidence_human_verified") == "passed", \
+        "the documented remedy did not clear the gate it is documented to clear"
+
+
+def test_the_amendment_is_bound_to_the_version_that_was_checked(complete_run, tmp_path):
+    """A human verification must not outlive the artifact it verified."""
+    from research.hashing import stamp_artifact_hash
+    from research.runs.amendments import record_amendment
+
+    ws, rid, meta = complete_run
+    eid = _ocr_run(ws, rid, meta, tmp_path, declare="ocr_required")
+    record_amendment(ws, rid, amendment_type="human_ocr_verification", target_artifact_id=eid,
+                     reason="checked", human_identifier="j.yu")
+    assert _status(validate_run(ws, rid), "ocr_evidence_human_verified") == "passed"
+
+    # Edit the evidence after the verification. The amendment now names a version that is gone.
+    path = meta["run_dir"] / "evidence" / "e-ocr.json"
+    evidence = json.loads(path.read_text(encoding="utf-8"))
+    evidence["exact_text"] = evidence["exact_text"] + " (edited afterwards)"
+    path.write_text(json.dumps(stamp_artifact_hash(evidence)), encoding="utf-8")
+
+    assert _status(validate_run(ws, rid), "ocr_evidence_human_verified") == "failed", \
+        "a verification of an older version must not clear the gate for the current one"
+
+
+def test_amending_something_that_does_not_exist_is_refused(complete_run):
+    from research.errors import InvalidArguments
+    from research.runs.amendments import record_amendment
+
+    ws, rid, _meta = complete_run
+    with pytest.raises(InvalidArguments) as exc:
+        record_amendment(ws, rid, amendment_type="human_ocr_verification",
+                         target_artifact_id="EVD-sha256-" + "0" * 64,
+                         reason="checked", human_identifier="j.yu")
+    assert "no artifact" in exc.value.message
+
+
+@pytest.mark.parametrize(("field", "value"), [("reason", "   "), ("human_identifier", "")])
+def test_an_amendment_must_say_why_and_who(complete_run, field: str, value: str):
+    """Both are required by the schema, and both are the point: a verification nobody is named for,
+    or with no stated reason, documents nothing."""
+    from research.errors import InvalidArguments
+    from research.runs.amendments import record_amendment
+
+    ws, rid, meta = complete_run
+    kwargs = {"reason": "checked", "human_identifier": "j.yu", field: value}
+    with pytest.raises(InvalidArguments):
+        record_amendment(ws, rid, amendment_type="human_ocr_verification",
+                         target_artifact_id=meta["evidence_id"], **kwargs)
+
+
+def test_a_verification_does_not_mark_its_target_superseded(complete_run, tmp_path):
+    """The schema requires every non-withdrawal amendment to name a replacement, so a verification
+    names its own target. `research status` reads replacement != target as superseded, and a
+    verified artifact has not been replaced by anything."""
+    from research.runs.amendments import record_amendment
+    from research.runs.manager import status
+
+    ws, rid, meta = complete_run
+    eid = _ocr_run(ws, rid, meta, tmp_path, declare="ocr_required")
+    record_amendment(ws, rid, amendment_type="human_ocr_verification", target_artifact_id=eid,
+                     reason="checked", human_identifier="j.yu")
+
+    assert eid not in status(ws, rid)["superseded_artifacts"]
+
+
+def test_a_replacing_amendment_must_name_what_replaces_it(complete_run):
+    from research.errors import InvalidArguments
+    from research.runs.amendments import record_amendment
+
+    ws, rid, meta = complete_run
+    with pytest.raises(InvalidArguments) as exc:
+        record_amendment(ws, rid, amendment_type="claim_rewording",
+                         target_artifact_id=meta["claim_id"],
+                         reason="the wording overreached", human_identifier="j.yu")
+    assert "must name what replaces it" in exc.value.message
+
+
 def test_a_two_key_amendment_stub_does_not_clear_the_ocr_gate(complete_run, tmp_path):
     """It used to. `_amendments` did not filter on schema_name, and amendments were absent from
     `check_artifacts_conform`, so `validate_artifact` never ran on one."""
