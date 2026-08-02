@@ -6,6 +6,27 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added — the visual-evidence path is exercised and documented
+Nothing in this repository had ever produced a `visual_region` locator. The schema modelled them, the
+locator factory built them, the validator checked them, and the UI renders the page — five parts that
+had never been assembled, so *"a figure can be cited"* was a claim resting on unit-level pieces.
+
+Probing it first turned out to matter: the path **works**. The plan had recorded it as broken, and
+building table detection would have solved a problem that did not exist. Five integration tests now
+drive it end to end — a region locator resolves and validates; tampering with the page image breaks
+the citation (the render bytes are hashed, not just looked up in an index built from the manifest
+that claims them); an `uncertain` or `human_review_required` reading blocks; and
+`research amend --type human_visual_verification` clears it.
+
+One thing the probe settled: the **schema** already refuses visual evidence with no
+`interpretation_status`, so the validator's absent-blocks rule is a second line rather than the only
+one. Both are now pinned, and which is which is written down.
+
+Automatic table and figure **detection** remains unimplemented, as `docs/release-checklist.md` has
+always said. `workflow/canonical-workflow.md` now documents citing a region by hand, including why
+the bounding box is normalized to `[0,1]` — a pixel rectangle would silently mean somewhere else
+after a re-render at a different DPI.
+
 ### Fixed — Tier 0: the ways forward a blocked run was promised and did not have
 Found by asking a question the test suite cannot: *when a gate blocks, can the user actually perform
 the remedy the documentation names?* All four verified by running the code, and each fix confirmed by

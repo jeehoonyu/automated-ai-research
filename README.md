@@ -320,7 +320,7 @@ instructions from untrusted document content explicitly.
   `CONTRIBUTING.md`, a changelog, CI across Linux/macOS/Windows, and a release checklist that lists
   what is **not** met.
 
-622 tests (619 passing, 3 skipped). A stage is complete only when its artifact exists **and**
+628 tests (625 passing, 3 skipped). A stage is complete only when its artifact exists **and**
 validates — never because a
 file appeared, and never because an artifact says so about itself: every artifact validation loads
 is checked against its own `artifact_hash`, and the derived bytes citations resolve against are

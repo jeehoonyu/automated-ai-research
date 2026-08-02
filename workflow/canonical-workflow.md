@@ -96,6 +96,31 @@ A `strongly_supported` claim needs its sources assessed for independence, and tw
 out to be one study republished are not corroboration — unassessed independence blocks rather than
 passes, so record the relationship when you make the claim.
 
+## Citing a figure or a table
+
+Automatic table and figure **detection** is not implemented — `research inspect` reports
+`not_detected`, and the full-page render is the fallback. Citing a region **by hand** works, and is
+the supported route:
+
+```python
+from research.artifacts.locators import make_visual_locator
+
+locator = make_visual_locator(
+    page=1,
+    render_sha256=<the page's render.sha256 from the Document manifest>,
+    bounding_box={"x": 0.1, "y": 0.2, "width": 0.5, "height": 0.25},   # fractions, not pixels
+    render_width=<render.width>, render_height=<render.height>)
+```
+
+Coordinates are normalized to `[0,1]` from the top left, so the citation survives a re-render at a
+different DPI — a pixel rectangle would silently mean somewhere else at 300 DPI.
+
+Such evidence needs a `caption` saying what you read, and an `interpretation_status`. The schema
+**requires** that status on visual evidence: an absent one is not a confident one. Declare
+`uncertain` when you are, and expect the run to block until a human records a
+`human_visual_verification` — the CLI cannot judge whether you read a figure correctly, only insist
+you say how sure you were.
+
 ## When a gate needs a human
 
 Two gates cannot be cleared by any agent, deliberately: `ocr_evidence_human_verified` and

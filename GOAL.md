@@ -14,9 +14,14 @@ Every previous goal audited what the code *does*. This one audits what a person 
 it says no. The platform's whole value is refusing to publish — which makes "and here is what to do
 about it" load-bearing, not a nicety.
 
-### Tier 0 — a documented route that does not exist
+### Tier 0 — a documented route that did not exist — **done 2026-08-01**
 
-All four verified by running the code, not by reading it.
+All four were verified by running the code, fixed, and each fix confirmed by re-introducing the
+defect and watching a named test go red. `research amend` exists; a schema-less stage refuses
+artifacts instead of discarding them; source relationships are a declared route with a real id
+factory; re-acceptance is reported rather than silent. Details in `CHANGELOG.md`.
+
+The findings as they stood:
 
 **1. Amendments are unreachable. This is the serious one.**
 `docs/release-checklist.md` says *"`ocr_required` content becomes usable only through a recorded
@@ -61,10 +66,23 @@ validation may have run. Decide it, then say so.
 
 ### Tier 1 — capabilities the model promises and no code provides
 
-**5. Visual evidence cannot be produced.** The schema models `visual_region` locators, evidence can
-cite them, the validator checks them, the UI now renders the page — and table/figure detection
-reports `not_detected` because it is not implemented. The whole path exists except its beginning.
-Either implement detection or narrow the claim to "a human or agent may cite a region by hand".
+**5. Visual evidence could be produced — and nothing had ever done it. Corrected 2026-08-01.**
+
+The plan claimed this path was broken. It is not: probing it end to end showed that
+`make_visual_locator` produces a locator that resolves, validates, passes both visual gates, and
+renders in the UI. What was true is narrower and different — **the whole path had never once been
+exercised together**, and no document said how to use it. "A figure can be cited" was a claim resting
+on unit-level parts that had never been assembled.
+
+Now: five integration tests build real visual evidence and drive it through validation (including
+that tampering with the page image breaks the citation, and that an uncertain reading is cleared by
+`research amend --type human_visual_verification`), and `workflow/canonical-workflow.md` documents
+the route. Automatic table and figure **detection** remains unimplemented, which the release
+checklist has always said honestly.
+
+Worth recording because the correction cuts the other way from usual: the code was better than the
+plan assumed, and the gap was in coverage and documentation. Probing before building is what found
+that — writing detection would have been solving a problem that did not exist.
 
 **6. Overstatement detection is lexical.** Honestly documented, and the weakest gate in the system: a
 regex of absolutes against a claim's classification. It will miss anything subtle. Worth stating what

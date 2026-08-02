@@ -1091,3 +1091,104 @@ def test_a_markdown_only_run_still_validates(complete_run):
     result = validate_run(ws, rid)
     assert _status(result, "ocr_evidence_human_verified") in ("not_applicable", "passed")
     assert result["report_eligible"] is True, result["blocking_errors"]
+
+
+# ------------------------------------------------------------------------- visual evidence
+#
+# The whole visual path — schema, locator factory, render hashing, the resolve check, the certainty
+# gate, and the page the UI displays — existed and had never once been exercised together. Nothing
+# in this repository had ever produced a `visual_region` locator, so "a figure can be cited" was a
+# claim resting on unit-level parts that had never been assembled.
+
+
+def _visual_evidence(ws, rid, tmp_path, *, interpretation_status: str | None = "clear"):
+    """Real visual evidence: a region of a page render that actually exists and hashes correctly."""
+    from research.artifacts.locators import make_visual_locator
+
+    import_paths(ws, [build(tmp_path / "vis-src")["text_pdf"]])
+    doc = next(json.loads(p.read_text(encoding="utf-8"))
+               for p in (ws.root / "documents" / "manifests").glob("*.json")
+               if any(pg.get("render") for pg in
+                      json.loads(p.read_text(encoding="utf-8")).get("pages", [])))
+    page = next(p for p in doc["pages"] if p.get("render"))
+    render = page["render"]
+
+    locator = make_visual_locator(
+        page=page["page_number"], render_sha256=render["sha256"],
+        bounding_box={"x": 0.1, "y": 0.2, "width": 0.5, "height": 0.25},
+        render_width=render["width"], render_height=render["height"])
+    eid = evidence_id(document_version_id_=doc["document_version_id"], locator=locator,
+                      exact_text="", evidence_type="figure_observation")
+    body = dict(evidence_id=eid, document_id=doc["document_id"],
+                document_version_id=doc["document_version_id"],
+                evidence_type="figure_observation", locator=locator,
+                caption="Figure 1: off-chip traffic falls as the PIM configuration is enabled.",
+                extraction_status="extracted", human_review_required=False)
+    if interpretation_status is not None:
+        body["interpretation_status"] = interpretation_status
+    write_artifact(ws.root / "runs" / rid / "evidence" / "e-visual.json",
+                   make_artifact(schema_name="Evidence", artifact_id=eid, actor_type="host_agent",
+                                 body=body), root=ws.root)
+    return eid, doc, render
+
+
+def test_a_figure_can_actually_be_cited(complete_run, tmp_path):
+    """End to end: build a region locator, write the evidence, and have validation accept it."""
+    ws, rid, _meta = complete_run
+    _visual_evidence(ws, rid, tmp_path)
+
+    result = validate_run(ws, rid)
+    assert _status(result, "visual_locators_resolve") == "passed"
+    assert _status(result, "visual_interpretation_certain") == "passed"
+
+
+def test_a_visual_citation_breaks_when_the_page_image_changes(complete_run, tmp_path):
+    """A missing render is an accident; a changed one is a different image under an existing
+    citation. The render index is built from the manifest, so looking a digest up in it proves only
+    that the manifest claims that digest — the bytes have to be hashed."""
+    ws, rid, _meta = complete_run
+    _eid, doc, render = _visual_evidence(ws, rid, tmp_path)
+    assert _status(validate_run(ws, rid), "visual_locators_resolve") == "passed"
+
+    path = ws.root / render["path"]
+    path.write_bytes(path.read_bytes()[:-40] + b"\x00" * 40)
+
+    assert _status(validate_run(ws, rid), "visual_locators_resolve") == "failed"
+
+
+@pytest.mark.parametrize("declared", ["uncertain", "human_review_required"])
+def test_an_uncertain_figure_reading_needs_a_human(complete_run, tmp_path, declared):
+    """The CLI cannot judge whether a figure was read correctly. It can insist the agent say how
+    sure it was."""
+    ws, rid, _meta = complete_run
+    _visual_evidence(ws, rid, tmp_path, interpretation_status=declared)
+
+    result = validate_run(ws, rid)
+    assert _status(result, "visual_interpretation_certain") == "failed"
+    assert result["report_eligible"] is False
+
+
+def test_visual_evidence_cannot_omit_how_sure_it_was(complete_run, tmp_path):
+    """Belt and braces, and worth knowing which one holds: the SCHEMA refuses visual evidence with
+    no `interpretation_status`, so the validator's absent-blocks rule is a second line rather than
+    the only one. An absent status is not a confident one, and here it is not writable either."""
+    from research.errors import SchemaValidationError
+
+    ws, rid, _meta = complete_run
+    with pytest.raises(SchemaValidationError):
+        _visual_evidence(ws, rid, tmp_path, interpretation_status=None)
+
+
+def test_a_human_amendment_clears_an_uncertain_figure_reading(complete_run, tmp_path):
+    """The second gate `research amend` exists for. Same shape as the OCR one."""
+    from research.runs.amendments import record_amendment
+
+    ws, rid, _meta = complete_run
+    eid, _doc, _render = _visual_evidence(ws, rid, tmp_path, interpretation_status="uncertain")
+    assert _status(validate_run(ws, rid), "visual_interpretation_certain") == "failed"
+
+    record_amendment(ws, rid, amendment_type="human_visual_verification", target_artifact_id=eid,
+                     reason="Looked at the figure; the caption describes it accurately.",
+                     human_identifier="j.yu")
+
+    assert _status(validate_run(ws, rid), "visual_interpretation_certain") == "passed"
