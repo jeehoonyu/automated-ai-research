@@ -5,6 +5,97 @@ built now and what would count as having built it. It changes; the specification
 
 ---
 
+## Goal 7 — the ways forward a blocked run is promised
+
+Set 2026-07-31. Found by asking a question the test suite cannot: **when a gate blocks, can the user
+actually do the thing the documentation says will unblock it?**
+
+Every previous goal audited what the code *does*. This one audits what a person is left holding when
+it says no. The platform's whole value is refusing to publish — which makes "and here is what to do
+about it" load-bearing, not a nicety.
+
+### Tier 0 — a documented route that does not exist
+
+All four verified by running the code, not by reading it.
+
+**1. Amendments are unreachable. This is the serious one.**
+`docs/release-checklist.md` says *"`ocr_required` content becomes usable only through a recorded
+human amendment."* There is no way to record one:
+
+- no stage's packet declares `Amendment` in its `schema_versions`, so no stage will promote one;
+- bundling an `Amendment` into a schema-less stage's file (`retrieval.json`) returns
+  **`accepted: True` and promotes nothing** — the artifact is silently discarded;
+- once a run advances past a stage, that stage cannot be re-promoted (the lifecycle refuses to move
+  backwards), so there is no after-the-fact route either.
+
+So a corpus containing one scanned page is a dead end: `ocr_evidence_human_verified` fails, and the
+only sanctioned remedy cannot be performed. `visual_interpretation_certain` has the same shape. Both
+gates additionally require `actor_type == "human"` — correctly — which rules out an agent doing it.
+
+*Fix:* `research amend <run-id> --type <t> --target <artifact-id> --rationale "…"`, writing a
+correctly-stamped Amendment against the *current* hash of its target, refusing when the target does
+not exist or has since been re-stamped. It must record `actor_type: human`, and it must be the only
+command in the CLI that says so — which means it should also say plainly that it is taking the
+operator's word for it.
+
+**2. A stage that declares no schemas silently discards artifacts.**
+`_candidates` returns `declares_schemas=False` for `retrieval`, and `promote_stage` then accepts the
+stage and promotes nothing. Anything in that file is dropped with only a `note` in the result. A
+response file containing artifacts should be refused, not accepted-and-ignored: this is the exact
+shape — reporting success about something it never did — that every other audit in this repository
+has been hunting.
+
+**3. Source relationships work only by an undocumented trick.**
+`check_source_independence` blocks a `strongly_supported` claim until relationships are assessed, and
+nothing in the workflow says how to record one. It turns out bundling a `SourceRelationship` into
+`responses/claims.json` during `synthesis` **does** promote it — verified — but no packet, prompt or
+document mentions this. Meanwhile `artifact_id` for that type has no pattern in the schema and no
+factory in `identifiers.py`, so `REL-111111111111` validates fine. Either declare relationships
+properly in the synthesis packet and give them an id factory, or add `research relate`.
+
+**4. Re-promoting a completed stage silently succeeds.**
+`transition` skips the state machine when `to_phase == from_phase`, so promoting a stage the run is
+already at re-runs it and re-writes canonical artifacts. That may be the right behaviour — it is how
+you fix a bad response — but nothing documents it, no test pins it, and it happens *after*
+validation may have run. Decide it, then say so.
+
+### Tier 1 — capabilities the model promises and no code provides
+
+**5. Visual evidence cannot be produced.** The schema models `visual_region` locators, evidence can
+cite them, the validator checks them, the UI now renders the page — and table/figure detection
+reports `not_detected` because it is not implemented. The whole path exists except its beginning.
+Either implement detection or narrow the claim to "a human or agent may cite a region by hand".
+
+**6. Overstatement detection is lexical.** Honestly documented, and the weakest gate in the system: a
+regex of absolutes against a claim's classification. It will miss anything subtle. Worth stating what
+it is *for* — flagging for disclosure — rather than improving until it looks like comprehension.
+
+**7. Gate 38.10 and CI.** Withdrawn from scope by the owner, still unmet, still recorded as unmet.
+
+### Tier 2 — the workflow is hard to actually drive
+
+**8. Eight stages by hand is a lot.** `research status` says where you are; nothing says *what to do
+next* in one step. A `research next <run-id>` that prints the current packet, the response path, and
+the exact command that will judge it would remove most of the friction without adding any authority.
+
+**9. Nothing leaves the tool.** A finished run produces Markdown. No BibTeX, no CSL-JSON, no CSV of
+claims and their evidence. Research that cannot be cited elsewhere stays in the tool.
+
+### Tier 3 — robustness, honestly ranked below the above
+
+**10. PDF parsing is not sandboxed** and runs in-process, on attacker-controlled input.
+**11. No corpus refresh path.** A run pins its sources; when a new paper arrives the answer is a new
+run, and nothing helps you see what changed between the two.
+
+### What this goal is not
+
+Not a feature list. Items 1–4 are defects in the shape this project keeps finding — a route the
+documentation asserts and the code does not have, and an operation that reports success without
+doing anything. They come first for the same reason every previous goal ordered itself that way:
+**restoring a guarantee the documentation already asserts outranks adding a capability.**
+
+---
+
 ## Goal 6 — every vocabulary has one home, and an unlisted value never reads as fine
 
 Set 2026-07-31, straight out of what Goal 5's audit found. Not a new capability: a guarantee the
