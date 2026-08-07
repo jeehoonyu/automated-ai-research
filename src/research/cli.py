@@ -482,6 +482,56 @@ def cmd_report(run_id: str, draft: bool, workspace_path: str | None, as_json: bo
           f"validated classification"] if result.overstatements else [])))
 
 
+@main.command("next")
+@click.argument("run_id")
+@_WS_OPT
+@_JSON_OPT
+def cmd_next(run_id: str, workspace_path: str | None, as_json: bool) -> None:
+    """Say what to do now: which packet to read, and which command will judge the result.
+
+    A signpost, not an author. It routes you to the work packet and the accepting command; it never
+    summarizes evidence, suggests what a claim should say, or adds an instruction of its own. The
+    packet is the instruction set — a second voice paraphrasing it would be a second standard of
+    evidence.
+    """
+    from .runs.manager import next_step
+
+    env = Envelope(command="next")
+    try:
+        ws = load_workspace(workspace_path)
+        env.data = next_step(ws, run_id)
+    except ResearchError as exc:
+        env.status = "failed"
+        env.errors.append(exc.to_dict())
+        _emit(env, as_json, human=f"research next: {exc.message}")
+
+    d = env.data
+    if d["action"] in ("human_review", "blocked"):
+        env.status = "blocked"
+        for message in d["why"]:
+            env.warn(d["action"], message)
+
+    lines = [f"run {run_id}  [{d['phase']} / {d['disposition']}]",
+             f"  {d['research_question'][:76]}", "", d["what"]]
+    for message in d.get("why") or []:
+        lines.append(f"  - {message}")
+    if d.get("packet_path"):
+        lines += ["", f"  packet     {d['packet_path']}"]
+        for out in d.get("write_response_to") or []:
+            lines.append(f"  write to   {out}")
+        if d.get("allowed_inputs"):
+            lines.append(f"  may use    {', '.join(d['allowed_inputs'])}")
+        if d.get("excluded_inputs"):
+            lines.append(f"  must NOT   {', '.join(d['excluded_inputs'])}")
+    if d.get("independence_note"):
+        lines += ["", f"  {d['independence_note']}"]
+    if d.get("command"):
+        lines += ["", f"  then run   {d['command']}"]
+    if d.get("note"):
+        lines += ["", f"  {d['note']}"]
+    _emit(env, as_json, human="\n".join(lines))
+
+
 @main.command("amend")
 @click.argument("run_id")
 @click.option("--type", "amendment_type", required=True,
@@ -763,7 +813,7 @@ def cmd_doctor(workspace_path: str | None, as_json: bool) -> None:
     """Report what this build can actually do. Used by the honesty test."""
     env = Envelope(command="doctor")
     implemented = ["init", "import", "index", "search", "run", "status", "inspect",
-                   "validate", "report", "ui", "project", "amend"]
+                   "validate", "report", "ui", "project", "amend", "next"]
     pending: list[str] = []
     ws: dict[str, Any] | None = None
     try:

@@ -327,3 +327,123 @@ def test_inspect_chunk_reslices_the_source_rather_than_trusting_the_artifact(ws)
 def test_inspect_rejects_an_unknown_id_kind(ws):
     with pytest.raises(InvalidArguments):
         inspect(ws, "WAT-12345")
+
+
+# ------------------------------------------------------------------------ research next
+#
+# `status` said where a run was and what blocked it; nothing said what to DO in one step. That is
+# friction, and friction is where people start writing straight into `evidence/` because it looks
+# easier than finding the packet.
+
+
+def test_next_routes_a_fresh_run_to_its_first_packet(run):
+    from research.runs.manager import next_step
+
+    ws, created = run
+    rid = created["run_id"]
+    step = next_step(ws, rid)
+
+    assert step["action"] == "run_stage"
+    assert step["stage"] == "planning"
+    assert step["packet_path"].endswith("00-planning.json")
+    assert step["write_response_to"] == [f"runs/{rid}/responses/plan.json"]
+    assert step["command"] == f"research validate {rid} --stage planning"
+
+
+def test_next_hands_over_the_packet_rather_than_a_summary_of_it(run):
+    """The boundary this command must not cross. It routes; it does not reason.
+
+    Whatever it reports about a stage has to come from the packet verbatim — a second voice
+    paraphrasing the instructions would be a second standard of evidence.
+    """
+    from research.runs.manager import next_step
+    from research.runs.packets import build_packet
+
+    ws, created = run
+    rid = created["run_id"]
+    step = next_step(ws, rid)
+    packet = build_packet(run_id=rid, stage=Stage.PLANNING, question="", profile="",
+                          workspace_root=str(ws.root))
+
+    for field in ("allowed_inputs", "excluded_inputs", "completion_criteria"):
+        assert step[field] == packet[field], f"{field} was not taken from the packet verbatim"
+
+
+def test_next_says_when_a_response_is_written_but_not_accepted(run):
+    """The state people get stuck in: the file exists, so it looks done."""
+    from research.runs.manager import next_step
+
+    ws, created = run
+    rid = created["run_id"]
+    (ws.root / "runs" / rid / "responses" / "plan.json").write_text(
+        json.dumps({"schema_name": "ResearchPlan", "schema_version": "1.0.0",
+                    "artifact_id": "PLAN-" + rid, "created_at": "2026-08-01T00:00:00Z",
+                    "created_by": {"actor_type": "host_agent"}, "run_id": rid,
+                    "main_question": "q", "subquestions": ["s"],
+                    "insufficient_evidence_conditions": ["n"]}), encoding="utf-8")
+
+    step = next_step(ws, rid)
+    assert step["response_awaiting_validation"] is True
+    assert "not been accepted" in step["what"]
+    assert step["command"] == f"research validate {rid} --stage planning"
+
+
+def test_next_warns_about_a_fresh_context_only_at_the_independent_review(run):
+    """The rule the workflow most often gets wrong, said where it applies and nowhere else.
+
+    Walked by transition rather than by producing artifacts: this is about routing, and the phases
+    are what routing reads.
+    """
+    from research.runs.manager import next_step, transition
+
+    ws, created = run
+    rid = created["run_id"]
+    assert next_step(ws, rid).get("independence_note") is None    # at planning
+
+    for phase in (Phase.PLANNED, Phase.RETRIEVED, Phase.EVIDENCE_EXTRACTED, Phase.SYNTHESIZED,
+                  Phase.CONTRADICTION_REVIEWED, Phase.CITATION_REVIEWED):
+        transition(ws, rid, to_phase=phase, triggered_by="test", reason="walking to the review")
+        assert next_step(ws, rid).get("independence_note") is None, phase
+
+    transition(ws, rid, to_phase=Phase.METHODOLOGY_REVIEWED, triggered_by="test",
+               reason="now the next stage is the independent review")
+    step = next_step(ws, rid)
+    assert step["stage"] == "independent_review"
+    assert "FRESH agent context" in step["independence_note"]
+    assert "Claim artifact" in step["independence_note"], \
+        "the note must name the specific mistake: a stored Claim carries the primary's grading"
+
+
+def test_next_points_at_validate_then_report(complete_run):
+    from research.runs.manager import next_step
+    from research.validation.validator import validate_run
+
+    ws, rid, _meta = complete_run
+    step = next_step(ws, rid)
+    assert step["action"] == "validate"
+    assert step["command"] == f"research validate {rid}"
+
+    validate_run(ws, rid)
+    step = next_step(ws, rid)
+    assert step["action"] == "report"
+    assert step["command"] == f"research report {rid}"
+
+
+def test_next_sends_a_human_review_run_to_amend_not_to_more_work(complete_run):
+    """Doing the next stage does not clear human review, so saying "do the next stage" would send
+    someone down a road that is closed."""
+    from research.runs.manager import next_step
+    from research.validation.validator import validate_run
+
+    ws, rid, meta = complete_run
+    claim = json.loads(meta["claim_path"].read_text(encoding="utf-8"))
+    claim["claim"] = "Process-in-memory causes the reduction."      # a causal reading
+    claim["claim_type"] = "descriptive_result"
+    from research.hashing import stamp_artifact_hash
+    meta["claim_path"].write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
+    assert validate_run(ws, rid)["human_review_required"] is True
+
+    step = next_step(ws, rid)
+    assert step["action"] == "human_review"
+    assert "research amend" in step["command"]
+    assert "not by validating again" in step["note"]

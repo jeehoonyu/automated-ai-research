@@ -69,7 +69,30 @@ research run --question "Does X reduce Y?" --workspace ~/my-research
 
 `research run` does no reasoning. It records the question, pins the corpus as it stands, writes ten
 work packets, and stops. Your agent does the thinking; the packets tell it what each stage owes and
-what it may not look at. Then:
+what it may not look at.
+
+`research next <run-id>` tells you what to do now — which packet to read, where the response goes,
+and the command that will judge it:
+
+```
+run RUN-59100ff5…  [initialized / active]
+  Does process-in-memory reduce off-chip data movement?
+
+Give your agent the `planning` packet.
+
+  packet     runs/RUN-59100ff5…/packets/00-planning.json
+  write to   runs/RUN-59100ff5…/responses/plan.json
+  may use    question, profile, source_metadata, scope_constraints
+
+  then run   research validate RUN-59100ff5… --stage planning
+```
+
+It is a signpost, never an author: it routes you to the packet and repeats its `allowed_inputs` and
+`completion_criteria` **verbatim**, and adds no instruction of its own. A second voice paraphrasing
+the packet would be a second standard of evidence. A test asserts the fields come from the packet
+unchanged.
+
+Then:
 
 ```bash
 research validate <run-id> --workspace ~/my-research
@@ -320,7 +343,7 @@ instructions from untrusted document content explicitly.
   `CONTRIBUTING.md`, a changelog, CI across Linux/macOS/Windows, and a release checklist that lists
   what is **not** met.
 
-628 tests (625 passing, 3 skipped). A stage is complete only when its artifact exists **and**
+634 tests (631 passing, 3 skipped). A stage is complete only when its artifact exists **and**
 validates — never because a
 file appeared, and never because an artifact says so about itself: every artifact validation loads
 is checked against its own `artifact_hash`, and the derived bytes citations resolve against are

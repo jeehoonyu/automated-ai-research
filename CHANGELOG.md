@@ -6,6 +6,26 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added — `research next`, a signpost that is not allowed to become an author
+`research status` said where a run was and what blocked it; nothing said what to **do** in one step,
+so driving eight stages meant reading the status, finding the packet, opening it, and remembering
+which command accepts it. Friction is where people start writing straight into `evidence/` because it
+looks easier than finding the packet.
+
+- Routes every state a run can be in: the next agent stage (with its packet path, response path,
+  allowed and excluded inputs), a response written but not yet accepted, `validate`, `report`, and
+  done.
+- **A run needing human review is sent to `research amend`, not to more work.** Doing the next stage
+  does not clear it, and saying "do the next stage" would send someone down a road that is closed.
+- The fresh-context warning is printed at `independent_review` **and nowhere else** — including that
+  a stored `Claim` artifact carries the primary agent's grading, which is the specific way hosts get
+  it wrong.
+- **The boundary it must not cross:** it routes, it does not reason. It never summarizes evidence,
+  suggests what a claim should say, or ranks sources. `allowed_inputs`, `excluded_inputs` and
+  `completion_criteria` are repeated from the packet **verbatim**, and a test asserts that field by
+  field — a second voice paraphrasing the instructions would be a second standard of evidence. If
+  this command ever grows an opinion about the research, that is a defect, not a feature.
+
 ### Added — the visual-evidence path is exercised and documented
 Nothing in this repository had ever produced a `visual_region` locator. The schema modelled them, the
 locator factory built them, the validator checked them, and the UI renders the page — five parts that

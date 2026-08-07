@@ -289,6 +289,106 @@ def _contradiction_and_supersession(ws: Workspace, run_id: str) -> dict[str, Any
     }
 
 
+def next_step(ws: Workspace, run_id: str) -> dict[str, Any]:
+    """What to do now — a signpost, never an author.
+
+    `research status` says where a run is and what is blocking it; nothing said what to do about it
+    in one step, so driving eight stages meant reading the status, finding the packet, opening it,
+    and remembering which command accepts it. That is friction, and friction is where people start
+    writing directly into `evidence/` because it seems easier.
+
+    THE LINE THIS MUST NOT CROSS. This command routes; it does not reason. It tells you which packet
+    to read and which command will judge the result. It does not summarize evidence, suggest what a
+    claim should say, rank sources, or add a single instruction of its own — the packet is the
+    instruction set, and a second voice paraphrasing it would be a second standard of evidence. If
+    this function ever grows an opinion about the research, that is a defect, not a feature.
+    """
+    st = status(ws, run_id)
+    manifest = load_run(ws, run_id)
+    phase = Phase(st["phase"])
+    disposition = Disposition(st["disposition"])
+
+    step: dict[str, Any] = {
+        "run_id": run_id,
+        "research_question": st["research_question"],
+        "phase": str(phase),
+        "disposition": str(disposition),
+        "blocking": st["blocking"],
+    }
+
+    # A disposition that forbids advancing outranks whatever stage comes next: doing more work does
+    # not clear it, and saying "do the next stage" would send someone down a road that is closed.
+    if disposition is Disposition.HUMAN_REVIEW_REQUIRED:
+        return {**step, "action": "human_review",
+                "what": "A person has to look at something before this run can go on.",
+                "why": [b["message"] for b in st["blocking"]] or
+                       ["validation recorded a human-review requirement"],
+                "command": f"research amend {run_id} --type <type> --target <artifact-id> "
+                           f"--reason \"...\" --by \"<who>\"",
+                "note": "Human review is cleared by a recorded amendment, not by validating again. "
+                        "`research validate` will keep reporting it until one exists."}
+    if not disposition.can_advance:
+        return {**step, "action": "blocked",
+                "what": f"This run's disposition is {disposition}; it cannot advance.",
+                "why": [b["message"] for b in st["blocking"]],
+                "command": None,
+                "note": "Resolve what is recorded above, or start a new run."}
+
+    nxt = current_stage(phase)
+    if nxt is None:
+        return {**step, "action": "done",
+                "what": "This run has reached the end of the workflow.",
+                "why": [], "command": None,
+                "note": f"Phase is {phase}."}
+
+    if nxt is Stage.FINAL_VALIDATION:
+        return {**step, "action": "validate", "stage": str(nxt),
+                "what": "Every agent stage is accepted. Validate the whole run.",
+                "why": [], "command": f"research validate {run_id}",
+                "note": "Validation decides report eligibility. A blocked verdict is a result."}
+    if nxt is Stage.REPORT:
+        return {**step, "action": "report", "stage": str(nxt),
+                "what": "Validation passed. Render the report.",
+                "why": [], "command": f"research report {run_id}",
+                "note": "`research report` refuses with exit 5 if a gate blocks."}
+
+    # An agent stage. Hand over the packet itself — the whole packet, not a summary of it.
+    index = list(Stage).index(nxt)
+    packet_rel = f"runs/{run_id}/packets/{index:02d}-{nxt}.json"
+    packet_path = ws.root / packet_rel
+    packet: dict[str, Any] = {}
+    if packet_path.is_file():
+        packet = read_artifact(packet_path, expect_schema="WorkPacket")
+
+    awaiting = str(nxt) in st["responses_awaiting_validation"]
+    return {
+        **step,
+        "action": "run_stage",
+        "stage": str(nxt),
+        "what": (f"A response for `{nxt}` is already written but has not been accepted."
+                 if awaiting else f"Give your agent the `{nxt}` packet."),
+        "why": [],
+        "packet_path": packet_rel,
+        "write_response_to": packet.get("required_outputs", []),
+        "allowed_inputs": packet.get("allowed_inputs", []),
+        "excluded_inputs": packet.get("excluded_inputs", []),
+        "completion_criteria": packet.get("completion_criteria", []),
+        "command": f"research validate {run_id} --stage {nxt}",
+        "response_awaiting_validation": awaiting,
+        "note": ("A stage is complete when its artifact validates, never because the file "
+                 "exists." if not awaiting else
+                 "Run the command to validate and promote it. Nothing is accepted until it "
+                 "passes."),
+        # Said only where it applies, and it is the rule the workflow most often gets wrong.
+        "independence_note": (
+            "This stage must run in a FRESH agent context. Giving it the primary agent's "
+            "rationale, confidence or grading — including a stored Claim artifact, which carries "
+            "the classification — makes the review not independent."
+            if nxt is Stage.INDEPENDENT_REVIEW else None),
+        "profile": manifest.get("profile"),
+    }
+
+
 def list_runs(ws: Workspace) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     runs_dir = ws.root / "runs"
