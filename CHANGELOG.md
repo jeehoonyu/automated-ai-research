@@ -38,6 +38,16 @@ layer was covered; the code that formats it was not. `inspect()` returning the r
 nothing if `research inspect` dies printing it — so the new test drives the CLI over all six kinds,
 not the three that were broken.
 
+### Added — `tests/integration/test_cli_surface.py`, because the gap above was structural
+Counting rather than assuming: `test_exit_codes.py` drives five commands by subprocess (`init`,
+`import`, `index`, `run`, `validate`), always with `--json`, asserting only the exit code. Nine
+commands were never invoked as commands, and **no test anywhere asserted a command's rendered human
+output** — the path `inspect` was broken in, and the one every user reads.
+
+The new file sweeps all seventeen: happy path, `--json`, and ten cases that must refuse. It found no
+other crash and no refusal that wrongly succeeded, so `inspect` was isolated rather than systemic —
+worth stating, since a sweep that finds nothing is a result and not a wasted afternoon.
+
 The evidence view now also exits non-zero on an unresolvable locator or an edited quote, rather
 than printing the discrepancy and reporting success.
 

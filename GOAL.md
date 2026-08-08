@@ -72,8 +72,19 @@ invoked the CLI by a path that does not exist. Corrected, both reproduced.
   command.
 
 The second is the more general lesson and is why it is recorded here rather than only in the
-changelog: **this repository has 668 tests and, until now, none of them ran a CLI command.** The
-read surface was verified at the layer below the one users touch.
+changelog. The precise shape of the gap, having gone and counted rather than assuming:
+
+`tests/integration/test_exit_codes.py` does drive the CLI by subprocess — for `init`, `import`,
+`index`, `run` and `validate`, always with `--json`, asserting only the process exit code. **Nine
+commands were never invoked as commands at all** (`search`, `status`, `inspect`, `report`, `next`,
+`amend`, `project init/new/list`, `doctor`), and **no test anywhere asserted a command's rendered
+human output** — which is the code path `inspect` was broken in, and the one every user reads.
+
+So the coverage was real but shaped like a keyhole: the library beneath and the exit code above,
+with the formatting between them untested. A sweep of all seventeen commands — happy path, `--json`,
+and ten cases that must refuse — found no other crash and no refusal that wrongly succeeded, so
+`inspect` was isolated rather than systemic. That sweep is now
+`tests/integration/test_cli_surface.py`.
 
 ### Tier 2 — decided against, and why it is recorded rather than deferred
 
