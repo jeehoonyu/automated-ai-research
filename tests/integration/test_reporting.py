@@ -405,6 +405,83 @@ def _edit_the_claim(meta, text: str) -> None:
     path.write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
 
 
+def test_a_report_cannot_publish_when_the_cited_TEXT_changed(complete_run):
+    """The verdict was bound to the citations and not to the thing cited.
+
+    `validated_inputs` rostered evidence, claims, reviews, contexts, relationships, amendments,
+    retrieval and the plan — every artifact that POINTS INTO a document, and not the documents.
+    So rewriting a quoted passage inside `documents/normalized/<doc>.txt` at the same byte length
+    left `compare_inputs` empty and `load_errors` empty, and `research report` published. The
+    published report contained the words "[quote unavailable — the locator did not resolve]" while
+    its own header said `Status: **published**`, and a fresh `validate` over the identical bytes
+    failed `derived_text_hashes_match` and `text_locators_resolve` at once.
+
+    Note what makes this distinct from every other gating test here: no canonical artifact is
+    touched, so nothing is re-stamped and no hash in the old roster moves. The manifest does not
+    move either — only the text underneath it.
+    """
+    ws, rid, meta = complete_run
+    _publishable(ws, rid)
+
+    normalized = ws.root / meta["doc"]["normalized_text_path"]
+    before = normalized.read_text(encoding="utf-8")
+    ev = json.loads(meta["evidence_path"].read_text(encoding="utf-8"))
+    loc = ev["locator"]
+    quoted = before[loc["start_offset"]:loc["end_offset"]]
+    normalized.write_text(
+        before[:loc["start_offset"]] + "X" * (len(quoted) - 1) + "." + before[loc["end_offset"]:],
+        encoding="utf-8")
+    assert len(normalized.read_text(encoding="utf-8")) == len(before), "same length, on purpose"
+
+    with pytest.raises(ReportGatingError) as exc:
+        render_report(ws, rid)
+    assert any("text citations resolve against changed" in d
+               for d in exc.value.detail["differences"]), exc.value.detail
+
+
+def test_a_report_cannot_publish_when_a_cited_document_is_gone(complete_run):
+    """The other half: deleting a manifest produced no load error either, because nothing loaded
+    it as a run artifact. The citation table then exported blank identifying data under a
+    `report_eligible=true` heading."""
+    ws, rid, meta = complete_run
+    _publishable(ws, rid)
+
+    manifest = next(p for p in (ws.root / "documents" / "manifests").glob("*.json")
+                    if json.loads(p.read_text(encoding="utf-8"))["document_id"]
+                    == meta["doc"]["document_id"])
+    manifest.unlink()
+
+    with pytest.raises(ReportGatingError) as exc:
+        render_report(ws, rid)
+    assert any("cited source document is gone" in d for d in exc.value.detail["differences"])
+
+
+def test_a_verdict_from_before_source_tracking_says_so(complete_run):
+    """An old `validated_inputs` has no `sources` key. Reporting "the roster digest changed" would
+    send someone hunting for an artifact that never moved; the honest answer names the gap."""
+    from research.hashing import canonical_json, sha256_text
+
+    ws, rid, meta = complete_run
+    _publishable(ws, rid)
+    path = meta["run_dir"] / "validation" / "validation-result.json"
+    result = json.loads(path.read_text(encoding="utf-8"))
+
+    # REBUILT THE WAY THE OLD CODE WOULD HAVE. A first draft only popped `sources` and left the
+    # `inputs_hash` that was computed WITH them — so the digests still matched, `compare_inputs`
+    # short-circuited on the first line, and the test failed for a reason that had nothing to do
+    # with the branch it names. A real pre-source-tracking result carries a hash over a body that
+    # never had the key.
+    old = {"artifacts": result["validated_inputs"]["artifacts"],
+           "load_error_count": result["validated_inputs"]["load_error_count"]}
+    old["inputs_hash"] = sha256_text(canonical_json(old))
+    result["validated_inputs"] = old
+    path.write_text(json.dumps(stamp_artifact_hash(result)), encoding="utf-8")
+
+    with pytest.raises(ReportGatingError) as exc:
+        render_report(ws, rid)
+    assert any("predates source tracking" in d for d in exc.value.detail["differences"])
+
+
 def test_re_validating_after_the_change_restores_publication(complete_run):
     """The gate must be a binding, not a lock: validate again and the new state can publish.
 

@@ -6,6 +6,42 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed — the publication gate was bound to the citations, not to the thing cited
+The most serious finding of the audit, and the oldest defect in this batch. `validated_inputs`
+rostered evidence, claims, reviews, contexts, relationships, amendments, retrieval and the plan —
+every artifact that **points into** a document, and not the documents themselves.
+
+So rewriting a quoted passage inside `documents/normalized/<doc>.txt` at the same byte length, with
+no canonical artifact touched and nothing re-stamped, produced:
+
+```
+gate sees differences : []
+gate sees load_errors : []
+REPORT PUBLISHED      : draft = False
+  quote line          : '> [quote unavailable — the locator did not resolve]'
+fresh validate now    : False  derived_text_hashes_match failed, text_locators_resolve failed
+```
+
+A published report whose own body says the citation does not resolve, above a header reading
+`Status: **published**` — and a fresh validation over the identical bytes failing two checks
+immediately. The gate simply never asked about the sources. Deleting a cited document's manifest
+had the same shape: no load error, because nothing loaded it as a run artifact.
+
+`validated_inputs` now carries a `sources` roster. Both digests are needed and for different
+reasons: the manifest's `artifact_hash` catches a deleted or edited manifest, and the normalized
+text is hashed **as it stands on disk** because the manifest does not change when only the text
+underneath it does. That is the same question `check_derived_text_hashes` asks at validation time,
+asked again at report time — which is the whole point of the roster.
+
+A result written before this field existed cannot be compared against one that has it, so
+`compare_inputs` says exactly that rather than reporting a generic digest change and sending
+someone hunting for an artifact that never moved.
+
+One test was wrong first, again worth recording: simulating an old verdict by deleting the
+`sources` key left the `inputs_hash` that had been computed *with* it, so `compare_inputs`
+short-circuited on its first line and the test failed for a reason unrelated to the branch it
+names. A genuine old result carries a hash over a body that never had the key.
+
 ### Fixed — seven defects a six-lens adversarial audit found in this session's own work
 Every fix below is in code written earlier the same day, and every one was reproduced before being
 believed. Eleven mutants, all caught.

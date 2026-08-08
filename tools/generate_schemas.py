@@ -457,6 +457,28 @@ SCHEMAS["validation-result"] = schema(
                         },
                     },
                 },
+                "sources": {
+                    "$comment": "The DOCUMENTS the artifacts point into, which the roster used "
+                                "to omit — so the verdict was bound to the citations and not to "
+                                "the thing cited. `normalized_text_sha256` is hashed from the "
+                                "file as it stood at validation, because the manifest is "
+                                "unchanged when only the text underneath it is edited. Empty "
+                                "string means the file was absent, which is a state to report "
+                                "rather than an error. Not `required`, so results written before "
+                                "this field existed still load; `compare_inputs` reports their "
+                                "absence instead of guessing.",
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["document_id", "artifact_hash", "normalized_text_sha256"],
+                        "properties": {
+                            "document_id": DOC_ID,
+                            "artifact_hash": SHA,
+                            "normalized_text_sha256": {
+                                "anyOf": [SHA, {"const": ""}]},
+                        },
+                    },
+                },
                 "load_error_count": {"type": "integer", "minimum": 0},
                 "inputs_hash": SHA,
             },

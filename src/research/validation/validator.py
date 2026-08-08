@@ -1456,8 +1456,33 @@ def validated_inputs(ctx: RunContext) -> dict[str, Any]:
     if ctx.plan:
         artifacts.append(ctx.plan)
     roster = sorted({(str(a.get("artifact_id")), str(a.get("artifact_hash"))) for a in artifacts})
-    body = {
+    body: dict[str, Any] = {
         "artifacts": [{"artifact_id": i, "artifact_hash": h} for i, h in roster],
+        # THE SOURCES, WHICH THE ROSTER USED TO OMIT ENTIRELY.
+        #
+        # Every artifact above is a pointer into a document, and `ctx.documents` was not in the
+        # list — so the verdict was bound to the citations and not to the thing cited. Rewriting a
+        # quoted passage inside `documents/normalized/<doc>.txt`, same byte length, produced:
+        # `compare_inputs` empty, `load_errors` empty, and `research report` publishing a report
+        # containing "[quote unavailable — the locator did not resolve]". A fresh `validate` over
+        # the same bytes failed `derived_text_hashes_match` and `text_locators_resolve`
+        # immediately. The gate simply never asked.
+        #
+        # Both digests are needed, and for different reasons. The manifest's `artifact_hash`
+        # catches a deleted or edited manifest. It does NOT catch an edited normalized text file,
+        # because the manifest is unchanged in that case — so the text is hashed AS IT IS ON DISK
+        # NOW, which is the same question `check_derived_text_hashes` asks, asked again at report
+        # time. A missing file hashes to the empty string rather than raising: absent is a state
+        # to report, not an error to crash on.
+        "sources": [
+            {
+                "document_id": doc_id,
+                "artifact_hash": str(ctx.documents[doc_id].get("artifact_hash")),
+                "normalized_text_sha256": (
+                    sha256_text(text) if (text := ctx.normalized_text(doc_id)) is not None else ""),
+            }
+            for doc_id in sorted(ctx.documents)
+        ],
         "load_error_count": len(ctx.load_errors),
     }
     body["inputs_hash"] = sha256_text(canonical_json(body))
@@ -1478,6 +1503,30 @@ def compare_inputs(recorded: dict[str, Any] | None,
     diffs += [f"removed since validation: {aid}" for aid in sorted(set(was) - set(now))]
     diffs += [f"re-stamped since validation: {aid}" for aid in sorted(set(was) & set(now))
               if was[aid] != now[aid]]
+    # A verdict recorded before sources were tracked cannot be compared against one that tracks
+    # them. Saying so beats the generic "digest changed", which would send someone hunting for an
+    # artifact that did not move.
+    if "sources" not in recorded:
+        diffs.append("this verdict predates source tracking, so whether the cited documents still "
+                     "say what they said cannot be established; re-validate the run")
+    else:
+        was_src = {s["document_id"]: s for s in recorded["sources"]}
+        now_src = {s["document_id"]: s for s in current["sources"]}
+        diffs += [f"a source document was added since validation: {d}"
+                  for d in sorted(set(now_src) - set(was_src))]
+        diffs += [f"a cited source document is gone since validation: {d}"
+                  for d in sorted(set(was_src) - set(now_src))]
+        for doc_id in sorted(set(was_src) & set(now_src)):
+            if was_src[doc_id]["artifact_hash"] != now_src[doc_id]["artifact_hash"]:
+                diffs.append(f"a source document's manifest changed since validation: {doc_id}")
+            elif (was_src[doc_id]["normalized_text_sha256"]
+                  != now_src[doc_id]["normalized_text_sha256"]):
+                # The manifest is untouched and the text underneath it is not. This is the case
+                # nothing caught: every locator into this document now resolves against different
+                # bytes than the ones that were judged.
+                diffs.append(f"the text citations resolve against changed since validation: "
+                             f"{doc_id}")
+
     if recorded.get("load_error_count") != current["load_error_count"]:
         diffs.append(f"load errors changed: {recorded.get('load_error_count')} -> "
                      f"{current['load_error_count']}")

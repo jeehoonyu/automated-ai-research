@@ -181,6 +181,15 @@ of every artifact `build_context` loaded, the load-error count, and a digest ove
 rebuilds that roster and compares. A difference refuses with exit 5 and names it — *added*,
 *removed*, or *re-stamped*, by id.
 
+**And the sources those artifacts point into.** The roster originally held only run artifacts, so it
+bound the verdict to the citations and not to the thing cited: rewriting a quoted passage inside
+`documents/normalized/<doc>.txt` at the same byte length changed no artifact, moved no hash, raised
+no load error, and published — a report whose own body read *"[quote unavailable — the locator did
+not resolve]"* under a header saying `Status: **published**`. `validated_inputs.sources` now carries,
+per document, the manifest's `artifact_hash` **and** the sha256 of the normalized text as it stood.
+Two digests because they answer different questions: the manifest does not change when only the text
+underneath it does, and it is the text that every locator resolves against.
+
 Three consequences worth stating:
 
 - **Re-stamping is not a way around it.** A correctly re-hashed edit is a valid artifact; it is just
