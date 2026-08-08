@@ -1290,6 +1290,21 @@ def check_lifecycle(ctx: RunContext) -> CheckResult:
 
     The manifest is cross-checked against the log for the same reason: `phase` is a field, and a
     manifest claiming `published` above a one-line log used to pass.
+
+    A SEQUENCE, NOT A BAG OF LEGAL EDGES. Each event used to be judged alone, so a log could be
+    missing its middle and still "replay cleanly". Deleting the single line recording that
+    `retrieval` was ever accepted left:
+
+        initialized -> planned          (legal)
+        retrieved   -> evidence_extracted   (legal)
+
+    Every remaining edge is a legal one-step advance, the last one still matches the manifest, and
+    the check reported *"event log replays cleanly and ends at 'report_eligible'"*. But the run
+    never passed through `planned -> retrieved` according to its own history — the record that a
+    stage was accepted had been removed, and the audit trail's entire job is answering "how did
+    this run reach published?". Reproduced end to end before the fix.
+
+    Each event must now begin where the previous one ended. That is what makes it a replay.
     """
     path = safe_join(ctx.ws.root, "runs", ctx.run_id) / "events.jsonl"
     if not path.is_file():
@@ -1303,6 +1318,16 @@ def check_lifecycle(ctx: RunContext) -> CheckResult:
         if event.get("event") != "lifecycle_transition":
             continue
         prev, new = event.get("previous_phase"), event.get("new_phase")
+        if last_phase is None:
+            # The chain must start where every run starts. A log whose first event begins at
+            # `synthesized` is missing everything before it.
+            if prev != str(Phase.INITIALIZED):
+                illegal.append(f"the log's first transition starts at {prev!r}, not "
+                               f"{str(Phase.INITIALIZED)!r}; the events before it are missing")
+        elif prev != last_phase:
+            illegal.append(f"the log jumps from {last_phase!r} to a transition starting at "
+                           f"{prev!r}; at least one event was removed, so how the run left "
+                           f"{last_phase!r} is not on the record")
         last_phase = new
         if prev == new:
             continue

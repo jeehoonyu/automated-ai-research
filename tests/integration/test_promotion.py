@@ -250,6 +250,64 @@ def test_an_illegal_transition_in_the_log_fails_validation(fresh_run):
     assert status == "failed"
 
 
+def test_a_hole_in_the_event_log_fails_validation(complete_run):
+    """Every edge legal, the chain broken. This used to pass.
+
+    Each event was judged alone, so deleting the single line recording that a stage was ever
+    accepted left a log whose every remaining transition was a legal one-step advance and whose
+    last event still matched the manifest. The check reported *"event log replays cleanly"* about
+    a history with its middle removed — and the event log's entire job is answering "how did this
+    run reach published?".
+
+    The deleted event is deliberately not the last one, so the manifest/log cross-check that
+    already existed cannot be what catches it.
+    """
+    ws, rid, meta = complete_run
+    log = meta["run_dir"] / "events.jsonl"
+    lines = [ln for ln in log.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    moves = [i for i, ln in enumerate(lines)
+             if json.loads(ln).get("event") == "lifecycle_transition"]
+    assert len(moves) >= 4, "this run did not walk enough stages to have a middle"
+
+    dropped = json.loads(lines[moves[2]])
+    log.write_text("\n".join(ln for i, ln in enumerate(lines) if i != moves[2]) + "\n",
+                   encoding="utf-8")
+
+    result = validate_run(ws, rid)
+    status = next(c["status"] for c in result["checks"]
+                  if c["check"] == "lifecycle_transitions_valid")
+    detail = next(c.get("detail", "") for c in result["checks"]
+                  if c["check"] == "lifecycle_transitions_valid")
+    assert status == "failed", f"a deleted {dropped['previous_phase']} -> " \
+                               f"{dropped['new_phase']} was invisible"
+    assert dropped["previous_phase"] in detail, "the failure must name where the chain breaks"
+
+
+def test_a_log_with_its_beginning_removed_fails(complete_run):
+    """The other end of the same hole: truncate the front instead of the middle.
+
+    The TAIL is kept deliberately, so the log still ends where the manifest says the run is. The
+    pre-existing manifest/log cross-check therefore cannot be what fails — only the rule that a
+    replay has to start at `initialized` can. A first draft of this test used a fresh run and a
+    single invented event, which failed on the phase mismatch instead; deleting the start check
+    left it green, and mutation is what showed that.
+    """
+    ws, rid, meta = complete_run
+    log = meta["run_dir"] / "events.jsonl"
+    lines = [ln for ln in log.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    moves = [i for i, ln in enumerate(lines)
+             if json.loads(ln).get("event") == "lifecycle_transition"]
+    log.write_text("\n".join(lines[moves[3]:]) + "\n", encoding="utf-8")
+
+    result = validate_run(ws, rid)
+    status = next(c["status"] for c in result["checks"]
+                  if c["check"] == "lifecycle_transitions_valid")
+    detail = next(c.get("detail", "") for c in result["checks"]
+                  if c["check"] == "lifecycle_transitions_valid")
+    assert status == "failed"
+    assert "first transition" in detail, detail
+
+
 def test_a_manifest_phase_the_log_does_not_support_fails(fresh_run):
     """`phase` is a field. A manifest claiming `published` above a one-line log used to pass."""
     ws, rid, run_dir = fresh_run

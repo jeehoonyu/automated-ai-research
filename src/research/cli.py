@@ -348,6 +348,65 @@ def cmd_inspect(artifact_id: str, workspace_path: str | None, as_json: bool) -> 
             f"  chunks       {d['chunk_count']} ({d['index_eligible_chunk_count']} indexable)",
             f"  ocr pages    {d['ocr_required_pages'] or 'none'}",
         ]
+    # THE THREE KINDS THAT USED TO CRASH. `inspect()` returns six, and this chain handled two
+    # before falling through to a branch that reads `research_question` — a key only the run
+    # payload carries. So `research inspect <evidence-id>`, the command the docs give for checking
+    # whether a citation resolves, died with `KeyError: 'research_question'`; same for claims and
+    # reviews. The most useful command for auditing a run worked on the two artifact kinds least
+    # likely to be in dispute.
+    elif d["kind"] == "evidence":
+        if not d["resolves"]:
+            env.fail("locator_resolution_failure",
+                     f"this evidence does not resolve: {d['resolution_status']}")
+        elif d["text_matches_source"] is False:
+            env.fail("citation_text_mismatch",
+                     "the locator resolves, but the stored exact_text is not what is at those "
+                     "offsets — the quote was edited or paraphrased")
+        lines += [
+            f"  document     {d['document_id']}",
+            f"  type         {d['evidence_type']}   extraction {d['extraction_status']}",
+            f"  resolves     {d['resolution_status']}",
+            f"  quote intact {d['text_matches_source']}",
+            f"  cited by     {', '.join(d['referenced_by_claims']) or 'no claim'}",
+            f"  reviewed by  {', '.join(d['reviewed_by']) or 'no review'}",
+            "",
+            "--- resolved text (re-sliced from the stored normalized text) ---",
+            (d["resolved_text"] or "")[:1200],
+        ]
+    elif d["kind"] == "claim":
+        lines += [
+            f"  run          {d['run_id']}",
+            f"  claim        {(d['claim'] or '')[:200]}",
+            f"  type         {d['claim_type']}   status {d['claim_status']}",
+            f"  support      {d['support_classification']}",
+            f"  contradiction {d['contradiction_status']}",
+            f"  independence {d['independent_review_status']}",
+            "",
+            "  supporting evidence:",
+        ]
+        # `present: False` is why this is listed one per line rather than as a count. A dangling
+        # evidence id is exactly what someone runs this command to find.
+        lines += [f"    {e['evidence_id']}"
+                  f"{'' if e['present'] else '   MISSING FROM THIS WORKSPACE'}"
+                  for e in d["supporting_evidence"]] or ["    none"]
+        if d["contradicting_evidence_ids"]:
+            lines += ["  contradicting evidence:"]
+            lines += [f"    {eid}" for eid in d["contradicting_evidence_ids"]]
+        lines += ["  review verdicts:"]
+        lines += [f"    {v['review_type']}: {v['citation_support'] or v['assessment']}"
+                  for v in d["review_verdicts"]] or ["    none"]
+    elif d["kind"] == "review":
+        lines += [
+            f"  run          {d['run_id']}",
+            f"  type         {d['review_type']}   decision {d['decision']}",
+            f"  reviewer     {(d['reviewer'] or {}).get('actor_type', '?')}",
+            f"  independence {(d['review_independence'] or {}).get('status', 'not declared')}",
+            f"  reviewed     {', '.join(d['reviewed_artifact_ids']) or 'nothing'}",
+        ]
+        for label, key in (("findings", "findings"), ("blocking", "blocking_issues"),
+                           ("warnings", "warnings")):
+            if d[key]:
+                lines += [f"  {label}:"] + [f"    {item}" for item in d[key]]
     else:
         lines += [
             f"  question     {d['research_question'][:70]}",

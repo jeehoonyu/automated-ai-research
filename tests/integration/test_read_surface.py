@@ -21,6 +21,67 @@ from research.hashing import stamp_artifact_hash
 from research.runs.inspector import inspect
 from research.runs.manager import status
 
+# --------------------------------------------------------------- the COMMAND, not just the library
+#
+# Everything below this file's original tests called `inspect()` directly. That is why the command
+# could not render three of the six kinds it returns and no test noticed: the data layer was
+# covered and the CLI that formats it was not. `inspect()` returning the right dict is worth
+# nothing if `research inspect` dies printing it.
+
+
+def _run_cli(ws, *args):
+    from click.testing import CliRunner
+
+    from research.cli import main
+
+    result = CliRunner().invoke(main, [*args, "--workspace", str(ws.root)])
+    if result.exception and not isinstance(result.exception, SystemExit):
+        raise AssertionError(
+            f"`research {' '.join(args)}` raised "
+            f"{type(result.exception).__name__}: {result.exception}") from result.exception
+    return result
+
+
+def test_inspect_renders_every_kind_it_can_return(complete_run):
+    """`research inspect <evidence-id>` used to die with `KeyError: 'research_question'`.
+
+    The branch chain handled `chunk` and `document`, then fell through to a branch reading a key
+    only the run payload carries — so evidence, claims and reviews, the three classes a reviewer
+    actually needs to check anything, all crashed. Parametrised over every kind rather than the
+    three that were broken, because the next kind added will otherwise land in the same fallback.
+    """
+    ws, rid, meta = complete_run
+    doc = meta["doc"]
+    chunks = json.loads((ws.root / doc["chunk_set_path"]).read_text(encoding="utf-8"))["chunks"]
+
+    for kind, artifact_id in (
+        ("evidence", meta["evidence_id"]),
+        ("claim", meta["claim_id"]),
+        ("review", json.loads(meta["review_paths"]["citation_review"]
+                              .read_text(encoding="utf-8"))["review_id"]),
+        ("document", doc["document_id"]),
+        ("chunk", chunks[0]["chunk_id"]),
+        ("run", rid),
+    ):
+        result = _run_cli(ws, "inspect", artifact_id)
+        assert result.exit_code == 0, f"{kind}: exit {result.exit_code}\n{result.output}"
+        assert result.output.startswith(kind), f"{kind}: printed {result.output[:60]!r}"
+        assert artifact_id in result.output
+
+
+def test_inspect_reports_an_edited_quote_as_a_failure_not_a_display(complete_run):
+    """The command exists to catch this, so it must exit non-zero, not merely print it."""
+    ws, rid, meta = complete_run
+    ev = json.loads(meta["evidence_path"].read_text(encoding="utf-8"))
+    ev["exact_text"] = "a sentence nobody wrote"
+    meta["evidence_path"].write_text(json.dumps(stamp_artifact_hash(ev)), encoding="utf-8")
+
+    result = _run_cli(ws, "inspect", meta["evidence_id"])
+    assert result.exit_code != 0
+    assert "citation_text_mismatch" in result.output or "citation_text_mismatch" in (
+        result.stderr or "")
+
+
 # --------------------------------------------------------------- status answers from artifacts
 
 

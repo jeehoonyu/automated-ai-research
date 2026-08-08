@@ -6,6 +6,41 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed — the event log is now replayed as a chain, not a bag of legal edges
+`lifecycle_transitions_valid` judged each event alone. Deleting the one line recording that
+`retrieval` was ever accepted left:
+
+```
+initialized -> planned              (legal)
+retrieved   -> evidence_extracted   (legal)
+```
+
+Every remaining edge is a legal one-step advance and the last still matches the manifest, so the
+check reported *"event log replays cleanly and ends at 'report_eligible'"* about a history with its
+middle removed. Reproduced end to end. The event log's whole job is answering "how did this run
+reach published?", and the record that a stage was accepted could be deleted without trace.
+
+Each event must now begin where the previous one ended, and the first must start at `initialized`
+— truncating the front is the same hole from the other side.
+
+Worth recording separately: the first version of the front-truncation test used a fresh run and one
+invented event, and passed via the pre-existing manifest/log cross-check rather than the new rule.
+Mutation caught it. A test that passes for the wrong reason is not guarding the thing it names.
+
+### Fixed — `research inspect` crashed on three of the six kinds it returns
+The branch chain rendered `chunk` and `document`, then fell through to a branch reading
+`research_question` — a key only the run payload carries. So `research inspect <evidence-id>`,
+`<claim-id>` and `<review-id>` all died with `KeyError: 'research_question'`: the three classes
+spec §8.7 most requires, because they are what a reviewer needs in order to check anything.
+
+Every existing test called `inspect()`, the library function, and none called the command. The data
+layer was covered; the code that formats it was not. `inspect()` returning the right dict is worth
+nothing if `research inspect` dies printing it — so the new test drives the CLI over all six kinds,
+not the three that were broken.
+
+The evidence view now also exits non-zero on an unresolvable locator or an edited quote, rather
+than printing the discrepancy and reporting success.
+
 ### Fixed — a refusal that arrived after the damage
 `promote_stage` wrote every canonical artifact and only *then* called `transition`, where the state
 machine lives. Promoting an earlier stage on a run that had moved on therefore did all its work

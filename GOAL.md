@@ -59,6 +59,22 @@ one file every new user reads first. So `test_the_readme_scope_statement_still_d
 asserts the three facts it rests on against the code, and adding `Measurement` or accepting `.csv`
 now fails a test that names the README.
 
+### Tier 1b — the two audit claims I had not acted on — **done 2026-08-07**
+
+The capability validation made two further defect claims. Both probed before being believed, and my
+first probe was wrong on both: it captured the event log before validation appended to it, and it
+invoked the CLI by a path that does not exist. Corrected, both reproduced.
+
+- **`lifecycle_transitions_valid` judged each event alone**, so a log missing its middle replayed
+  "cleanly". The record that a stage was accepted could be deleted without trace.
+- **`research inspect` crashed on evidence, claim and review ids** — three of the six kinds it
+  returns, and the three a reviewer needs. Every test called the library function; none called the
+  command.
+
+The second is the more general lesson and is why it is recorded here rather than only in the
+changelog: **this repository has 668 tests and, until now, none of them ran a CLI command.** The
+read surface was verified at the layer below the one users touch.
+
 ### Tier 2 — decided against, and why it is recorded rather than deferred
 
 A `Measurement` artifact with its own locator kind would make this a different tool: it would need
