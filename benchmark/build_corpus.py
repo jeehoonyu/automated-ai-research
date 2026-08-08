@@ -170,6 +170,20 @@ def build(root: Path) -> dict[str, Path]:
 if __name__ == "__main__":
     import sys
 
-    target = Path(sys.argv[1] if len(sys.argv) > 1 else "benchmark/sources")
+    argv = sys.argv[1:]
+    # A FLAG IS NOT A DIRECTORY NAME. This takes one positional path and has no options, so
+    # `--out /tmp/corpus` silently created a directory literally named `--out`, filled it with the
+    # corpus, and printed a success table — which is how a stray `--out/` folder ended up committed
+    # to this repository. Reporting success for something the caller plainly did not ask for is the
+    # defect this project spends most of its time hunting; it should not ship in its own tooling.
+    if argv and argv[0].startswith("-"):
+        print(f"build_corpus.py takes one optional directory, not options; got {argv[0]!r}\n"
+              f"  usage: python benchmark/build_corpus.py [target-directory]", file=sys.stderr)
+        raise SystemExit(2)
+    if len(argv) > 1:
+        print(f"build_corpus.py takes one directory; got {len(argv)} arguments", file=sys.stderr)
+        raise SystemExit(2)
+
+    target = Path(argv[0] if argv else "benchmark/sources")
     for name, path in build(target).items():
         print(f"  {name:16s} {path.name:34s} {path.stat().st_size:>7d} bytes")
