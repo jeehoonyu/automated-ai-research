@@ -572,16 +572,25 @@ def cmd_export(run_id: str, fmt: str, draft: bool, workspace_path: str | None,
     env.data = {
         "run_id": result.run_id, "format": result.fmt, "draft": result.draft,
         "path": result.path, "row_count": result.row_count,
+        "neutralized_cells": result.neutralized_cells,
     }
     if result.draft:
         env.status = "partial"
         env.warn("draft_export",
                  "this run has not passed validation; every row records report_eligible=false")
+    # SAID OUT LOUD, because the bytes on disk are not the bytes in the artifact. Altering a
+    # quotation silently would break the one thing this package promises about quotations.
+    if result.neutralized_cells:
+        env.warn("spreadsheet_formula_neutralized",
+                 f"{result.neutralized_cells} cell(s) began with a character a spreadsheet reads "
+                 f"as a formula and were prefixed with an apostrophe. The artifacts are unchanged; "
+                 f"this CSV is not a byte-for-byte copy of them.")
     _emit(env, as_json, human="\n".join([
         f"{'DRAFT ' if result.draft else ''}{result.fmt} exported",
         f"  path        {result.path}",
         f"  rows        {result.row_count}",
-    ]))
+    ] + ([f"  neutralized {result.neutralized_cells} cell(s) that a spreadsheet would have "
+          f"evaluated as a formula"] if result.neutralized_cells else [])))
 
 
 @main.command("next")

@@ -76,6 +76,33 @@ class ExportResult:
     draft: bool
     path: str
     row_count: int
+    neutralized_cells: int = 0
+
+
+# Cells beginning with any of these are evaluated as formulas by Excel, LibreOffice and Sheets.
+# Tab and carriage return are included because both are stripped by some importers before the
+# next character is examined, which puts an `=` back at the start.
+FORMULA_TRIGGERS = ("=", "+", "-", "@", "\t", "\r")
+NEUTRALIZER = "'"
+
+
+def neutralize(cell: str) -> str:
+    """Stop a spreadsheet from executing text that came out of an imported document.
+
+    `docs/security-model.md` states it plainly: *"A document is data. There is no path from
+    document content to execution."* This export opened one. `exact_text` is a verbatim slice of an
+    attacker-controlled PDF and `claim` is text an agent wrote after reading one, and both land in
+    a file whose entire purpose is to be opened in Excel. A cell beginning `=`, `+`, `-` or `@` is
+    a formula there — `=HYPERLINK`, `=WEBSERVICE`, and historically `=cmd|'/c calc'!A1` — so a
+    corpus could reach the network or the shell on the desk of whoever opened the export. Nothing
+    else in this package has that shape, which is exactly why it was worth checking here first.
+
+    Prefixing with `'` is the standard mitigation: spreadsheets treat it as "this is text" and hide
+    it. It does change the bytes, so `export_run` counts the cells it altered and the CLI says so.
+    Silently modifying a quotation would be the worse failure — this package's whole claim is that
+    what it shows you is what the source says.
+    """
+    return NEUTRALIZER + cell if cell.startswith(FORMULA_TRIGGERS) else cell
 
 
 def _flatten(value: Any) -> str:
@@ -208,20 +235,31 @@ _BUILDERS = {
 }
 
 
-def render_csv(columns: tuple[str, ...], rows: list[dict[str, Any]]) -> str:
-    """RFC 4180 with `\\r\\n`, via the stdlib writer.
+def render_csv(columns: tuple[str, ...], rows: list[dict[str, Any]]) -> tuple[str, int]:
+    """RFC 4180 with `\\r\\n`, via the stdlib writer. Returns (text, cells_neutralized).
 
     `lineterminator` is set explicitly because `csv.writer`'s default is already `\\r\\n` but
     `newline=""` handling differs by platform, and this output is hashed by tests: a CSV that
     differs between Windows and Linux would make determinism untestable.
+
+    Neutralizing happens HERE rather than in each row builder, so a column added later cannot
+    forget. The stdlib writer already handles quoting for commas, quotes and newlines correctly —
+    verified — but quoting is not the same problem: `"=1+1"` is still a formula to Excel.
     """
     buf = io.StringIO(newline="")
     writer = csv.DictWriter(buf, fieldnames=list(columns), lineterminator="\r\n",
                             extrasaction="raise")
     writer.writeheader()
+    neutralized = 0
     for row in rows:
-        writer.writerow(row)
-    return buf.getvalue()
+        safe = {}
+        for key, value in row.items():
+            text = value if isinstance(value, str) else str(value)
+            cleaned = neutralize(text)
+            neutralized += cleaned is not text
+            safe[key] = cleaned
+        writer.writerow(safe)
+    return buf.getvalue(), neutralized
 
 
 def export_run(ws: Workspace, run_id: str, *, fmt: str, draft: bool = False) -> ExportResult:
@@ -234,7 +272,7 @@ def export_run(ws: Workspace, run_id: str, *, fmt: str, draft: bool = False) -> 
                                                             command="export")
     columns, build = _BUILDERS[fmt]
     rows = build(ctx, eligible)
-    text = render_csv(columns, rows)
+    text, neutralized = render_csv(columns, rows)
 
     name = f"{fmt}-draft.csv" if draft else f"{fmt}.csv"
     path = safe_join(ws.root, "runs", run_id, "export", name)
@@ -245,4 +283,4 @@ def export_run(ws: Workspace, run_id: str, *, fmt: str, draft: bool = False) -> 
 
     return ExportResult(run_id=run_id, fmt=fmt, draft=draft,
                         path=str(path.relative_to(ws.root)).replace("\\", "/"),
-                        row_count=len(rows))
+                        row_count=len(rows), neutralized_cells=neutralized)

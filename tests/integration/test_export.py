@@ -19,6 +19,7 @@ import io
 import json
 
 import pytest
+from integration.conftest import re_review
 
 from research.errors import InvalidArguments, ReportGatingError
 from research.hashing import stamp_artifact_hash
@@ -28,6 +29,7 @@ from research.reporting.export import (
     _claim_rows,
     _evidence_rows,
     export_run,
+    render_csv,
 )
 from research.validation.validator import validate_run
 
@@ -168,6 +170,63 @@ def test_an_unknown_format_is_refused(complete_run):
     with pytest.raises(InvalidArguments) as exc:
         export_run(ws, rid, fmt="bibtex")
     assert "bibtex" in exc.value.message
+
+
+# --------------------------------------------------------------- untrusted text in a spreadsheet
+#
+# `docs/security-model.md`: *"A document is data. There is no path from document content to
+# execution."* This export opened one. `exact_text` is a verbatim slice of an attacker-controlled
+# PDF and `claim` is text an agent wrote after reading one, and both go into a file whose purpose
+# is to be opened in Excel, where a cell beginning `=` is a formula.
+
+
+@pytest.mark.parametrize("cell", [
+    "=1+1",
+    "+cmd|'/c calc'!A1",
+    "-2+3",
+    "@SUM(1:9)",
+    "\t=1+1",          # tab first: some importers strip it and then see the `=`
+    "\r=1+1",
+])
+def test_a_cell_a_spreadsheet_would_execute_is_neutralized(cell):
+    text, neutralized = render_csv(("v",), [{"v": cell}])
+    assert neutralized == 1
+    assert text.splitlines()[1].startswith("'") or '"\'' in text, text
+
+
+@pytest.mark.parametrize("cell", ["normal text", "a-b", "3+4", "", "x@y.com"])
+def test_ordinary_text_is_left_exactly_alone(cell):
+    """A mitigation that mangles legitimate values teaches people to distrust the export. Only a
+    LEADING trigger is a formula; a hyphen or `@` inside a cell is just text."""
+    _text, neutralized = render_csv(("v",), [{"v": cell}])
+    assert neutralized == 0
+
+
+def test_quoting_still_handles_commas_quotes_and_newlines():
+    """Neutralizing is a different problem from quoting, and adding it must not break quoting.
+    Note that quoting alone would NOT have helped: `"=1+1"` is still a formula to Excel."""
+    text, _ = render_csv(("a", "b", "c"),
+                         [{"a": "has,comma", "b": 'has"quote', "c": "has\nnewline"}])
+    row = list(csv.reader(io.StringIO(text)))[1]
+    assert row == ["has,comma", 'has"quote', "has\nnewline"]
+
+
+def test_the_export_says_when_it_altered_a_cell(complete_run):
+    """Silently changing a quotation would break the one thing this package promises about
+    quotations. The count travels back to the caller, and the CLI warns on it."""
+    ws, rid, meta = complete_run
+    claim = json.loads(meta["claim_path"].read_text(encoding="utf-8"))
+    claim["claim"] = "=HYPERLINK(\"http://evil.invalid\",\"click\")"
+    meta["claim_path"].write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
+    re_review(meta)
+    validate_run(ws, rid)
+
+    result = export_run(ws, rid, fmt="claims")
+    assert result.neutralized_cells >= 1
+    body = (ws.root / result.path).read_text(encoding="utf-8")
+    assert "'=HYPERLINK" in body
+    # And the artifact itself is untouched — only the CSV rendering was changed.
+    assert json.loads(meta["claim_path"].read_text(encoding="utf-8"))["claim"].startswith("=")
 
 
 # --------------------------------------------------------------- determinism

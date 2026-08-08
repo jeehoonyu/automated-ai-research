@@ -143,6 +143,11 @@ easier to paste into something else, so `--format claims` must not become a way 
 conclusions `research report` refused to print. `--draft` works and writes `report_eligible=false`
 into every row, because a filename is lost the moment someone opens the file in a spreadsheet.
 
+A cell that begins `=`, `+`, `-` or `@` is a **formula** to Excel, LibreOffice and Sheets — and
+`exact_text` is a verbatim slice of an imported PDF, which the threat model treats as
+attacker-controlled. Those cells are prefixed with an apostrophe so they stay text, and the command
+tells you how many it altered. The artifacts are untouched; only this rendering of them changes.
+
 **There is no BibTeX or CSL output, and that is a decision rather than a gap.** This package holds
 the filename you imported, a PDF's `/Title` and `/Author` strings when the file carries them, and a
 sha256. That is not a bibliography. `/Author` is attacker-controlled metadata naming whoever made

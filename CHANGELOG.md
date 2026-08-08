@@ -6,6 +6,35 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed — the export was a path from document content to execution
+Found by auditing the export within an hour of writing it, and it is the sharper half of that
+feature. `docs/security-model.md` states: *"A document is data. There is no path from document
+content to execution."* The CSV opened one.
+
+A spreadsheet evaluates any cell beginning `=`, `+`, `-` or `@`. `exact_text` is a **verbatim slice
+of an imported PDF** — attacker-controlled by the threat model's own first paragraph — and `claim`
+is text an agent wrote after reading one. Both went into a file whose entire purpose is to be
+opened in Excel. Reproduced directly:
+
+```
+>>> render_csv(("a","b","c","d"), [{"a":"=1+1","b":"+cmd|'/c calc'!A1",
+...                                 "c":"-2+3","d":"@SUM(1:9)"}])
+'a,b,c,d\r\n=1+1,+cmd|\'/c calc\'!A1,-2+3,@SUM(1:9)\r\n'
+```
+
+Every trigger emitted verbatim. A corpus could reach the network (`=WEBSERVICE`, `=IMPORTXML`) or
+worse on the desk of whoever opened the export — from a PDF someone downloaded. Nothing else in
+this package has that shape, which is why adding an export deserved its own security question.
+
+Cells now carry an apostrophe prefix, applied in `render_csv` rather than in each row builder so a
+column added later cannot forget. Tab and carriage return are triggers too, because some importers
+strip them and then see the `=`. Only a LEADING trigger counts: `a-b` and `x@y.com` are untouched,
+since a mitigation that mangles legitimate values teaches people to distrust the export.
+
+**And it says so.** `ExportResult.neutralized_cells` counts the alterations and the CLI warns on
+them. Silently changing a quotation would break the one thing this package promises about
+quotations — the artifacts are unchanged, and only this rendering of them differs.
+
 ### Added — `research export`, so a finished run can leave the tool
 `GOAL.md` has carried this since Goal 7: *"A finished run produces Markdown. Research that cannot be
 cited elsewhere stays in the tool."* Three CSVs, written to `runs/<id>/export/`:

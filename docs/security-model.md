@@ -20,6 +20,7 @@ instructions addressed to whatever reads it next.
 | | Why |
 |---|---|
 | Execute anything found in a document | A document is data. There is no path from document content to execution. |
+| Hand document text to another program as code | `research export` writes CSV, and a cell beginning `=`, `+`, `-` or `@` is a formula in every spreadsheet. `exact_text` is a verbatim slice of an imported PDF, so the export would otherwise have carried an attacker's `=WEBSERVICE(...)` onto the desk of whoever opened it. Those cells are prefixed with an apostrophe, and the command reports how many it altered — see `neutralize()` in `src/research/reporting/export.py`. The row above says there is no path from document content to execution; adding an export is how one nearly appeared. |
 | Fetch a URL found in a document | Link destinations are stored as metadata with `links_followed: false`. Following one would let an imported file reach the network on its own behalf. |
 | Any network request in core processing | Import, extraction, indexing, search, validation and reporting are entirely local. There is no HTTP client in the dependency set for these paths. |
 | Let document text alter configuration, roles, or tool choice | Configuration comes from `research.yaml`. Nothing in an extraction pipeline writes it. |
