@@ -1474,6 +1474,25 @@ def validated_inputs(ctx: RunContext) -> dict[str, Any]:
         # NOW, which is the same question `check_derived_text_hashes` asks, asked again at report
         # time. A missing file hashes to the empty string rather than raising: absent is a state
         # to report, not an error to crash on.
+        # THE DOCUMENTS THIS RUN CITES, not every document in the workspace.
+        #
+        # A first version rostered `ctx.documents`, which holds every manifest present — so
+        # importing an unrelated paper for a LATER run un-published an earlier finished one:
+        # "a source document was added since validation", about a document that backs no claim in
+        # it. Importing is routine; un-publishing a finished run for it is a false positive of the
+        # worst kind, because the way around it is to stop trusting the gate.
+        #
+        # `README.md` already states the principle — *"a run pins its sources when it is created,
+        # and that pinning is what makes it answerable months later"* — and `citations.csv` already
+        # applies it: the corpus holds what you gave it, the run rests on what it used. This is the
+        # same rule, in the place it matters most.
+        #
+        # SCOPE NOTE, because it differs deliberately. `check_source_hashes` and
+        # `check_derived_text_hashes` iterate every document in the workspace, so an unrelated
+        # corrupted file still blocks a fresh `validate`. That is broader than this roster and is
+        # left alone: it fails CLOSED, which is the safe direction, whereas rostering everything
+        # failed open in the sense that mattered — it made a real refusal indistinguishable from
+        # noise.
         "sources": [
             {
                 "document_id": doc_id,
@@ -1481,7 +1500,8 @@ def validated_inputs(ctx: RunContext) -> dict[str, Any]:
                 "normalized_text_sha256": (
                     sha256_text(text) if (text := ctx.normalized_text(doc_id)) is not None else ""),
             }
-            for doc_id in sorted(ctx.documents)
+            for doc_id in sorted({str(e.get("document_id")) for e in ctx.evidence}
+                                 & set(ctx.documents))
         ],
         "load_error_count": len(ctx.load_errors),
     }

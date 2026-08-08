@@ -37,6 +37,32 @@ Worth noting how this one hid: `test_cli_surface.py`, written earlier today to s
 class, tested `index` against a *missing workspace* and not against a *present but wrong
 configuration*. A sweep is only as wide as the failures it imagines.
 
+### Fixed — the sources roster un-published runs over documents they never cited
+A false positive introduced by the fix immediately below, found by attacking it within the hour.
+
+The first version rostered `ctx.documents` — every manifest present in the workspace. So importing
+a paper for a *later* run refused an *earlier* finished one:
+
+```
+validated eligible: True     publishes: True
+  research import <an unrelated pdf>
+REFUSED: ['a source document was added since validation: DOC-sha256-2c424619…']
+```
+
+That document backs no claim in the run. Importing is routine, and un-publishing a finished run for
+it is the kind of false positive that teaches people to stop trusting the gate — which costs more
+than the hole it was guarding.
+
+The roster now covers the documents the run's evidence **cites**. `README.md` already stated the
+principle — *"a run pins its sources when it is created, and that pinning is what makes it
+answerable months later"* — and `citations.csv`, written the same day, already applied it: the
+corpus holds what you gave it, the run rests on what it used. It simply was not applied in the one
+place it mattered most.
+
+Scope noted rather than hidden: `check_source_hashes` and `check_derived_text_hashes` still iterate
+every document in the workspace, so an unrelated corrupted file still blocks a fresh `validate`.
+That is broader than the roster and is deliberately left alone — it fails closed.
+
 ### Fixed — the publication gate was bound to the citations, not to the thing cited
 The most serious finding of the audit, and the oldest defect in this batch. `validated_inputs`
 rostered evidence, claims, reviews, contexts, relationships, amendments, retrieval and the plan —

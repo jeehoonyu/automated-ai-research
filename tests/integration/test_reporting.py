@@ -456,6 +456,32 @@ def test_a_report_cannot_publish_when_a_cited_document_is_gone(complete_run):
     assert any("cited source document is gone" in d for d in exc.value.detail["differences"])
 
 
+def test_importing_an_unrelated_document_does_not_unpublish_a_finished_run(
+        complete_run, tmp_path: Path):
+    """The false positive the first version of the sources roster introduced.
+
+    It rostered every manifest in the workspace, so importing a paper for a LATER run refused an
+    EARLIER finished one — "a source document was added since validation", about a document backing
+    no claim in it. Importing is routine; un-publishing a finished run for it is the kind of false
+    positive that teaches people to stop trusting the gate.
+
+    `README.md` states the principle the roster now follows: a run pins its sources when it is
+    created. The corpus holds what you gave it; the run rests on what it used.
+    """
+    from fixtures.make_fixtures import build
+
+    from research.importers.importer import import_paths
+
+    ws, rid, _ = complete_run
+    _publishable(ws, rid)
+    assert render_report(ws, rid).draft is False
+
+    import_paths(ws, [build(tmp_path / "unrelated-src")["low_text_pdf"]])
+
+    assert render_report(ws, rid).draft is False, (
+        "an import the run does not cite un-published it")
+
+
 def test_a_verdict_from_before_source_tracking_says_so(complete_run):
     """An old `validated_inputs` has no `sources` key. Reporting "the roster digest changed" would
     send someone hunting for an artifact that never moved; the honest answer names the gap."""
