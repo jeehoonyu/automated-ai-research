@@ -9,6 +9,30 @@ indexing, search, state, validation, citation resolution, gating, and report ren
 
 **The point is not to produce a report. It is to refuse to produce one that isn't supported.**
 
+## What this holds, and what it does not
+
+This is worth knowing before you set anything up, because it is structural rather than a gap that
+will close.
+
+**It holds documents.** A piece of `Evidence` is, by schema, a pointer into a file you imported: a
+text span at exact offsets in the normalized text, or a region on a rendered page. Those are the two
+kinds, and there is no third. The importer accepts `.pdf`, `.md` and `.markdown`.
+
+**It does not hold measurements.** There is no `Measurement`, `Dataset`, `Protocol` or `Environment`
+artifact, nowhere for a seed, a commit, a p-value, an instrument reading or a sample id, and no way
+to ingest a CSV. So it can carry *a description of an experiment somebody published*. It cannot
+carry *an experiment you ran*.
+
+You can force one in — write your result as prose, import the prose, cite your own sentence — and
+every gate will pass. They will be verifying that you quoted your own document accurately. That is
+true, and it is not what you wanted checked. If you need a lab notebook or an experiment tracker,
+this is the wrong tool and no configuration changes that.
+
+**What it is good for:** a literature review, a design-decision memo, a technical investigation over
+papers and reports you already have — anywhere the question is *"does the source actually say this?"*
+and you need the answer to survive someone checking. Retrieval is FTS5/BM25 over your own files:
+lexical, deterministic, reproducible, and dependent on the search terms being right.
+
 ## Quickstart
 
 ```bash

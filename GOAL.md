@@ -40,7 +40,7 @@ And one the fixes found on their own: **`generate_schemas.py --check`, named in 
 required verification step, did not exist** — it rewrote the schemas and exited 0. A verification
 that repairs what it finds cannot report anything.
 
-### Tier 1 — say the boundary where it will actually be read
+### Tier 1 — say the boundary where it will actually be read — **done 2026-08-07**
 
 `PROJECT_GOAL.md` §1 is accurate ("across collections of locally stored documents"). `README.md` is
 not wrong either. But nothing states the negative, and the negative is what a new user needs: this
@@ -48,8 +48,16 @@ holds documents, not measurements. Someone arriving at "automated AI research pl
 expects hypothesis → experiment → data → analysis, and will get four stages in before the schema
 tells them.
 
-Write it once, near the top of `README.md`, in the register this repository already uses for
-unmet things. Not an apology — a scope statement, next to the list of what it *does* guarantee.
+Written as "What this holds, and what it does not", above the quickstart — before anyone installs
+anything. It names the two locator kinds, the three importable extensions, and the artifact types
+that do not exist, then says plainly that forcing a measurement in produces gates which verify you
+quoted your own sentence accurately.
+
+**A negative goes stale silently**, which is the part worth recording. Nobody deletes a scope
+paragraph when they add an artifact type — they add the type, and the paragraph becomes a lie in the
+one file every new user reads first. So `test_the_readme_scope_statement_still_describes_the_code`
+asserts the three facts it rests on against the code, and adding `Measurement` or accepting `.csv`
+now fails a test that names the README.
 
 ### Tier 2 — decided against, and why it is recorded rather than deferred
 

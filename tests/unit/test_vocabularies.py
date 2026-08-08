@@ -306,6 +306,37 @@ def test_the_schema_enum_accessor_refuses_a_field_with_no_enum():
         schema_enum("Claim", "claim")
 
 
+def test_the_readme_scope_statement_still_describes_the_code():
+    """The README states a NEGATIVE — this holds documents, not measurements — and a negative goes
+    stale silently. Nobody deletes a scope paragraph when they add an artifact type; they add the
+    type and the paragraph quietly becomes a lie in the one file every new user reads first.
+
+    So the three facts it rests on are asserted against the code, not re-described here:
+    evidence points into a document, there are exactly two kinds of locator, and three importable
+    extensions. Widening any of them should fail here and send someone to the README.
+    """
+    from research.artifacts.registry import SCHEMA_FILES
+    from research.importers.importer import MEDIA_TYPES
+
+    evidence = json.loads((SCHEMA_DIR / "evidence.schema.json").read_text(encoding="utf-8"))
+    required = set(evidence["required"])
+    assert {"document_id", "document_version_id", "locator"} <= required, (
+        "evidence no longer has to point into an imported document — the README says it does")
+
+    kinds = {branch["properties"]["type"]["const"]
+             for branch in evidence["properties"]["locator"]["oneOf"]}
+    assert kinds == {"text_span", "visual_region"}, (
+        f"locator kinds are now {sorted(kinds)}; the README says there are two and names them")
+
+    assert set(MEDIA_TYPES) == {".pdf", ".md", ".markdown"}, (
+        f"the importer now accepts {sorted(MEDIA_TYPES)}; the README lists three extensions")
+
+    absent = {"Measurement", "Dataset", "Protocol", "Environment", "Experiment"}
+    assert not (absent & set(SCHEMA_FILES)), (
+        f"{sorted(absent & set(SCHEMA_FILES))} now exists — the README says it does not, and says "
+        f"so as the reason this tool cannot hold an experiment you ran")
+
+
 def test_every_support_classification_is_decided_to_owe_factors_or_not():
     """A new classification must not default into either half of the confidence gate.
 
