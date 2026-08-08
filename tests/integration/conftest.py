@@ -28,6 +28,7 @@ from fixtures.make_fixtures import build  # noqa: E402
 
 from research.artifacts.io import make_artifact  # noqa: E402
 from research.config import load_workspace  # noqa: E402
+from research.hashing import stamp_artifact_hash  # noqa: E402
 from research.identifiers import claim_id, evidence_id, review_id  # noqa: E402
 from research.importers.importer import import_paths  # noqa: E402
 from research.indexing.builder import build_index  # noqa: E402
@@ -44,6 +45,26 @@ def _accept(ws, rid, run_dir: Path, stage: Stage, filename: str, payload) -> lis
     result = promote_stage(ws, rid, stage)
     assert result["accepted"], (stage, result["problems"])
     return result["promoted"]
+
+
+def re_review(meta: dict) -> None:
+    """Represent the reviewers reading the claim AGAIN, after it changed.
+
+    Tests that edit a canonical claim in place are seeding a scenario, not simulating tampering —
+    but since `reviews_bind_to_reviewed_bytes` exists, an edited claim leaves every review pointing
+    at bytes that are gone, and the run correctly stops being publishable. A test whose subject is
+    some other check has to say which of the two it means. Calling this says: the reviewers saw
+    this version. Not calling it says: they did not, and the run should block.
+
+    Deliberately NOT a fixture and deliberately not automatic. "Make the reviews agree with
+    whatever is on disk" is exactly the operation that must never be available outside a test.
+    """
+    claim = json.loads(meta["claim_path"].read_text(encoding="utf-8"))
+    for path in meta["review_paths"].values():
+        review = json.loads(path.read_text(encoding="utf-8"))
+        review["reviewed_artifact_hashes"] = {
+            k: claim["artifact_hash"] for k in review["reviewed_artifact_ids"]}
+        path.write_text(json.dumps(stamp_artifact_hash(review)), encoding="utf-8")
 
 
 @pytest.fixture
@@ -103,7 +124,23 @@ def complete_run(tmp_path: Path):
                   contradicting_evidence_ids=[], citation_status="passed",
                   contradiction_status="none_found",
                   independent_review_status="procedurally_isolated",
+                  # Spec §23: a categorical classification owes explicit factor ratings.
+                  # `not_applicable` here is true of this claim — one text citation, no
+                  # contradicting evidence, no figure, no OCR — and `check_confidence_factors`
+                  # would refute it if it were not.
+                  confidence_factors={"evidence_directness": "high",
+                                      "source_quality": "medium",
+                                      "citation_validity": "high",
+                                      "contradictory_evidence": "not_applicable",
+                                      "visual_certainty": "not_applicable",
+                                      "ocr_dependency": "not_applicable"},
                   human_review_required=False, run_id=rid)))
+
+    # THE HASH THE REVIEWER READ, taken from the canonical claim as promotion stamped it — not
+    # recomputed here. A fixture that computes its own hash would agree with itself even if
+    # promotion stamped something else, which is the one disagreement the check exists to catch.
+    claim_hash = json.loads(
+        (ws.root / claim_paths[0]).read_text(encoding="utf-8"))["artifact_hash"]
 
     review_paths: dict[str, Path] = {}
     for stage, rtype, filename, extra in (
@@ -122,7 +159,9 @@ def complete_run(tmp_path: Path):
         promoted = _accept(ws, rid, run_dir, stage, filename, make_artifact(
             schema_name="Review", artifact_id=rev, actor_type="host_agent",
             body=dict(review_id=rev, review_type=rtype, run_id=rid,
-                      reviewed_artifact_ids=[cid], reviewer={"actor_type": "host_agent"},
+                      reviewed_artifact_ids=[cid],
+                      reviewed_artifact_hashes={cid: claim_hash},
+                      reviewer={"actor_type": "host_agent"},
                       decision="passed", **extra)))
         review_paths[rtype] = ws.root / promoted[0]
 

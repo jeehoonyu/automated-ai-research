@@ -160,8 +160,15 @@
     },
     "independence_note": {
       "type": "string"
+    },
+    "attestation_note": {
+      "type": "string"
+    },
+    "claim_statements_note": {
+      "type": "string"
     }
   },
+  "additionalProperties": false,
   "allOf": [
     {
       "$comment": "Spec §13: the independent-review packet must exclude the primary agent's reasoning and confidence, or the review is not independent.",

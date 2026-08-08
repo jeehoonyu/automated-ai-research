@@ -31,7 +31,7 @@ from ..config import Workspace
 from ..errors import InvalidArguments, ResearchError
 from ..hashing import stamp_artifact_hash, verify_artifact_hash
 from ..security.paths import safe_join
-from .lifecycle import Phase, Stage
+from .lifecycle import Disposition, Phase, Stage, assert_transition
 from .manager import load_run, transition
 
 # Where a promoted artifact becomes canonical. `ResearchPlan` is a single file at the run root
@@ -117,6 +117,40 @@ def _candidates(ws: Workspace, run_id: str,
     return artifacts, problems, declares_schemas
 
 
+def _assert_promotable(ws: Workspace, run_id: str, stage: Stage) -> bool:
+    """Refuse an illegal stage BEFORE anything is written. Returns whether this is a re-promotion.
+
+    THE DEFECT THIS CLOSES. `promote_stage` used to write every canonical artifact and only then
+    call `transition`, which is where the state machine lives. Promoting an earlier stage on a run
+    that had moved on therefore did all its damage first and refused afterwards: the CLI printed
+    "cannot move backwards from retrieved to planned; corrections are recorded as amendments, not
+    by rewinding the lifecycle", exited non-zero, left the phase untouched and logged no event —
+    while `plan.json` on disk had already been replaced with content nobody approved. Reproduced
+    end to end before the fix; a refusal that has already happened is not a refusal.
+
+    The comment above the old `transition` call asserted the opposite — "this cannot rewrite work a
+    later stage reviewed" — which is the shape this repository keeps finding: a guarantee stated in
+    prose that no code kept. It is now kept here, by asking the same state machine the same
+    question, one step earlier.
+
+    Deciding legality BEFORE the write is also the only ordering that can be right. Writing first
+    and transitioning second leaves artifacts nobody accepted; transitioning first and writing
+    second leaves a phase nothing produced. Only a question with no side effects can be asked first.
+    """
+    manifest = load_run(ws, run_id)
+    from_phase = Phase(manifest["phase"])
+    to_phase = STAGE_PHASE[stage]
+
+    # A stage the run is ALREADY at is re-accepted, not transitioned — `transition` skips the state
+    # machine when the phase would not change, and re-promoting is how you fix a response you have
+    # just accepted and immediately noticed was wrong. Documented at the call site below.
+    if to_phase == from_phase:
+        return True
+
+    assert_transition(from_phase, to_phase, Disposition(manifest["disposition"]))
+    return False
+
+
 def promote_stage(ws: Workspace, run_id: str, stage: Stage) -> dict[str, Any]:
     """Validate a stage's responses and, if every one is sound, make them canonical.
 
@@ -124,12 +158,19 @@ def promote_stage(ws: Workspace, run_id: str, stage: Stage) -> dict[str, Any]:
     the CLI is asserting "I validated this content" — but an artifact that carries a hash which does
     not match its own body was tampered with somewhere, and silently re-stamping it would erase the
     evidence.
+
+    NOTHING IS WRITTEN UNTIL THE LIFECYCLE HAS AGREED. See `_assert_promotable`.
     """
     load_run(ws, run_id)                       # 404s clearly if the run does not exist
     if stage in (Stage.FINAL_VALIDATION, Stage.REPORT):
         raise InvalidArguments(
             f"stage {stage} is performed by the CLI, not by a host agent",
             detail={"hint": f"run `research validate {run_id}` or `research report {run_id}`"})
+
+    # ASKED FIRST, BEFORE ANY FILE IS READ OR WRITTEN. A stage the lifecycle will refuse is refused
+    # now, so the refusal cannot arrive after the damage. It also outranks "your response file is
+    # missing": fixing a file you were never allowed to promote is a wasted round trip.
+    re_promoted = _assert_promotable(ws, run_id, stage)
 
     run_dir = safe_join(ws.root, "runs", run_id)
     artifacts, problems, declares_schemas = _candidates(ws, run_id, stage)
@@ -206,9 +247,11 @@ def promote_stage(ws: Workspace, run_id: str, stage: Stage) -> dict[str, Any]:
     # and immediately noticed was wrong — but silence is not: the run's history should show that a
     # stage was accepted twice, and the caller should be told which of the two happened.
     #
-    # The window is narrow by construction. Once the run advances, promoting an earlier stage moves
-    # backwards and the lifecycle refuses it, so this cannot rewrite work a later stage reviewed.
-    re_promoted = load_run(ws, run_id)["phase"] == str(STAGE_PHASE[stage])
+    # The window is narrow by construction: `_assert_promotable` has already refused any stage the
+    # run has moved past, so this branch can only overwrite artifacts from the phase the run is
+    # standing on. A review recorded against those artifacts is caught separately — a Review binds
+    # to the hashes it read (`check_reviews_bind_to_bytes`), so an overwrite invalidates it rather
+    # than inheriting its approval.
     moved = transition(
         ws, run_id, to_phase=STAGE_PHASE[stage],
         triggered_by=f"research validate --stage {stage}",

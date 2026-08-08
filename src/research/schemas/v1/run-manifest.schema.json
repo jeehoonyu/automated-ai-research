@@ -158,5 +158,6 @@
     "updated_at": {
       "type": "string"
     }
-  }
+  },
+  "additionalProperties": false
 }

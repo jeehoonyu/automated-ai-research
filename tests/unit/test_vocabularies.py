@@ -306,6 +306,25 @@ def test_the_schema_enum_accessor_refuses_a_field_with_no_enum():
         schema_enum("Claim", "claim")
 
 
+def test_every_support_classification_is_decided_to_owe_factors_or_not():
+    """A new classification must not default into either half of the confidence gate.
+
+    `SUPPORT_ASSERTING` splits the enum: those four owe factor ratings under spec §23, the rest
+    assert no support and owe nothing. If a twelfth classification is added and this file is not
+    touched, it silently lands in the exempt half — a new way to publish with no confidence
+    recorded, arriving through a change that looks unrelated. Partitioning against the schema is
+    what makes that a failing test rather than a discovery.
+    """
+    from research.validation.validator import SUPPORT_ASSERTING
+
+    every = enum_of("claim.schema.json", "support_classification")
+    exempt = {"conflicting_evidence", "unsupported", "unable_to_determine"}
+
+    assert SUPPORT_ASSERTING <= every, SUPPORT_ASSERTING - every
+    assert SUPPORT_ASSERTING | exempt == every, (
+        f"undecided classification(s): {sorted(every - SUPPORT_ASSERTING - exempt)}")
+
+
 # --------------------------------------------------------------------------- the docs' own copies
 
 

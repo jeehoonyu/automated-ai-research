@@ -130,6 +130,7 @@
       "type": "boolean"
     }
   },
+  "additionalProperties": false,
   "allOf": [
     {
       "$comment": "Spec §31: an amendment that replaces content must name the replacement, and any amendment touching published content forces revalidation.",

@@ -319,7 +319,7 @@ instructions from untrusted document content explicitly.
   outright, OCR-dependent evidence must demand human review, and an independent review must declare
   its independence.
 
-- **Phase 7 (validation and gating)** — 25 checks covering source hashes, locator resolution,
+- **Phase 7 (validation and gating)** — 27 checks covering source hashes, locator resolution,
   claim-evidence links, review completeness, reviewer independence, OCR and visual certainty,
   contradiction disclosure, support classifications, and lifecycle replay. Each check reports
   `passed` / `failed` / `not_evaluated` / `not_applicable`, and **`not_evaluated` blocks publication
@@ -409,7 +409,7 @@ and exit code `6 HUMAN_REVIEW_REQUIRED` was unreachable. See [`GOAL.md`](GOAL.md
   enforced. Worth reading before changing any gate.
 - [`docs/architecture.md`](docs/architecture.md) — trust boundaries, authority model, determinism
 - [`docs/security-model.md`](docs/security-model.md) — threat model, and what is *not* protected
-- [`docs/validation-rules.md`](docs/validation-rules.md) — the 25 checks, the profile rules, and why `not_evaluated` blocks
+- [`docs/validation-rules.md`](docs/validation-rules.md) — the 27 checks, the profile rules, and why `not_evaluated` blocks
 - [`docs/release-checklist.md`](docs/release-checklist.md) — gate status, including the unmet one
 - [`benchmark/README.md`](benchmark/README.md) — the corpus and the ten cases
 - [`CONTRIBUTING.md`](CONTRIBUTING.md), [`SECURITY.md`](SECURITY.md), [`CHANGELOG.md`](CHANGELOG.md)

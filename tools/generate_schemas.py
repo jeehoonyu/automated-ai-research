@@ -10,6 +10,7 @@ Run:  python tools/generate_schemas.py
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -139,6 +140,17 @@ def schema(name: str, title: str, description: str, props: dict, required: list[
         "type": "object",
         "required": ENVELOPE_REQUIRED + required,
         "properties": {**ENVELOPE_PROPS, **props},
+        # CLOSED. An undeclared field used to validate, get hashed into `artifact_hash`, and be read
+        # by nothing — so an agent could attach `{"p_value": 0.03, "n": 5}` to a Claim and the
+        # system would carry it, stamp it, and let the run publish while every check and every
+        # template ignored it. That is worse than refusing: the field is present in the canonical
+        # record, so it looks recorded, and a reader who finds it has no way to know nothing ever
+        # validated it. A vocabulary that accepts anything asserts nothing.
+        #
+        # Set here rather than per-schema so a new artifact type is closed by construction.
+        # Deliberately TOP LEVEL only: nested free-form maps like Document.metadata and
+        # Review.methodology_assessments are open on purpose and say so where they are defined.
+        "additionalProperties": False,
     }
     if extra:
         out.update(extra)
@@ -319,6 +331,20 @@ SCHEMAS["review"] = schema(
         "review_type": {"enum": REVIEW_TYPES},
         "run_id": RUN_ID,
         "reviewed_artifact_ids": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+        "reviewed_artifact_hashes": {
+            "$comment": "WHICH BYTES THE REVIEWER READ. An id alone survives the artifact being "
+                        "rewritten, so an approval could silently transfer to content no reviewer "
+                        "ever saw — re-promoting a stage overwrites its artifacts in place, and "
+                        "the review still named the same id. Amendment has required "
+                        "target_artifact_hash since it was written; a Review needs the same "
+                        "binding for the same reason. Keys are artifact ids from "
+                        "reviewed_artifact_ids; values are that artifact's artifact_hash at the "
+                        "time of review. Enforced by `reviews_bind_to_reviewed_bytes`, not by "
+                        "`required` here, so that reviews recorded before this field existed load "
+                        "and are reported as unbound rather than becoming unreadable.",
+            "type": "object",
+            "additionalProperties": SHA,
+        },
         "reviewer": {
             "type": "object",
             "required": ["actor_type"],
@@ -538,8 +564,22 @@ SCHEMAS["document"] = schema(
         "extraction_status": {"enum": EXTRACTION_STATUS},
         "extraction_toolchain": {"type": "object"},
         "extraction_warnings": {"type": "array", "items": {"type": "string"}},
+        # DECLARED ONLY WHEN THE SCHEMAS WERE CLOSED. The importer has written all three since it
+        # was first built and no schema mentioned them, so they validated by the absence of a rule
+        # rather than by a decision. `extraction_config_hash` is the sharpest of the three: spec
+        # §3.7 requires recording the configuration a deterministic step ran under, and it is part
+        # of the document_version_id preimage in identifiers.py — a reproducibility input that the
+        # contract never admitted existed.
+        "extraction_config_hash": {"type": "string"},
+        "normalization_warnings": {"type": "array", "items": {"type": "string"}},
+        "rendered_page_count": {"type": "integer", "minimum": 0},
         "ocr_required_pages": {"type": "array", "items": {"type": "integer", "minimum": 1}},
         "page_count": {"type": ["integer", "null"], "minimum": 0},
+        # Markdown has no pages, so extraction reports its shape in lines instead. Statistics, not
+        # locator inputs — a Markdown locator uses source line ranges recorded per section.
+        "line_count": {"type": "integer", "minimum": 0},
+        "code_block_lines": {"type": "integer", "minimum": 0},
+        "table_row_lines": {"type": "integer", "minimum": 0},
         "normalized_text_path": {"type": "string"},
         "normalized_text_sha256": SHA,
         "normalization_not_performed": {"type": "array", "items": {"type": "string"}},
@@ -658,6 +698,12 @@ SCHEMAS["work-packet"] = schema(
         "insufficient_evidence_note": {"type": "string"},
         "requires_fresh_context": {"type": "boolean"},
         "independence_note": {"type": "string"},
+        # Both emitted by build_packet for the independent-review stage and neither declared until
+        # the schemas were closed. `attestation_note` tells the host how `confirmed_independent`
+        # is earned and `claim_statements_note` names the leak that would void it — the two most
+        # load-bearing sentences in the packet, carried by a contract that did not list them.
+        "attestation_note": {"type": "string"},
+        "claim_statements_note": {"type": "string"},
     },
     ["packet_id", "run_id", "stage", "workflow_version", "allowed_inputs", "excluded_inputs",
      "required_outputs", "completion_criteria", "validation_command",
@@ -720,6 +766,11 @@ SCHEMAS["report-manifest"] = schema(
         "claim_ids": {"type": "array", "items": CLAIM_ID},
         "evidence_ids": {"type": "array", "items": EVIDENCE_ID},
         "citation_index": {"type": "array", "items": {"type": "object"}},
+        # Spec §3.7 lists search queries among the inputs a reproducible run must record, and
+        # `test_the_report_manifest_names_the_retrieval_hashes` has always asserted this field is
+        # here. It was never declared: written by the renderer, pinned by a test, absent from the
+        # contract. Closing the schemas is what asked the question.
+        "retrieval_log_hashes": {"type": "array", "items": SHA},
         "schema_versions_used": {"type": "object"},
         "disclosures": {"type": "array", "items": {"type": "string"}},
     },
@@ -818,11 +869,43 @@ SCHEMAS["retrieval-log"] = schema(
      "results", "retrieval_log_hash"])
 
 
-def main() -> int:
+def _rendered(body: dict) -> str:
+    return json.dumps(body, indent=2, ensure_ascii=False) + "\n"
+
+
+def main(argv: list[str] | None = None) -> int:
+    """`--check` verifies; no flag writes.
+
+    `AGENTS.md` has listed `python tools/generate_schemas.py --check` among the four commands that
+    must pass before claiming a change works — and the flag did not exist. Unrecognised arguments
+    were ignored, so the documented VERIFICATION step silently REWROTE the schemas and exited 0. It
+    could not fail. Anyone who edited this file and forgot to regenerate, or who edited a
+    `.schema.json` by hand, was told they were consistent by a command that had just made them
+    consistent. Found while mutation-testing the closed schemas: mutating this generator changed no
+    test result, because nothing compared its output to what is checked in.
+    """
+    check = "--check" in (argv if argv is not None else sys.argv[1:])
     OUT.mkdir(parents=True, exist_ok=True)
+
+    if check:
+        drifted: list[str] = []
+        for name, body in sorted(SCHEMAS.items()):
+            path = OUT / f"{name}.schema.json"
+            current = path.read_text(encoding="utf-8") if path.is_file() else None
+            if current != _rendered(body):
+                shown = path.relative_to(ROOT) if path.is_relative_to(ROOT) else path
+                drifted.append(f"  {shown}{' (missing)' if current is None else ''}")
+        if drifted:
+            print(f"{len(drifted)} schema(s) do not match this generator:")
+            print("\n".join(drifted))
+            print("\nRun `python tools/generate_schemas.py` and commit the result.")
+            return 1
+        print(f"{len(SCHEMAS)} schemas match the generator")
+        return 0
+
     for name, body in sorted(SCHEMAS.items()):
         path = OUT / f"{name}.schema.json"
-        path.write_text(json.dumps(body, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        path.write_text(_rendered(body), encoding="utf-8")
         print(f"  {path.relative_to(ROOT)}")
     print(f"{len(SCHEMAS)} schemas written")
     return 0

@@ -279,6 +279,7 @@
       "type": "string"
     }
   },
+  "additionalProperties": false,
   "allOf": [
     {
       "$comment": "Visual evidence must declare its interpretation certainty. An absent field read as 'clear', so evidence that never answered the question passed the visual-certainty gate.",

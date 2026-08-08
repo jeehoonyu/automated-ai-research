@@ -5,6 +5,65 @@ built now and what would count as having built it. It changes; the specification
 
 ---
 
+## Goal 8 — the boundary, stated where a reader will hit it
+
+Set 2026-08-07, out of a validation the owner asked for directly: *can this project really fulfil
+automated AI researching — lab or industry level, for logic or experiments?*
+
+The answer is **no, and the reason is structural, not a gap to close.** `Evidence` requires
+`document_id` and `document_version_id`, and `locator` is a two-branch `oneOf` — a text span in
+normalized text or a visual region on a rendered page. There is no third branch, and no profile can
+add one: `registry.py` is a closed 15-name dict with no `Measurement`, `Dataset`, `Protocol` or
+`Environment`. The importer accepts `{.pdf, .md, .markdown}` and nothing else.
+
+So the platform can hold **a description of an experiment somebody published**. It cannot hold **an
+experiment you ran.** The forced route is the wrong shape: write the result as prose, import the
+prose, cite a span of your own sentence. Every gate passes, because every gate is verifying that you
+quoted your own document accurately — which is true, and beside the point.
+
+### Tier 0 — the four fixes the validation named — **done 2026-08-07**
+
+Each reproduced before the fix and mutation-verified after (18 mutants, all caught, bytecode purged
+between each). Details in `CHANGELOG.md`. Two were worse than the audit described:
+
+1. **A refused promotion had already rewritten the canonical artifact.** The refusal printed, the
+   exit was non-zero, the phase held, no event was logged — and `plan.json` was gone.
+2. **A review bound to an id, not to bytes**, so edit-then-revalidate laundered a change past four
+   reviewers and published.
+3. **`confidence_factors` had no reader** — spec §23's "supported by explicit factor ratings" was
+   satisfiable by writing nothing.
+4. **Closing the schemas found six undeclared fields and one trap**: `Document.text_sha256` hashed
+   the raw markdown while `normalized_text_sha256` beside it hashed the text locators resolve
+   against.
+
+And one the fixes found on their own: **`generate_schemas.py --check`, named in `AGENTS.md` as a
+required verification step, did not exist** — it rewrote the schemas and exited 0. A verification
+that repairs what it finds cannot report anything.
+
+### Tier 1 — say the boundary where it will actually be read
+
+`PROJECT_GOAL.md` §1 is accurate ("across collections of locally stored documents"). `README.md` is
+not wrong either. But nothing states the negative, and the negative is what a new user needs: this
+holds documents, not measurements. Someone arriving at "automated AI research platform" reasonably
+expects hypothesis → experiment → data → analysis, and will get four stages in before the schema
+tells them.
+
+Write it once, near the top of `README.md`, in the register this repository already uses for
+unmet things. Not an apology — a scope statement, next to the list of what it *does* guarantee.
+
+### Tier 2 — decided against, and why it is recorded rather than deferred
+
+A `Measurement` artifact with its own locator kind would make this a different tool: it would need
+non-document ingestion (colliding with `PROJECT_GOAL.md` §93), a notion of re-execution, and a way
+to compare two runs of the same experiment. None of those are additive. Recorded here so that the
+next person to notice the gap finds the decision instead of re-discovering the gap.
+
+Also still true and still unowned: retrieval is FTS5/BM25 lexical only, so recall depends on the
+agent guessing the right words — which caps this below systematic-review grade regardless of any
+schema work.
+
+---
+
 ## Goal 7 — the ways forward a blocked run is promised
 
 Set 2026-07-31. Found by asking a question the test suite cannot: **when a gate blocks, can the user

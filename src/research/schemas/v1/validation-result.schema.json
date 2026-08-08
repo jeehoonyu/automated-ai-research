@@ -169,6 +169,7 @@
       }
     }
   },
+  "additionalProperties": false,
   "allOf": [
     {
       "$comment": "Report eligibility requires no blocking errors and no outstanding human review. The schema refuses the contradiction outright.",

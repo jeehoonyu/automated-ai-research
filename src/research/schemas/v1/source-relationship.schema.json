@@ -115,6 +115,7 @@
       ]
     }
   },
+  "additionalProperties": false,
   "allOf": [
     {
       "$comment": "A heuristic relationship is not definitive; only hash identity and explicit metadata identifiers are.",

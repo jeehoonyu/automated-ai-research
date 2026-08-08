@@ -88,6 +88,14 @@
       },
       "minItems": 1
     },
+    "reviewed_artifact_hashes": {
+      "$comment": "WHICH BYTES THE REVIEWER READ. An id alone survives the artifact being rewritten, so an approval could silently transfer to content no reviewer ever saw — re-promoting a stage overwrites its artifacts in place, and the review still named the same id. Amendment has required target_artifact_hash since it was written; a Review needs the same binding for the same reason. Keys are artifact ids from reviewed_artifact_ids; values are that artifact's artifact_hash at the time of review. Enforced by `reviews_bind_to_reviewed_bytes`, not by `required` here, so that reviews recorded before this field existed load and are reported as unbound rather than becoming unreadable.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      }
+    },
     "reviewer": {
       "type": "object",
       "required": [
@@ -216,6 +224,7 @@
       }
     }
   },
+  "additionalProperties": false,
   "allOf": [
     {
       "$comment": "Spec §13: an independent review must declare its independence status, so the claim of independence is auditable rather than assumed.",

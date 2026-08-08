@@ -107,6 +107,13 @@
         "type": "object"
       }
     },
+    "retrieval_log_hashes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      }
+    },
     "schema_versions_used": {
       "type": "object"
     },
@@ -117,6 +124,7 @@
       }
     }
   },
+  "additionalProperties": false,
   "allOf": [
     {
       "$comment": "Spec §8.9: a draft must not claim validation. A published report must name the validation result it rests on.",

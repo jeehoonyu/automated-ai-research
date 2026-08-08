@@ -247,6 +247,17 @@ def build_packet(*, run_id: str, stage: Stage, question: str, profile: str,
     spec = _STAGES[stage]
     schemas = {name: SCHEMA_VERSION for name in spec["schemas"]}
 
+    # DERIVED FROM THE SCHEMA LIST, not written into four stage specs by hand. Every stage that
+    # produces a Review owes this, and a fifth review stage added later would owe it too — listing
+    # it per-stage is how a requirement quietly stops applying to the newest case.
+    completion_criteria = list(spec["completion_criteria"])
+    if "Review" in spec["schemas"]:
+        completion_criteria.append(
+            "reviewed_artifact_hashes records the artifact_hash of every artifact in "
+            "reviewed_artifact_ids, copied from the canonical file as read. A review bound only "
+            "to an id keeps saying 'passed' after the artifact is rewritten, so validation cannot "
+            "count it")
+
     packet: dict[str, Any] = {
         "packet_id": packet_id(),
         "run_id": run_id,
@@ -261,7 +272,7 @@ def build_packet(*, run_id: str, stage: Stage, question: str, profile: str,
         "allowed_inputs": spec["allowed_inputs"],
         "excluded_inputs": spec["excluded_inputs"],
         "required_outputs": [f"runs/{run_id}/{p}" for p in spec["required_outputs"]],
-        "completion_criteria": spec["completion_criteria"],
+        "completion_criteria": completion_criteria,
         "failure_conditions": spec["failure_conditions"],
         "human_review_triggers": spec["human_review_triggers"],
         "validation_command": f"research validate {run_id} --stage {stage}",

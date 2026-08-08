@@ -114,6 +114,19 @@
         "type": "string"
       }
     },
+    "extraction_config_hash": {
+      "type": "string"
+    },
+    "normalization_warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "rendered_page_count": {
+      "type": "integer",
+      "minimum": 0
+    },
     "ocr_required_pages": {
       "type": "array",
       "items": {
@@ -126,6 +139,18 @@
         "integer",
         "null"
       ],
+      "minimum": 0
+    },
+    "line_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "code_block_lines": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "table_row_lines": {
+      "type": "integer",
       "minimum": 0
     },
     "normalized_text_path": {
@@ -189,5 +214,6 @@
     "figures_status": {
       "type": "string"
     }
-  }
+  },
+  "additionalProperties": false
 }

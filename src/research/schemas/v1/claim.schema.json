@@ -222,6 +222,7 @@
       "pattern": "^RUN-[0-9a-fA-F-]{36}$"
     }
   },
+  "additionalProperties": false,
   "$comment": "A numeric confidence score is forbidden outright, not merely discouraged.",
   "not": {
     "anyOf": [

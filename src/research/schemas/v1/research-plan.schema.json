@@ -129,5 +129,6 @@
       "minItems": 1,
       "description": "Stated up front. Spec §12.1."
     }
-  }
+  },
+  "additionalProperties": false
 }

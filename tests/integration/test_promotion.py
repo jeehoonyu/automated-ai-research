@@ -27,7 +27,7 @@ from research.errors import InvalidArguments, ResearchError  # noqa: E402
 from research.hashing import stamp_artifact_hash  # noqa: E402
 from research.importers.importer import import_paths  # noqa: E402
 from research.indexing.builder import build_index  # noqa: E402
-from research.runs.lifecycle import Stage  # noqa: E402
+from research.runs.lifecycle import LifecycleError, Stage  # noqa: E402
 from research.runs.manager import create_run, load_run  # noqa: E402
 from research.runs.promotion import parse_stage, promote_stage  # noqa: E402
 from research.validation.validator import validate_run  # noqa: E402
@@ -137,16 +137,27 @@ def test_the_cli_performed_stages_refuse_promotion(fresh_run, stage):
 
 def test_every_agent_stage_is_promotable_or_explicitly_not(fresh_run):
     """No stage may be silently unhandled — that is how `--stage` became a no-op in the first
-    place."""
+    place.
+
+    Each stage now refuses for the reason that is actually load-bearing. On a fresh run only
+    `planning` is reachable, so it is the only one that gets as far as looking for a response file;
+    every later stage is refused by the lifecycle first. That ordering matters: telling someone at
+    `initialized` that `responses/claims.json` is missing invites them to go write it, and writing
+    it cannot help. Naming the skip is the true answer.
+    """
     ws, rid, _ = fresh_run
     for stage in Stage:
         if stage in (Stage.FINAL_VALIDATION, Stage.REPORT):
             with pytest.raises(InvalidArguments):
                 promote_stage(ws, rid, stage)
-        else:
-            # no responses written: it must report, not crash
+        elif stage is Stage.PLANNING:
+            # reachable, so it reads the stage's outputs: no response written, report don't crash
             result = promote_stage(ws, rid, stage)
             assert result["accepted"] is False and result["problems"]
+        else:
+            with pytest.raises(LifecycleError) as exc:
+                promote_stage(ws, rid, stage)
+            assert "skip" in exc.value.message
 
 
 # --------------------------------------------------------------- the lifecycle becomes real
@@ -162,6 +173,55 @@ def test_stages_cannot_be_skipped(fresh_run):
     with pytest.raises(ResearchError) as exc:
         promote_stage(ws, rid, Stage.SYNTHESIS)
     assert "skip" in exc.value.message
+
+
+def test_a_refused_backwards_promotion_does_not_touch_the_canonical_artifact(fresh_run):
+    """The refusal used to arrive AFTER the damage.
+
+    `promote_stage` wrote every canonical artifact and only then called `transition`, so promoting
+    an earlier stage on a run that had moved on printed "cannot move backwards ... corrections are
+    recorded as amendments, not by rewinding the lifecycle", exited non-zero, left the phase alone
+    and logged nothing — with `plan.json` already replaced by content nobody approved. Three of the
+    four things the operator could see said the promotion had not happened. The file said otherwise,
+    and the file is what the report is built from.
+
+    This test fails on the old ordering at the last assertion, which is the only one that ever
+    looked at the disk.
+    """
+    ws, rid, run_dir = fresh_run
+    _write_response(run_dir, "plan.json", _plan(rid))
+    promote_stage(ws, rid, Stage.PLANNING)
+    _write_response(run_dir, "retrieval.json", [])
+    promote_stage(ws, rid, Stage.RETRIEVAL)
+
+    canonical = run_dir / "plan.json"
+    before = canonical.read_text(encoding="utf-8")
+    events_before = (run_dir / "events.jsonl").read_text(encoding="utf-8")
+
+    _write_response(run_dir, "plan.json",
+                    _plan(rid, main_question="a question nobody approved"))
+    with pytest.raises(LifecycleError) as exc:
+        promote_stage(ws, rid, Stage.PLANNING)
+
+    assert "cannot move backwards" in exc.value.message
+    assert load_run(ws, rid)["phase"] == "retrieved"
+    assert (run_dir / "events.jsonl").read_text(encoding="utf-8") == events_before
+    assert canonical.read_text(encoding="utf-8") == before, (
+        "the canonical plan was rewritten by a promotion the lifecycle refused")
+
+
+def test_a_refused_promotion_is_refused_before_the_response_is_even_read(fresh_run):
+    """No response file at all, and the refusal still names the real reason.
+
+    Reading first would report `responses/claims.json: the stage produced no such file`, which is
+    true and useless: writing that file cannot make a run at `initialized` promotable to
+    `synthesized`. A signpost pointing down a closed road is worse than none.
+    """
+    ws, rid, _ = fresh_run
+    with pytest.raises(LifecycleError) as exc:
+        promote_stage(ws, rid, Stage.SYNTHESIS)
+    assert "skip" in exc.value.message
+    assert "no such file" not in exc.value.message
 
 
 def test_the_event_log_records_the_transition(fresh_run):

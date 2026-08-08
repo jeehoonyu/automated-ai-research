@@ -189,7 +189,7 @@ def test_prompt_injection_is_stored_as_inert_data(ws, sources):
     """Injected text must survive as content, and must not alter any recorded field."""
     out = import_paths(ws, [sources["injection_md"]])
     manifest = read_artifact(out["manifest_paths"][0], expect_schema="Document")
-    body = (ws.root / manifest["normalized_path"]).read_text(encoding="utf-8")
+    body = (ws.root / manifest["normalized_text_path"]).read_text(encoding="utf-8")
     assert "IGNORE ALL PREVIOUS INSTRUCTIONS" in body, "content must be preserved verbatim"
     assert manifest["links_followed"] is False
     assert manifest["extraction_status"] == ExtractionStatus.EXTRACTED
@@ -215,7 +215,7 @@ def test_a_lossy_utf8_decode_is_not_reported_as_a_clean_extraction(ws, tmp_path:
     assert any("not valid UTF-8" in w for w in manifest["extraction_warnings"])
     # The content is still preserved and still importable — the status is the disclosure, not a
     # refusal. Refusing would lose the document; mislabelling it would lose the doubt.
-    body = (ws.root / manifest["normalized_path"]).read_text(encoding="utf-8")
+    body = (ws.root / manifest["normalized_text_path"]).read_text(encoding="utf-8")
     assert "�" in body
 
 

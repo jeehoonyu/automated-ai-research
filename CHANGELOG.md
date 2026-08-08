@@ -6,6 +6,104 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed — a refusal that arrived after the damage
+`promote_stage` wrote every canonical artifact and only *then* called `transition`, where the state
+machine lives. Promoting an earlier stage on a run that had moved on therefore did all its work
+first and refused afterwards. Reproduced end to end before the fix:
+
+```
+promote planning -> planned ; promote retrieval -> retrieved
+CLI refusal : "cannot move backwards from retrieved to planned; corrections are
+               recorded as amendments, not by rewinding the lifecycle"     (exit non-zero)
+phase       : retrieved   (unchanged)
+events      : 3 / 3       (nothing logged)
+plan.json   : REPLACED with content nobody approved
+```
+
+Three of the four things an operator can see said the promotion had not happened. The file said
+otherwise, and the file is what the report is built from. The comment above the old `transition`
+call asserted the opposite — *"this cannot rewrite work a later stage reviewed"* — a guarantee
+stated in prose that no code kept.
+
+`_assert_promotable` now asks the same state machine the same question before anything is read or
+written. Deciding legality first is the only ordering that can be right: writing first leaves
+artifacts nobody accepted, transitioning first leaves a phase nothing produced, and only a question
+with no side effects can be asked first. It also outranks "your response file is missing" — telling
+someone at `initialized` that `responses/claims.json` is absent invites them to write a file that
+cannot help.
+
+### Added — a review binds to the bytes it read
+`Review` carried `reviewed_artifact_ids` and no hash, while its sibling `Amendment` has required
+`target_artifact_hash` since it was written. Approval was bound to a **name**, and names survive a
+rewrite.
+
+The durable route was edit-then-revalidate: rewrite a reviewed claim, re-stamp it so it is again a
+perfectly valid artifact, and run `research validate` again. Every review still named the same id,
+still said `passed`, and the fresh verdict came back clean — the change laundered past four
+reviewers who never saw it. `artifacts_conform_to_schema` cannot see this, because a re-stamped
+artifact matches its own new content exactly; the report gate cannot either, because it compares
+against the last validation result and that has just been replaced.
+
+- New optional `reviewed_artifact_hashes` on `Review`, and check `reviews_bind_to_reviewed_bytes`.
+- A review that records no hash is **`not_evaluated`**, which blocks — the honest status is not
+  "this review is wrong" but "nothing here can establish what it read".
+- A recorded hash that no longer matches is `failed`.
+- The requirement is derived from each stage's schema list rather than written into four stage
+  specs, so a fifth review stage inherits it instead of quietly escaping it.
+
+### Added — `confidence_factors` gets a reader, on both sides
+Spec §23 requires confidence to be categorical **and** "supported by explicit factor ratings". The
+field had exactly one mention in the package — `runs/packets.py`, in the list of fields to
+*withhold* from the independent reviewer. No check read it, no template rendered it, the schema did
+not require it. A claim could publish as `verified` with the field absent.
+
+New check `confidence_factors_recorded` enforces only what is arithmetic:
+
+- a claim asserting support rated *something*, and rated the factors the run's own data makes
+  applicable (`contradictory_evidence` when the claim carries contradicting evidence,
+  `ocr_dependency` when its evidence needed OCR, `visual_certainty` when it reads a figure);
+- a factor rated `not_applicable` that the run's own artifacts show **does** apply is `failed` —
+  not a judgement call, a contradiction with the artifact it sits in.
+
+`unknown` is accepted everywhere, deliberately: a gate that punished it would reward inventing a
+rating. And the report now renders the factor table, plus each citation's `evidence_type` — the
+deliverable used to print `source — position — quote`, so an `expert_opinion` and a
+`statistical_result` were byte-identical to the reader.
+
+### Changed — every schema is closed, and four artifacts were carrying undeclared fields
+No schema set `additionalProperties: false`, so an agent could attach `{"p_value": 0.03, "n": 5}` to
+a Claim and the system would validate it, fold it into the RFC 8785 canonical form, stamp it into
+`artifact_hash`, and let the run publish — while every check and every template ignored it. The
+worst outcome available: it *looks* recorded, and the artifact's own hash certifies it.
+
+Closing them surfaced fields the code had been writing all along:
+
+- **`Document.extraction_config_hash`** — part of the `document_version_id` preimage and required by
+  spec §3.7 for reproducibility, never declared.
+- **`Document.line_count` / `code_block_lines` / `table_row_lines` / `rendered_page_count`**,
+  **`normalization_warnings`** — declared.
+- **`WorkPacket.attestation_note` / `claim_statements_note`** — the two sentences that tell a host
+  how `confirmed_independent` is earned and what would void it, carried by a contract that did not
+  list them.
+- **`ReportManifest.retrieval_log_hashes`** — written by the renderer *and asserted by a test*, and
+  still absent from the schema.
+- **`Document.normalized_path` and `Document.text_sha256` — deleted, not declared.**
+  `normalized_path` was a phase-to-phase handoff that became a permanent field. `text_sha256` was
+  the sharper one: it hashed the *raw* extracted markdown while `normalized_text_sha256`, sitting
+  beside it, hashes the text every locator resolves against. Two different digests, same artifact,
+  near-identical names — and `derived_text_hashes_match` exists precisely because the bytes
+  citations resolve against are the ones that must be re-hashed. A consumer reaching for the
+  homonym would have verified the wrong bytes and found them to agree.
+
+### Fixed — `generate_schemas.py --check` did not exist
+`AGENTS.md` has listed it among the four commands that must pass before claiming a change works.
+Unrecognised arguments were ignored, so the documented **verification** step silently **rewrote** the
+schemas and exited 0. It could not fail: it made the two sources of truth agree by overwriting one of
+them. Found by mutation — editing the generator changed no test result, because nothing compared its
+output to what is checked in. `--check` now reports drift and returns 1, and a test drives it against
+a deliberately wrong file to assert it does not repair what it finds. Asserting only "exit 0 on a
+clean tree" would have passed against the broken version too.
+
 ### Added — `research next`, a signpost that is not allowed to become an author
 `research status` said where a run was and what blocked it; nothing said what to **do** in one step,
 so driving eight stages meant reading the status, finding the packet, opening it, and remembering

@@ -518,6 +518,69 @@ def _review_check(ctx: RunContext, review_type: str) -> CheckResult:
                        [r["review_id"] for r in matching], human_review=bool(needs_human))
 
 
+def check_reviews_bind_to_bytes(ctx: RunContext) -> CheckResult:
+    """A review must name the BYTES it read, not just the id.
+
+    THE HOLE THIS CLOSES. `Review` carried `reviewed_artifact_ids` and no hash, while its sibling
+    `Amendment` has required `target_artifact_hash` since it was written. So an approval was bound
+    to a NAME, and names survive a rewrite.
+
+    The durable route was edit-then-revalidate. Rewrite a reviewed claim in place, re-stamp it so
+    it is once again a perfectly valid artifact, and run `research validate` again: every review
+    still names the same id, still says `passed`, and the fresh verdict is clean. The report gate
+    compares the run against the LAST validation result, so it catches the edit only until the next
+    validation — after which the change has been laundered past four reviewers who never saw it.
+    `check_artifacts_conform` cannot see it either, because a re-stamped artifact matches its own
+    new content exactly. That is what `not_evaluated` here is for.
+
+    What this check can and cannot know is worth being exact about. It cannot tell whether the
+    reviewer read carefully, or at all. It CAN tell whether the artifact in front of it now is the
+    artifact the review recorded — that is arithmetic, not judgement, which is the only kind of
+    question this package is allowed to answer.
+
+    A review that records no hashes is `not_evaluated`, which blocks exactly as `failed` does. That
+    is the honest status: not "this review is wrong" but "nothing here can establish what it read".
+    """
+    name = "reviews_bind_to_reviewed_bytes"
+    if not ctx.reviews:
+        return CheckResult(name, "not_applicable", "no reviews produced")
+
+    # Every canonical artifact a review could name, by id. Claims and evidence are the realistic
+    # targets; the rest are included so that naming one is never mistaken for naming nothing.
+    known: dict[str, dict[str, Any]] = {}
+    for artifact in [*ctx.claims, *ctx.evidence, *ctx.relationships, *ctx.amendments]:
+        known[str(artifact.get("artifact_id"))] = artifact
+
+    unbound: list[str] = []
+    stale: list[str] = []
+    unknown: list[str] = []
+    checked = 0
+    for review in ctx.reviews:
+        rid = review["review_id"]
+        recorded = review.get("reviewed_artifact_hashes") or {}
+        for target in review.get("reviewed_artifact_ids") or []:
+            found = known.get(target)
+            if found is None:
+                unknown.append(f"{rid}: reviewed {target}, which is not a canonical artifact of "
+                               f"this run")
+                continue
+            if target not in recorded:
+                unbound.append(f"{rid}: reviewed {target} without recording the hash it read")
+                continue
+            checked += 1
+            if recorded[target] != found.get("artifact_hash"):
+                stale.append(f"{rid}: reviewed {target} at {recorded[target][:23]}…, which is not "
+                             f"the content there now — the artifact was rewritten after review, so "
+                             f"this approval was never given to what the report would cite")
+
+    if stale:
+        return CheckResult(name, "failed", "; ".join(stale[:5]))
+    if unknown or unbound:
+        return CheckResult(name, "not_evaluated", "; ".join((unknown + unbound)[:5]))
+    return CheckResult(name, "passed", f"{checked} reviewed artifact(s) still match the bytes "
+                                       f"their review recorded")
+
+
 def check_profile_loaded(ctx: RunContext) -> CheckResult:
     """The rules a run is judged by must be the rules its manifest names.
 
@@ -897,6 +960,93 @@ def check_visual_certainty(ctx: RunContext) -> CheckResult:
     return CheckResult(name, "passed", "all verified by a human")
 
 
+# Classifications that ASSERT some degree of support, and therefore owe factor ratings under spec
+# §23. The other four — `conflicting_evidence`, `unsupported`, `unable_to_determine`, and the
+# `insufficient_evidence_finding` claim type — assert no support, so there is nothing to rate; and
+# `unable_to_determine` is a successful outcome this package must never make expensive to reach.
+# Pinned against the schema enum in tests/unit/test_vocabularies.py so a new classification cannot
+# be added without deciding which side of this line it falls on.
+SUPPORT_ASSERTING = frozenset({
+    "verified", "strongly_supported", "moderately_supported", "weakly_supported"})
+
+
+def check_confidence_factors(ctx: RunContext) -> CheckResult:
+    """Spec §23: confidence must be categorical AND supported by explicit factor ratings.
+
+    A FIELD WITH NO READER. `confidence_factors` had exactly one mention in this package —
+    `runs/packets.py`, in the list of fields to *withhold* from the independent reviewer. No check
+    read it, no template rendered it, the schema did not require it. So the spec's "supported by
+    explicit factor ratings" was satisfiable by writing nothing at all, and a claim could publish
+    as `verified` with the field absent. A slot nothing reads is the same failure this repository
+    keeps finding from the other direction: a guarantee asserted in prose that no code keeps.
+
+    WHAT THIS CAN HONESTLY DECIDE. Not whether a rating is *right* — "was the methodology good?"
+    needs reading, and belongs to the reviewer. Two things are arithmetic, and only those are
+    enforced:
+
+      recorded   a claim asserting support rated something, and rated the factors the run's own
+                 data makes applicable
+      refuted    a factor rated `not_applicable` that the run's own data shows DOES apply. This is
+                 the useful half: `contradictory_evidence: not_applicable` on a claim carrying
+                 contradicting evidence ids is not a judgement call, it is a contradiction with
+                 the artifact it sits in.
+
+    `unknown` is deliberately accepted everywhere. It is the honest answer for a factor nobody
+    could establish, and a gate that punished it would push agents toward inventing a rating —
+    which is the failure this package exists to prevent, not one it should create.
+    """
+    name = "confidence_factors_recorded"
+    asserting = [c for c in ctx.claims
+                 if c.get("support_classification") in SUPPORT_ASSERTING]
+    if not asserting:
+        return CheckResult(name, "not_applicable",
+                           "no claim asserts support, so there is nothing to rate")
+
+    by_evidence = ctx.evidence_by_id()
+    missing: list[str] = []
+    refuted: list[str] = []
+    for claim in asserting:
+        cid = claim["claim_id"]
+        factors = claim.get("confidence_factors") or {}
+        if not factors:
+            missing.append(f"{cid}: classified {claim['support_classification']} with no "
+                           f"confidence_factors recorded")
+            continue
+
+        supporting = [by_evidence[e] for e in (claim.get("supporting_evidence_ids") or [])
+                      if e in by_evidence]
+        # Each entry: (factor, does the run's own data make it applicable, why).
+        applicable = (
+            ("contradictory_evidence",
+             bool(claim.get("contradicting_evidence_ids")),
+             "the claim carries contradicting evidence"),
+            ("ocr_dependency",
+             any(e.get("extraction_status") in ("ocr_required", "human_review_required")
+                 for e in supporting),
+             "its evidence rests on a page that needed OCR or human reading"),
+            ("visual_certainty",
+             any((e.get("locator") or {}).get("type") == "visual_region" for e in supporting),
+             "its evidence includes a reading of a figure or table"),
+        )
+        for factor, applies, why in applicable:
+            if not applies:
+                continue
+            rating = factors.get(factor)
+            if rating is None:
+                missing.append(f"{cid}: {factor} is unrated, but {why}")
+            elif rating == "not_applicable":
+                refuted.append(f"{cid}: {factor} is rated not_applicable, but {why}")
+
+    if refuted:
+        return CheckResult(name, "failed", "; ".join(refuted[:5]),
+                           sorted({p.split(":")[0] for p in refuted}))
+    if missing:
+        return CheckResult(name, "not_evaluated", "; ".join(missing[:5]),
+                           sorted({p.split(":")[0] for p in missing}))
+    return CheckResult(name, "passed",
+                       f"{len(asserting)} support-asserting claim(s) carry factor ratings")
+
+
 def check_contradictions_disclosed(ctx: RunContext) -> CheckResult:
     """Unresolved contradictions block — and so does never having looked.
 
@@ -1202,6 +1352,7 @@ CHECKS = [
     lambda ctx: _review_check(ctx, "citation_review"),
     lambda ctx: _review_check(ctx, "methodology_review"),
     lambda ctx: _review_check(ctx, "independent_review"),
+    check_reviews_bind_to_bytes,
     check_run_progressed,
     check_profile_confidence_permitted,
     check_methodology_assessed,
@@ -1210,6 +1361,7 @@ CHECKS = [
     check_ocr_evidence,
     check_visual_certainty,
     check_contradictions_disclosed,
+    check_confidence_factors,
     check_support_classifications,
     check_source_independence,
     check_lifecycle,

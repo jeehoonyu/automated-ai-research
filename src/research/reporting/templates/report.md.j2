@@ -86,16 +86,28 @@ _No claims were produced for this run._
 {% endfor %}
 {%- endif %}
 
+Confidence factors (spec §23 — categorical, never an aggregate score):
+{% if claim.confidence_factor_rows %}
+| Factor | Rating |
+|---|---|
+{% for factor, rating in claim.confidence_factor_rows -%}
+| {{ factor }} | `{{ rating }}` |
+{% endfor %}
+{%- else %}
+_None recorded._ A classification asserting support with no factor ratings behind it is not
+publishable; `confidence_factors_recorded` blocks it. It appears here because this is a draft.
+{%- endif %}
+
 Supporting evidence:
 {% for ev in claim.supporting %}
-- **[{{ ev.ref }}]** {{ ev.source }} — {{ ev.position }}
+- **[{{ ev.ref }}]** {{ ev.source }} — {{ ev.position }} · `{{ ev.evidence_type }}`
   > {{ ev.quote }}
 {% endfor %}
 {%- if claim.contradicting %}
 
 Contradicting evidence:
 {% for ev in claim.contradicting %}
-- **[{{ ev.ref }}]** {{ ev.source }} — {{ ev.position }}
+- **[{{ ev.ref }}]** {{ ev.source }} — {{ ev.position }} · `{{ ev.evidence_type }}`
   > {{ ev.quote }}
 {% endfor %}
 {%- endif %}
@@ -176,7 +188,7 @@ exactly as a failure does — "could not be checked" is not "fine".
 ## References
 
 {% for ev in citation_index %}
-**[{{ ev.ref }}]** {{ ev.source }} — {{ ev.position }}
+**[{{ ev.ref }}]** {{ ev.source }} — {{ ev.position }} · `{{ ev.evidence_type }}`
 `{{ ev.evidence_id }}` · document `{{ ev.document_id }}` · version `{{ ev.document_version_id }}`
 {% endfor %}
 

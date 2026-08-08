@@ -10,6 +10,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from integration.conftest import re_review  # noqa: E402
+
 from research.artifacts.io import (  # noqa: E402
     make_artifact,
     read_artifact,  # noqa: E402
@@ -309,20 +311,55 @@ def test_a_claim_re_stamped_after_validate_is_not_published(complete_run):
     assert any("re-stamped since validation" in d for d in exc.value.detail["differences"])
 
 
-def test_re_validating_after_the_change_restores_publication(complete_run):
-    """The gate must be a binding, not a lock: validate again and the new state can publish."""
-    ws, rid, meta = complete_run
-    _publishable(ws, rid)
+def _edit_the_claim(meta, text: str) -> None:
     path = meta["claim_path"]
     claim = json.loads(path.read_text(encoding="utf-8"))
-    claim["claim"] = "The paper reports a reduction in data movement."
+    claim["claim"] = text
     path.write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
+
+
+def test_re_validating_after_the_change_restores_publication(complete_run):
+    """The gate must be a binding, not a lock: validate again and the new state can publish.
+
+    Re-validating is necessary and, since reviews bind to the bytes they read, no longer
+    sufficient on its own — the reviewers have to have seen this version too. `re_review` is that
+    second half, spelled out rather than assumed.
+    """
+    ws, rid, meta = complete_run
+    _publishable(ws, rid)
+    _edit_the_claim(meta, "The paper reports a reduction in data movement.")
 
     with pytest.raises(ReportGatingError):
         render_report(ws, rid)
 
+    re_review(meta)
     _publishable(ws, rid)                       # re-validate the run as it now stands
     assert render_report(ws, rid).draft is False
+
+
+def test_re_validating_alone_does_not_restore_publication_of_an_unreviewed_edit(complete_run):
+    """Editing a reviewed claim must not be curable by re-running the validator.
+
+    This is the hole `reviews_bind_to_reviewed_bytes` closes. Every review named the claim by id,
+    ids survive a rewrite, and so a `passed` citation review kept applying to a sentence no
+    reviewer had ever read — `validate` recomputed a clean verdict over it and the report
+    published. Nothing about the run said which text was approved.
+
+    Note what still holds: the FIRST `render_report` refuses because the verdict is stale, which is
+    the older gate. The point here is the SECOND one — after a fresh, honest re-validation, the run
+    is still not publishable, and the check that stops it names the reason.
+    """
+    ws, rid, meta = complete_run
+    _publishable(ws, rid)
+    _edit_the_claim(meta, "Process-in-memory eliminates data movement.")
+
+    result = validate_run(ws, rid)              # a clean re-validation of the run as it stands
+    assert result["report_eligible"] is False
+    blocking = {e["check"] for e in result["blocking_errors"]}
+    assert "reviews_bind_to_reviewed_bytes" in blocking
+
+    with pytest.raises(ReportGatingError):
+        render_report(ws, rid)
 
 
 def test_a_draft_still_renders_the_run_as_it_stands(complete_run):

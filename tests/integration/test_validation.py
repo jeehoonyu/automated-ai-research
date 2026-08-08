@@ -16,6 +16,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from fixtures.make_fixtures import build  # noqa: E402
+from integration.conftest import re_review  # noqa: E402
 
 from research.artifacts.io import make_artifact, write_artifact  # noqa: E402
 from research.artifacts.registry import validate_artifact  # noqa: E402
@@ -35,6 +36,10 @@ from research.workspace import init_workspace  # noqa: E402
 
 def _status(result, check: str) -> str:
     return next(c["status"] for c in result["checks"] if c["check"] == check)
+
+
+def _detail(result, check: str) -> str:
+    return next(c.get("detail", "") for c in result["checks"] if c["check"] == check)
 
 
 
@@ -335,6 +340,7 @@ def test_verified_does_not_require_multiple_sources(complete_run):
     claim["support_classification"] = "verified"
     claim["independent_review_status"] = "confirmed_independent"
     path.write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
+    re_review(meta)                 # the subject here is source independence, not review binding
 
     result = validate_run(ws, rid)
     assert _status(result, "source_independence_established") == "not_applicable"
@@ -706,10 +712,14 @@ def test_a_document_without_a_recorded_text_digest_blocks(complete_run):
 
 def _citation_review(ws, run_dir, rid, cid, verdict, filename):
     rev = review_id()
+    claim_hash = json.loads(
+        next((run_dir / "claims").glob("*.json")).read_text(encoding="utf-8"))["artifact_hash"]
     art = make_artifact(
         schema_name="Review", artifact_id=rev, actor_type="host_agent",
         body=dict(review_id=rev, review_type="citation_review", run_id=rid,
-                  reviewed_artifact_ids=[cid], reviewer={"actor_type": "host_agent"},
+                  reviewed_artifact_ids=[cid],
+                  reviewed_artifact_hashes={cid: claim_hash},
+                  reviewer={"actor_type": "host_agent"},
                   decision="passed",
                   per_claim=[{"claim_id": cid, "assessment": "checked",
                               "citation_support": verdict}]))
@@ -732,6 +742,167 @@ def test_conflicting_citation_verdicts_are_undecided_in_either_file_order(
     result = validate_run(ws, rid)
     assert _status(result, "citations_support_their_claims") == "not_evaluated"
     assert result["report_eligible"] is False
+
+
+# ------------------------------------------------ confidence factors get a reader
+#
+# Spec §23 requires categorical confidence "supported by explicit factor ratings". The field
+# existed and nothing in the package read it, so the requirement was satisfiable by writing
+# nothing.
+
+
+def _set_claim(meta, **fields):
+    claim = json.loads(meta["claim_path"].read_text(encoding="utf-8"))
+    claim.update(fields)
+    meta["claim_path"].write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
+    re_review(meta)
+
+
+def test_a_supported_claim_with_no_confidence_factors_cannot_publish(complete_run):
+    ws, rid, meta = complete_run
+    _set_claim(meta, confidence_factors={})
+
+    result = validate_run(ws, rid)
+    assert _status(result, "confidence_factors_recorded") == "not_evaluated"
+    assert result["report_eligible"] is False
+
+
+def test_a_claim_asserting_no_support_owes_no_factors(complete_run):
+    """`unable_to_determine` is a successful outcome. A gate that made it expensive to reach would
+    push agents toward manufacturing support, which is the failure this package exists to stop."""
+    ws, rid, meta = complete_run
+    _set_claim(meta, support_classification="unable_to_determine", confidence_factors={})
+
+    assert _status(validate_run(ws, rid), "confidence_factors_recorded") == "not_applicable"
+
+
+def test_not_applicable_is_refuted_by_the_runs_own_contradicting_evidence(complete_run):
+    """The useful half. This is not a judgement about the rating — the claim carries contradicting
+    evidence ids, so `contradictory_evidence: not_applicable` contradicts the artifact it sits in.
+    """
+    ws, rid, meta = complete_run
+    _set_claim(meta, contradicting_evidence_ids=[meta["evidence_id"]],
+               contradiction_status="resolved",
+               confidence_factors={"evidence_directness": "high",
+                                   "contradictory_evidence": "not_applicable"})
+
+    result = validate_run(ws, rid)
+    assert _status(result, "confidence_factors_recorded") == "failed"
+    assert "contradictory_evidence" in _detail(result, "confidence_factors_recorded")
+
+
+def test_an_unrated_but_applicable_factor_blocks_without_being_called_wrong(complete_run):
+    ws, rid, meta = complete_run
+    _set_claim(meta, contradicting_evidence_ids=[meta["evidence_id"]],
+               contradiction_status="resolved",
+               confidence_factors={"evidence_directness": "high"})
+
+    result = validate_run(ws, rid)
+    assert _status(result, "confidence_factors_recorded") == "not_evaluated"
+
+
+def test_unknown_is_an_acceptable_rating(complete_run):
+    """A gate that punished `unknown` would reward inventing a rating instead of admitting one was
+    never established."""
+    ws, rid, meta = complete_run
+    _set_claim(meta, contradicting_evidence_ids=[meta["evidence_id"]],
+               contradiction_status="resolved",
+               confidence_factors={"evidence_directness": "high",
+                                   "contradictory_evidence": "unknown"})
+
+    assert _status(validate_run(ws, rid), "confidence_factors_recorded") == "passed"
+
+
+def test_the_report_renders_the_factors_and_the_evidence_type(complete_run):
+    """The other half of "a field with a reader": the deliverable has to show it.
+
+    A report that prints only `source — position — quote` renders an `expert_opinion` and a
+    `statistical_result` identically, which makes a distinction the data model records into
+    decoration.
+    """
+    from research.reporting.renderer import render_report
+
+    ws, rid, _ = complete_run
+    validate_run(ws, rid)
+    text = Path(render_report(ws, rid).report_path).read_text(encoding="utf-8")
+
+    assert "Confidence factors" in text
+    assert "| evidence_directness | `high` |" in text
+    assert "`direct_statement`" in text, "the citation does not say what kind of evidence it is"
+
+
+# ------------------------------------------------ a review binds to the bytes it read
+#
+# `Review` named `reviewed_artifact_ids` and no hash, while `Amendment` has required
+# `target_artifact_hash` from the start. Names survive a rewrite; hashes do not.
+
+
+def _strip_binding(path: Path) -> None:
+    review = json.loads(path.read_text(encoding="utf-8"))
+    review.pop("reviewed_artifact_hashes", None)
+    path.write_text(json.dumps(stamp_artifact_hash(review)), encoding="utf-8")
+
+
+def test_a_review_that_records_no_hash_is_not_counted(complete_run):
+    """`not_evaluated`, not `failed`: nothing here says the review is wrong, only that nothing
+    establishes what it read. That is the difference the third status exists for."""
+    ws, rid, meta = complete_run
+    _strip_binding(meta["review_paths"]["citation_review"])
+
+    result = validate_run(ws, rid)
+    assert _status(result, "reviews_bind_to_reviewed_bytes") == "not_evaluated"
+    assert result["report_eligible"] is False
+
+
+def test_a_review_of_bytes_that_no_longer_exist_fails(complete_run):
+    """The claim moved on and the review did not. `failed`, because this is not an unknown — the
+    hash is recorded, the artifact is present, and they disagree."""
+    ws, rid, meta = complete_run
+    claim = json.loads(meta["claim_path"].read_text(encoding="utf-8"))
+    claim["claim"] = "Process-in-memory eliminates data movement."
+    meta["claim_path"].write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
+
+    result = validate_run(ws, rid)
+    assert _status(result, "reviews_bind_to_reviewed_bytes") == "failed"
+    assert result["report_eligible"] is False
+
+
+def test_re_binding_the_reviews_is_what_clears_it(complete_run):
+    """The gate has to be passable, or it is a wall rather than a check.
+
+    One validation only, on a fresh run: a run that has once failed validation holds
+    `disposition=validation_failed`, and clearing that needs a recorded resolution rather than
+    another pass — which is `check_run_progressed` doing its job, and not something a test should
+    route around. So this asserts the clearing, and the test above asserts the blocking.
+    """
+    ws, rid, meta = complete_run
+    claim = json.loads(meta["claim_path"].read_text(encoding="utf-8"))
+    claim["claim"] = "Process-in-memory reduces measured data movement."
+    meta["claim_path"].write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
+    re_review(meta)
+
+    result = validate_run(ws, rid)
+    assert _status(result, "reviews_bind_to_reviewed_bytes") == "passed"
+    assert result["report_eligible"] is True, result["blocking_errors"]
+
+
+def test_every_review_stage_packet_asks_for_the_binding(complete_run):
+    """A gate the workflow never mentions is a trap. Each Review-producing stage must say so, and
+    the criterion is derived from the stage's schema list so a fifth review stage inherits it."""
+    from research.runs.lifecycle import Stage
+    from research.runs.packets import build_packet
+
+    review_stages = [Stage.CONTRADICTION_REVIEW, Stage.CITATION_REVIEW,
+                     Stage.METHODOLOGY_REVIEW, Stage.INDEPENDENT_REVIEW]
+    for stage in review_stages:
+        packet = build_packet(run_id="RUN-x", stage=stage, question="q", profile="default",
+                              workspace_root=".")
+        assert any("reviewed_artifact_hashes" in c for c in packet["completion_criteria"]), stage
+
+    plan = build_packet(run_id="RUN-x", stage=Stage.PLANNING, question="q", profile="default",
+                        workspace_root=".")
+    assert not any("reviewed_artifact_hashes" in c for c in plan["completion_criteria"]), (
+        "a stage that produces no Review must not be told to record review bindings")
 
 
 def test_a_not_checked_citation_verdict_counts_as_unjudged(complete_run):
@@ -816,12 +987,20 @@ def test_the_ocr_gate_ignores_the_agents_label_on_its_own_evidence(complete_run,
 
 
 def _reword_claim(meta, text: str, claim_type: str | None = None):
+    """Reword the claim AND re-bind its reviews, because these tests are about wording.
+
+    Without the re-binding every one of them would block on `reviews_bind_to_reviewed_bytes`
+    instead of on the check under test — correctly, since the reviewers approved the old sentence,
+    but uselessly, since the subject here is the language scanner. `re_review` states which of the
+    two scenarios is meant.
+    """
     path = meta["claim_path"]
     claim = json.loads(path.read_text(encoding="utf-8"))
     claim["claim"] = text
     if claim_type:
         claim["claim_type"] = claim_type
     path.write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
+    re_review(meta)
 
 
 def test_the_causal_human_review_trigger_can_actually_fire(complete_run):

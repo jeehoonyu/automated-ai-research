@@ -351,6 +351,82 @@ def test_hidden_reasoning_traces_are_refused():
     assert not is_valid(c)
 
 
+def test_an_undeclared_field_is_refused_rather_than_hashed_and_ignored():
+    """The schemas are CLOSED, and this is why.
+
+    Nothing set `additionalProperties: false`, so an agent could attach whatever it liked to a
+    Claim — statistics, a seed, a rationale — and the field would validate, be folded into the
+    RFC 8785 canonical form, get stamped into `artifact_hash`, and be read by no check and no
+    template. The worst outcome available: it LOOKS recorded. A reader finding `p_value` on a
+    canonical artifact has no way to know that nothing ever verified it, and the artifact's own
+    hash certifies it as part of the record.
+
+    Refusing is the honest answer. A field this system cannot check is a field it must not carry.
+    """
+    c = claim()
+    c["p_value"] = 0.03
+    c["n"] = 5
+    assert not is_valid(c), "a Claim accepted statistics no check or template would ever read"
+
+
+def _generator():
+    """Load `tools/generate_schemas.py` as a module. It is not importable — `tools/` is not a
+    package — and a fresh module per test keeps one test's `OUT` monkeypatch out of the other's."""
+    import importlib.util
+
+    path = Path(__file__).resolve().parents[2] / "tools" / "generate_schemas.py"
+    spec = importlib.util.spec_from_file_location("generate_schemas", path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_the_checked_in_schemas_match_their_generator():
+    """`AGENTS.md` lists `python tools/generate_schemas.py --check` as one of four commands that
+    must pass. The flag did not exist: unrecognised arguments were ignored, so the documented
+    verification step REWROTE the schemas and exited 0 — it could not fail, and it made the two
+    sources of truth agree by overwriting one of them.
+
+    Found by mutation: editing the generator changed no test result, because nothing compared its
+    output to what is checked in. Running it here means the suite fails on drift even if nobody
+    remembers the command.
+    """
+    # Explicit argv: `main()` falls back to sys.argv, which under pytest is pytest's own.
+    assert _generator().main(["--check"]) == 0, (
+        "the checked-in schemas differ from the generator")
+
+
+def test_check_reports_drift_instead_of_silently_repairing_it(tmp_path: Path):
+    """The half that matters, and the half a naive test misses.
+
+    Asserting only that `--check` exits 0 on a clean tree passes just as well when the flag is
+    ignored — because then it WRITES the schemas and exits 0, having made true the thing it was
+    asked to verify. That was the shipped behaviour. So this drives it against a deliberately
+    wrong file and asserts two things: it reports the drift, and the wrong file is still wrong
+    afterwards. A verification that repairs what it finds cannot report anything.
+    """
+    module = _generator()
+    module.OUT = tmp_path
+    (tmp_path / "claim.schema.json").write_text('{"not": "the generated schema"}\n',
+                                                encoding="utf-8")
+
+    assert module.main(["--check"]) == 1, "drift was not reported"
+    assert (tmp_path / "claim.schema.json").read_text(encoding="utf-8") == (
+        '{"not": "the generated schema"}\n'), "--check rewrote the file it was asked to check"
+
+
+@pytest.mark.parametrize("name", sorted(SCHEMA_FILES))
+def test_every_schema_is_closed(name):
+    """Set once in `tools/generate_schemas.py`'s `schema()`, so a new artifact type is closed by
+    construction rather than by someone remembering. Asserted per schema so the failure names the
+    one that drifted."""
+    from research.artifacts.registry import _load
+
+    assert _load(name).get("additionalProperties") is False, (
+        f"{name} accepts undeclared fields")
+
+
 # --------------------------------------------------------------- everything the CLI emits
 
 

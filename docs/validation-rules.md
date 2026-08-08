@@ -51,7 +51,7 @@ alongside blocking errors is not a representable artifact.
 gate fired, so the cases that exist name their mechanism.
 
 **This paragraph used to say "each".** It did not; the sentence was written when the list was
-shorter and never revisited. Measured rather than asserted: of the 25 checks, the benchmark pins
+shorter and never revisited. Measured rather than asserted: of the 27 checks, the benchmark pins
 `claims_reference_evidence`, `citations_support_their_claims`, `contradictions_disclosed`,
 `source_independence_established`, `ocr_evidence_human_verified` and `text_locators_resolve`.
 Deleting any of the other 19 from `CHECKS` leaves the benchmark fully green. Not covered by a
@@ -84,12 +84,14 @@ those has unit or integration coverage; none has a benchmark case.
 | `independent_review_complete` | as above |
 | `reviewer_independence_sufficient` | independence declared and meeting the profile's bar |
 | `independence_context_attested` | `confirmed_independent` is backed by an attested reviewer context containing no excluded material |
+| `reviews_bind_to_reviewed_bytes` | every review records the `artifact_hash` it read, and that hash is still what is on disk — an approval does not transfer to a rewritten artifact |
 | `run_reached_a_publishable_phase` | the run walked the stages, so when each was accepted is on the record |
 | `methodology_items_assessed` | the methodology review recorded an assessment for each item the profile requires |
 | `retrieval_provenance_recorded` | the searches that produced this evidence are on disk and ran against the run's pinned index |
 | `ocr_evidence_human_verified` | evidence on a page **the Document manifest flags** `ocr_required` has a valid human-verification amendment naming that version of it |
 | `visual_interpretation_certain` | uncertain visual readings were human-verified |
 | `contradictions_disclosed` | every claim was actually checked, and none carries an unresolved contradiction |
+| `confidence_factors_recorded` | a claim asserting support rated its confidence factors (spec §23), and no factor is rated `not_applicable` where the run's own artifacts show it applies |
 | `support_classifications_earned` | `verified` has a passed independent review; `strongly_supported` has multiple evidence records |
 | `source_independence_established` | strongly-supported claims rest on sources positively recorded as `independent`; absent, `unknown` and `cites` all block |
 | `lifecycle_transitions_valid` | the event log replays as a legal sequence |

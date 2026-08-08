@@ -144,6 +144,11 @@ def _evidence_from(ws, doc, run_dir, *, page: int | None = None, status: str = "
 
 def _reviews(ws, run_dir, rid, cid, *, citation_support="passed",
              independence="procedurally_isolated"):
+    # Bound to the claim AS WRITTEN, read back off disk. `_claim` always runs first; a review that
+    # names an id without the bytes behind it is not counted (`reviews_bind_to_reviewed_bytes`),
+    # which is the whole point of the field.
+    claim_hash = json.loads(
+        (run_dir / "claims" / "c1.json").read_text(encoding="utf-8"))["artifact_hash"]
     for rtype, extra in (
         ("contradiction_review", {}),
         ("citation_review", {"per_claim": [{"claim_id": cid, "assessment": "assessed",
@@ -159,6 +164,7 @@ def _reviews(ws, run_dir, rid, cid, *, citation_support="passed",
                        make_artifact(schema_name="Review", artifact_id=r, actor_type="host_agent",
                                      body=dict(review_id=r, review_type=rtype, run_id=rid,
                                                reviewed_artifact_ids=[cid],
+                                               reviewed_artifact_hashes={cid: claim_hash},
                                                reviewer={"actor_type": "host_agent"},
                                                decision="passed", **extra)),
                        root=ws.root)
@@ -171,6 +177,8 @@ def _claim(ws, run_dir, rid, cid, **over):
                 contradicting_evidence_ids=[], citation_status="passed",
                 contradiction_status="none_found",
                 independent_review_status="procedurally_isolated",
+                confidence_factors={"evidence_directness": "high", "source_quality": "medium",
+                                    "citation_validity": "high"},
                 human_review_required=False, run_id=rid)
     base.update(over)
     art = make_artifact(schema_name="Claim", artifact_id=cid, actor_type="host_agent", body=base)

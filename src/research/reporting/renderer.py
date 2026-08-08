@@ -184,6 +184,12 @@ def render_report(ws: Workspace, run_id: str, *, draft: bool = False) -> ReportR
                 "source": _source_label(ctx, ev["document_id"]),
                 "position": _position(ev),
                 "quote": _quote(ctx, ev),
+                # WHAT KIND OF THING THIS QUOTE IS. The report rendered every citation as
+                # `source — position` and the quote, so an `expert_opinion` and a
+                # `statistical_result` were byte-identical in the deliverable. Evidence records
+                # the distinction; hiding it in the only artifact a reader actually reads makes
+                # the distinction decorative.
+                "evidence_type": ev.get("evidence_type", "unrecorded"),
             })
         entry = citation_index[ref_of[evidence_id] - 1]
         return entry
@@ -214,6 +220,13 @@ def render_report(ws: Workspace, run_id: str, *, draft: bool = False) -> ReportR
         view.setdefault("claim_status", "draft")
         view.setdefault("citation_status", "not_checked")
         view.setdefault("contradiction_status", "not_checked")
+        # Sorted so the rendered report is byte-identical across runs — dict order out of JSON is
+        # insertion order, and `test_rendering_twice_produces_an_identical_report` is only
+        # meaningful if the inputs cannot vary. Empty is a real state and renders as a disclosure:
+        # `check_confidence_factors` blocks a support-asserting claim that recorded nothing, but a
+        # DRAFT renders anyway, and the reader is owed the gap rather than a silent omission.
+        view["confidence_factor_rows"] = sorted(
+            (claim.get("confidence_factors") or {}).items())
         if claim.get("claim_type") == "insufficient_evidence_finding":
             insufficient.append(view)
         else:

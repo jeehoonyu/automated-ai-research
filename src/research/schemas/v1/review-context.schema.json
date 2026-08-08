@@ -130,6 +130,7 @@
       }
     }
   },
+  "additionalProperties": false,
   "allOf": [
     {
       "$comment": "A context attested as COMPLETE must be the verbatim transcript. A reconstructed or partial record cannot support the claim that nothing else was sent, and a clean scan of a partial record proves nothing.",

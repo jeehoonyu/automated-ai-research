@@ -134,5 +134,6 @@
     "sqlite_file_hash_note": {
       "type": "string"
     }
-  }
+  },
+  "additionalProperties": false
 }

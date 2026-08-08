@@ -150,5 +150,6 @@
     "executed_at": {
       "type": "string"
     }
-  }
+  },
+  "additionalProperties": false
 }

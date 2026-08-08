@@ -229,8 +229,23 @@ def _import_markdown(ws: Workspace, source: Path, doc_id: str, dver: str) -> dic
         "extraction_status": str(result.status),
         "extraction_toolchain": result.toolchain,
         "extraction_warnings": result.warnings,
-        "normalized_path": f"documents/normalized/{doc_id.replace(':', '_')}.md",
-        "text_sha256": sha256_text(result.text),
+        # `normalized_path` and `text_sha256` USED TO BE EMITTED HERE. Both were undeclared, and
+        # closing the Document schema is what surfaced them.
+        #
+        # `normalized_path` was how this function handed the written file's location to
+        # `_normalize_and_chunk` — a phase-to-phase handoff that became a permanent field of the
+        # canonical Document, holding the PRE-normalized markdown while `normalized_text_path`,
+        # one word away, holds the text locators actually resolve against. Both phases derive the
+        # name from `doc_id`, so the handoff needed no field at all.
+        #
+        # `text_sha256` was worse, because it was NOT a duplicate. It hashed the raw extracted
+        # markdown, while `normalized_text_sha256` hashes the normalized text that every locator
+        # actually resolves against — two different digests, on the same artifact, under names one
+        # letter apart in meaning. `check_derived_text_hashes` exists precisely because the bytes
+        # citations resolve against must be the ones re-hashed; a consumer that reached for the
+        # near-homonym would have verified the wrong bytes and found them to agree. Neither field
+        # had a reader anywhere in the package, and neither feeds `document_version_id`, so they
+        # are deleted rather than declared.
     }
 
 
@@ -254,8 +269,13 @@ def _normalize_and_chunk(ws: Workspace, doc_id: str, dver: str, body: dict[str, 
         doc = normalize_pdf(body.get("pages", []), page_texts)
         page_statuses = {p["page_number"]: p["extraction_status"] for p in body.get("pages", [])}
     else:
-        normalized_path = ws.root / body["normalized_path"]
-        raw = normalized_path.read_text(encoding="utf-8") if normalized_path.exists() else ""
+        # DERIVED, not read back off the artifact. `_import_markdown` writes this file at a path
+        # computed from `doc_id`, and used to hand the location over by stamping `normalized_path`
+        # onto the Document — so a phase-to-phase handoff became a permanent field of the canonical
+        # record, sitting one word away from `normalized_text_path` and holding the pre-normalized
+        # file. Both phases can compute the name; neither needs to publish it.
+        raw_path = safe_join(ws.root, "documents", "normalized", f"{safe}.md")
+        raw = raw_path.read_text(encoding="utf-8") if raw_path.exists() else ""
         doc = normalize_markdown(raw, body.get("sections", []))
         page_statuses = {}
 
