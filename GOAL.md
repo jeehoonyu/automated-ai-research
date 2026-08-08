@@ -93,7 +93,7 @@ CSL-JSON, no CSV of claims and their evidence. Research that cannot be cited els
 tool."* `research export` closes it, in the shape the corpus actually supports:
 
 - Three CSVs — claims, evidence, citations — through **the same gate as publication**, which meant
-  first extracting that gate out of `render_report` into `reporting/gate.py`. Copying it would have
+  first extracting that gate out of `render_report` into `src/research/reporting/gate.py`. Copying it would have
   created a second answer to one question, and a CSV circulates more easily than a report.
 - `--draft` writes `report_eligible=false` into every **row**, not just the filename, because a
   filename is lost the moment someone opens the file in a spreadsheet.

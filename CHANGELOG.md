@@ -18,7 +18,7 @@ cited elsewhere stays in the tool."* Three CSVs, written to `runs/<id>/export/`:
   overstate what the conclusions stand on — the same error as counting a related source as support.
 
 **Export passes the same gate as publication**, which meant first lifting that gate out of
-`render_report` into `reporting/gate.py`. Copying it would have created a second answer to one
+`render_report` into `src/research/reporting/gate.py`. Copying it would have created a second answer to one
 question — the mistake this repository names as two hosts with two sets of rules. A CSV circulates
 more easily than a report and is easier to paste into something else, so `--format claims` must not
 become a route for conclusions `research report` refused to print. `--draft` writes
