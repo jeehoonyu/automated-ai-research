@@ -6,6 +6,37 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed — a failed index rebuild destroyed the working index
+The last two findings of the audit, and the only ones that were not in this session's own work.
+`build_index` unlinked the database and *then* ran the DDL, which can fail:
+
+```
+before : 36864 bytes, tables ['chunks', 'chunks_fts', 'chunks_fts_config', …]
+        research search -> exit 0
+
+  research.yaml: index.tokenizer = no_such_tokenizer_at_all
+
+after  : 20480 bytes, tables ['chunks']
+        research search -> exit 2
+```
+
+One unrecognised setting in `research.yaml` and a working index is gone, replaced by a half-built
+one with no FTS table, on a workspace that had been fine a second earlier. The same shape as the
+`promote_stage` bug fixed earlier: a step that can refuse must not begin by deleting what it might
+fail to replace. The index is now built beside the old one and moved over it with `os.replace` only
+once complete, and a failure removes the staging file rather than leaving a `.building` for the
+next person to interpret.
+
+**And it reported this as a traceback.** `sqlite3.OperationalError` escaped `cmd_index`, which
+catches only `ResearchError` — so under `--json` the command printed nothing parseable at all,
+against `cli.py`'s opening line: *"Every command emits the same versioned envelope under --json"*.
+It is now a `WorkspaceError` naming the tokenizer, the setting to change, and the fact that the
+existing index was left untouched.
+
+Worth noting how this one hid: `test_cli_surface.py`, written earlier today to sweep exactly this
+class, tested `index` against a *missing workspace* and not against a *present but wrong
+configuration*. A sweep is only as wide as the failures it imagines.
+
 ### Fixed — the publication gate was bound to the citations, not to the thing cited
 The most serious finding of the audit, and the oldest defect in this batch. `validated_inputs`
 rostered evidence, claims, reviews, contexts, relationships, amendments, retrieval and the plan —

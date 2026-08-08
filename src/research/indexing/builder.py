@@ -27,6 +27,7 @@ passage is one step away from becoming a citation.
 
 from __future__ import annotations
 
+import os
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
@@ -34,7 +35,7 @@ from typing import Any
 
 from ..artifacts.io import make_artifact, read_artifact, write_artifact
 from ..config import Workspace
-from ..errors import SourceProcessingError
+from ..errors import SourceProcessingError, WorkspaceError
 from ..hashing import canonical_json, sha256_file, sha256_text
 from ..security.paths import safe_join
 
@@ -163,13 +164,36 @@ def build_index(ws: Workspace) -> IndexResult:
 
     db_path = safe_join(ws.root, *DB_RELPATH.split("/"))
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    if db_path.exists():
-        db_path.unlink()          # complete rebuild; the index is never incrementally patched
 
-    conn = sqlite3.connect(str(db_path))
+    # BUILT BESIDE THE OLD INDEX, THEN MOVED OVER IT.
+    #
+    # This used to unlink the existing database and then run the DDL, which can fail: an
+    # unrecognised `index.tokenizer` in `research.yaml` raises `no such tokenizer` from the FTS
+    # CREATE. What was left behind was a 20KB database holding `chunks` and no `chunks_fts` — the
+    # working index destroyed, replaced by a half-built one, and `research search` exiting 2 on a
+    # workspace that had been fine a second earlier. A rebuild that can fail must not begin by
+    # deleting what it might fail to replace.
+    #
+    # Same directory, so `os.replace` is atomic on both POSIX and Windows.
+    staging = db_path.with_name(db_path.name + ".building")
+    staging.unlink(missing_ok=True)
+
+    conn = sqlite3.connect(str(staging))
     try:
         conn.executescript(_SCHEMA)
-        conn.executescript(_fts_ddl(tokenizer, tokenizer_args))
+        try:
+            conn.executescript(_fts_ddl(tokenizer, tokenizer_args))
+        except sqlite3.OperationalError as exc:
+            # Named, rather than allowed out as a bare OperationalError. `research index` reported
+            # a raw traceback and no JSON envelope for this, against `cli.py`'s opening line —
+            # "Every command emits the same versioned envelope under --json".
+            raise WorkspaceError(
+                f"the index could not be built with the configured tokenizer "
+                f"{tokenizer!r}: {exc}",
+                detail={"tokenizer": tokenizer, "tokenizer_args": tokenizer_args,
+                        "hint": "set `index.tokenizer` in research.yaml to a tokenizer this "
+                                "SQLite build provides (`unicode61` is always available)",
+                        "note": "the existing index was left untouched"}) from exc
         conn.executemany(
             "INSERT INTO chunks (rowid, chunk_id, document_id, document_version_id, page, "
             "line_start, line_end, section_path, start_offset, end_offset, text_sha256, "
@@ -181,8 +205,15 @@ def build_index(ws: Workspace) -> IndexResult:
         conn.execute("INSERT INTO chunks_fts(chunks_fts) VALUES('rebuild')")
         conn.commit()
         sqlite_version = conn.execute("SELECT sqlite_version()").fetchone()[0]
+    except BaseException:
+        conn.close()
+        staging.unlink(missing_ok=True)     # leave no half-built database behind either
+        raise
     finally:
         conn.close()
+
+    # The old index is replaced only now, when a complete one exists to replace it with.
+    os.replace(staging, db_path)
 
     config = {
         "index_schema_version": INDEX_SCHEMA_VERSION,

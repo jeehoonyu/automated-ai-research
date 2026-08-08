@@ -17,7 +17,11 @@ from fixtures.make_fixtures import build  # noqa: E402
 from research.artifacts.io import read_artifact  # noqa: E402
 from research.artifacts.locators import resolve_text_locator  # noqa: E402
 from research.config import load_workspace  # noqa: E402
-from research.errors import InvalidArguments, SourceProcessingError  # noqa: E402
+from research.errors import (  # noqa: E402
+    InvalidArguments,
+    SourceProcessingError,
+    WorkspaceError,
+)
 from research.importers.importer import import_paths  # noqa: E402
 from research.indexing.builder import DB_RELPATH, build_index  # noqa: E402
 from research.search.engine import normalize_query, search  # noqa: E402
@@ -262,3 +266,73 @@ def test_searching_without_an_index_is_an_actionable_error(tmp_path: Path):
     with pytest.raises(SourceProcessingError) as exc:
         search(load_workspace(tmp_path / "ws"), "anything")
     assert "research index" in str(exc.value.detail)
+
+
+# --------------------------------------------------------------- a failed rebuild is not a loss
+#
+# `build_index` unlinked the database and THEN ran the DDL, which can fail. An unrecognised
+# `index.tokenizer` in `research.yaml` therefore destroyed a working index and left a half-built
+# one behind: `chunks` present, `chunks_fts` absent, and `research search` exiting 2 on a
+# workspace that had been fine a second earlier. Same shape as the promotion bug — a step that can
+# refuse must not begin by deleting what it might fail to replace.
+
+
+def _break_the_tokenizer(ws) -> None:
+    import re
+
+    config = ws.root / "research.yaml"
+    text = config.read_text(encoding="utf-8")
+    assert "tokenizer:" in text, "this test depends on the setting being present to corrupt"
+    config.write_text(re.sub(r"tokenizer:.*", "tokenizer: no_such_tokenizer_at_all", text),
+                      encoding="utf-8")
+
+
+def test_a_rebuild_that_cannot_run_leaves_the_working_index_intact(indexed, tmp_path: Path):
+    ws, _ = indexed
+    db = ws.root / Path(DB_RELPATH)
+    before = db.read_bytes()
+    assert search(ws, "data movement")["result_count"] >= 1
+
+    _break_the_tokenizer(ws)
+    with pytest.raises(WorkspaceError) as exc:
+        build_index(load_workspace(ws.root))
+
+    assert "tokenizer" in exc.value.message
+    assert db.read_bytes() == before, "the previous index was destroyed by a rebuild that failed"
+    # And the workspace is still usable, which is the point.
+    assert search(load_workspace(ws.root), "data movement")["result_count"] >= 1
+
+
+def test_a_failed_rebuild_leaves_no_half_built_database_behind(indexed):
+    """The staging file must not survive either — a stray `.building` beside the index is litter
+    that the next person has to work out the meaning of."""
+    ws, _ = indexed
+    _break_the_tokenizer(ws)
+    with pytest.raises(WorkspaceError):
+        build_index(load_workspace(ws.root))
+
+    leftovers = sorted(p.name for p in (ws.root / Path(DB_RELPATH)).parent.glob("*.building"))
+    assert leftovers == [], leftovers
+
+
+def test_a_bad_tokenizer_is_reported_as_an_envelope_not_a_traceback(indexed):
+    """`cli.py` opens with "Every command emits the same versioned envelope under --json". A bare
+    `sqlite3.OperationalError` escaped `cmd_index`, which catches only ResearchError, so the one
+    command whose configuration can realistically be wrong printed a traceback instead."""
+    import json as _json
+
+    from click.testing import CliRunner
+
+    from research.cli import main
+
+    ws, _ = indexed
+    _break_the_tokenizer(ws)
+    result = CliRunner().invoke(main, ["index", "--workspace", str(ws.root), "--json"])
+
+    assert result.exit_code != 0
+    assert result.exception is None or isinstance(result.exception, SystemExit), (
+        f"an exception escaped the command: {result.exception!r}")
+    payload = _json.loads(result.output)
+    assert payload["status"] == "failed"
+    assert payload["errors"][0]["category"] == "workspace_error"
+    assert "no_such_tokenizer_at_all" in payload["errors"][0]["message"]
