@@ -6,6 +6,68 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed — seven defects a six-lens adversarial audit found in this session's own work
+Every fix below is in code written earlier the same day, and every one was reproduced before being
+believed. Eleven mutants, all caught.
+
+**Two things this repository says, that it did not do.** Both are the defect class it treats as
+worst, and both were mine:
+
+- **`export --draft` wrote `report_eligible=true`.** It passed the gate's stored verdict straight
+  through, so drafting a run that HAD passed validation marked every row eligible — while the
+  module docstring, the CLI's runtime warning, the README, the CHANGELOG and `gate.py` all said it
+  wrote `false`. Five statements, none true. The test passed because it only ever drafted an
+  *unvalidated* run, where the value is `false` for a different reason. The column answers "did
+  this export clear the gate", and `--draft` is the flag saying the gate was not required.
+- **A published report told the reader it was a draft.** The confidence-factors block ended
+  *"It appears here because this is a draft"* in an unguarded `else`. Reachable with no tampering:
+  a `conflicting_evidence` claim asserts no support, legitimately owes no ratings,
+  `confidence_factors_recorded` returns `not_applicable`, the run publishes — and the sentence
+  renders. Wrong twice: not a draft, and nothing was blocking. It now distinguishes "none recorded
+  and that blocks" from "none owed", asking `SUPPORT_ASSERTING` rather than restating it.
+
+**Two gates that failed open, both in checks added hours earlier:**
+
+- **`check_reviews_bind_to_bytes` inspected only the ids a review chose to list.** A citation
+  review records its verdicts in `per_claim`, and nothing requires those claims to appear in
+  `reviewed_artifact_ids` — so a review could bind the *evidence*, deliver `passed` on the claim,
+  and the check reported "4 reviewed artifact(s) still match" while the claim was rewritten
+  underneath it. The identical rewrite blocked when the review named the claim and published when
+  it named the evidence. A gate that inspects only what the thing under inspection volunteered is
+  not a gate.
+- **`check_confidence_factors` hand-copied two of four extraction statuses.**
+  `("ocr_required", "human_review_required")` against an `ExtractionStatus.needs_human_review` that
+  also covers `ambiguous` and `partially_extracted`. A claim resting on a partially-extracted page
+  could rate `ocr_dependency: not_applicable` and publish, with the report printing that rating as
+  though it had been checked. Goal 6 of this project is entirely about vocabularies having one
+  home; this restated one three weeks after that was written. It now asks the enum, and an
+  unrecognised status counts as unreadable.
+
+**Two refusals that arrived after the side effect** — the `promote_stage` bug's siblings:
+
+- **`render_report` wrote `report.md` before building the manifest.** Manifest construction can
+  fail, and `cmd_report` catches only `ResearchError`, so a bare `KeyError` left a published report
+  on disk with no provenance record and no `PUBLISHED` transition. The manifest is now built first.
+- **`research report --draft` overwrote the published report's manifest.** `report_path` branched
+  on `draft`; the manifest path did not. `report.md` stayed on disk, the run stayed at `published`,
+  and the only record binding that file to the verdict permitting it was replaced by one asserting
+  the opposite. `export.py` branches correctly, which is what made this an oversight.
+
+**And the gate that let the KeyError happen at all:** `ctx.retrieval` was missing from
+`check_artifacts_conform`, and `check_retrieval_provenance` selects on `schema_name` alone — so a
+two-key file claiming to be a RetrievalLog cleared the provenance gate and the run reported
+`retrieval_provenance_recorded: passed` for searches nobody can see.
+
+Three notes on the tests, because two of them were initially wrong in ways worth recording:
+
+- The ordering test first validated the run *before* breaking the retrieval log, so the gate's
+  `compare_inputs` caught it and the test never exercised the ordering. Rewritten to validate
+  afterwards — which then stopped reproducing once the retrieval fix landed, since the route is now
+  closed. It injects the failure instead: the invariant is worth keeping even when no input can
+  currently reach it.
+- `AGENTS.md` had said "25 checks" for two checks' worth of drift, because the staleness guard
+  scanned `README.md` and `docs/` and not the file every agent is pointed at first. Both fixed.
+
 ### Fixed — the export was a path from document content to execution
 Found by auditing the export within an hour of writing it, and it is the sharper half of that
 feature. `docs/security-model.md` states: *"A document is data. There is no path from document

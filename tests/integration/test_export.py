@@ -165,6 +165,29 @@ def test_a_draft_export_marks_every_row_not_just_the_filename(complete_run):
     assert rows and all(row["report_eligible"] == "false" for row in rows)
 
 
+def test_a_draft_of_an_ELIGIBLE_run_still_says_false(complete_run):
+    """The case the test above missed, and the reason six statements in this repository were false.
+
+    Drafting an UNVALIDATED run gives report_eligible=false for the wrong reason — the gate has no
+    verdict to report. The claim being made was about `--draft` itself, so the run has to be
+    validated and eligible for the test to mean anything. It was not, and `export_run` passed the
+    stored verdict straight through: every row of a draft from a passing run said `true`, while the
+    module docstring, the CLI's runtime warning, the README, the CHANGELOG and `gate.py` all said
+    otherwise.
+
+    The column answers "did this export clear the gate", and `--draft` is the flag that says the
+    gate was not required.
+    """
+    ws, rid, _ = complete_run
+    assert validate_run(ws, rid)["report_eligible"] is True, "the fixture must be eligible here"
+
+    rows = _rows(ws, export_run(ws, rid, fmt="claims", draft=True))
+    assert rows and all(row["report_eligible"] == "false" for row in rows)
+    # And the non-draft export of the same run still says true, so the column is not just constant.
+    assert all(r["report_eligible"] == "true"
+               for r in _rows(ws, export_run(ws, rid, fmt="claims")))
+
+
 def test_an_unknown_format_is_refused(complete_run):
     ws, rid, _ = complete_run
     with pytest.raises(InvalidArguments) as exc:

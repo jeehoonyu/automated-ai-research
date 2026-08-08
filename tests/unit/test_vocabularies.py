@@ -411,7 +411,12 @@ def test_no_document_states_a_stale_check_count():
     repo = Path(research.__file__).resolve().parents[2]
     pattern = re.compile(r"\b(\d+)\s+(?:validation\s+)?checks\b")
     stale: list[str] = []
-    for path in [repo / "README.md", *sorted((repo / "docs").glob("*.md"))]:
+    # AGENTS.md was missing from this list and had said 25 since two checks ago — in the file every
+    # agent is pointed at first, describing the directory it is most likely to change. The scope
+    # note above explains why CHANGELOG.md and GOAL.md are excluded; AGENTS.md had no such reason,
+    # it was simply never added.
+    for path in [repo / "README.md", repo / "AGENTS.md", repo / "CONTRIBUTING.md",
+                 *sorted((repo / "docs").glob("*.md"))]:
         for match in pattern.finditer(path.read_text(encoding="utf-8")):
             if int(match.group(1)) != actual:
                 stale.append(f"{path.name}: {match.group(0)!r} but there are {actual}")

@@ -27,6 +27,7 @@ from ..errors import ResearchError
 from ..extraction.status import ExtractionStatus
 from ..hashing import sha256_text
 from ..security.paths import safe_join
+from ..validation.validator import SUPPORT_ASSERTING
 from .gate import open_for_output
 from .language import QUALIFIER, scan_claims
 
@@ -176,6 +177,13 @@ def render_report(ws: Workspace, run_id: str, *, draft: bool = False) -> ReportR
         # DRAFT renders anyway, and the reader is owed the gap rather than a silent omission.
         view["confidence_factor_rows"] = sorted(
             (claim.get("confidence_factors") or {}).items())
+        # ASKED OF THE VALIDATOR, not restated here. The template needs to distinguish "no ratings
+        # and that is a defect" from "no ratings and none were owed", and a second copy of that
+        # vocabulary is how the two answers drift apart. Its previous text said neither: it told
+        # every reader "it appears here because this is a draft", on published reports, about
+        # claims that legitimately owe nothing.
+        view["asserts_support"] = (
+            claim.get("support_classification") in SUPPORT_ASSERTING)
         if claim.get("claim_type") == "insufficient_evidence_finding":
             insufficient.append(view)
         else:
@@ -237,10 +245,16 @@ def render_report(ws: Workspace, run_id: str, *, draft: bool = False) -> ReportR
 
     markdown = _render(context)
     report_path = safe_join(run_dir, "report", "report-draft.md" if draft else "report.md")
-    from ..security.paths import atomic_write_text
-    atomic_write_text(report_path, markdown, root=ws.root)
     report_hash = sha256_text(markdown)
 
+    # THE MANIFEST IS BUILT BEFORE THE REPORT IS WRITTEN.
+    #
+    # It used to be the other way round, and building the manifest can fail: a RetrievalLog missing
+    # `retrieval_log_hash` raised KeyError out of the comprehension below, which `cmd_report` does
+    # not catch because it only catches ResearchError. The result was `report.md` on disk with no
+    # manifest, no PUBLISHED transition, and a traceback — a published report whose provenance
+    # record does not exist. Same shape as the promotion.py bug fixed earlier this session:
+    # everything that can refuse must refuse before anything is written.
     manifest = make_artifact(
         schema_name="ReportManifest", artifact_id=run_id, actor_type="cli",
         body={
@@ -259,7 +273,18 @@ def render_report(ws: Workspace, run_id: str, *, draft: bool = False) -> ReportR
             "schema_versions_used": context["schema_versions"],
             "disclosures": _disclosures(context, overstatements),
         })
-    manifest_path = safe_join(run_dir, "report", "report-manifest.json")
+    # A DRAFT GETS ITS OWN MANIFEST FILE. The report path already branched on `draft` and this did
+    # not, so `research report --draft` on an already-published run overwrote the published
+    # report's manifest with one recording `draft: true` and `report_path: report-draft.md`.
+    # `report.md` stayed on disk with the run still at phase `published`, and the only record
+    # binding it to the verdict that permitted it was gone — replaced by one asserting the
+    # opposite. `export.py` branches its filename correctly, which is what makes this an oversight
+    # rather than a decision.
+    manifest_path = safe_join(
+        run_dir, "report", "report-draft-manifest.json" if draft else "report-manifest.json")
+
+    from ..security.paths import atomic_write_text
+    atomic_write_text(report_path, markdown, root=ws.root)
     write_artifact(manifest_path, manifest, root=ws.root)
 
     # A published report is a lifecycle event. `Phase.PUBLISHED` existed and nothing set it.

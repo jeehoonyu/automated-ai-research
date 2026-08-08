@@ -87,6 +87,93 @@ def test_a_draft_never_claims_to_be_published(complete_run):
     assert "Status: **DRAFT (unvalidated)**" in _read(result.report_path)
 
 
+def test_a_published_report_never_tells_the_reader_it_is_a_draft(complete_run):
+    """The confidence-factors block said "It appears here because this is a draft" in its
+    else-branch, unconditionally — so a PUBLISHED report told its reader it was a draft.
+
+    Reachable without any tampering: a `conflicting_evidence` claim asserts no support, so it
+    legitimately owes no factor ratings, `confidence_factors_recorded` returns `not_applicable`,
+    the run publishes, and the else-branch renders. The message was wrong twice over — the report
+    was not a draft, and nothing was blocking.
+    """
+    ws, rid, meta = complete_run
+    claim = json.loads(meta["claim_path"].read_text(encoding="utf-8"))
+    claim["support_classification"] = "conflicting_evidence"
+    claim["confidence_factors"] = {}
+    meta["claim_path"].write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
+    re_review(meta)
+
+    assert validate_run(ws, rid)["report_eligible"] is True
+    result = render_report(ws, rid)
+    body = _read(result.report_path)
+
+    assert result.draft is False
+    assert "this is a draft" not in body
+    assert "Status: **published**" in body
+    assert "asserts no level of support" in body, (
+        "it must say why there are no ratings, not merely omit them")
+
+
+def test_a_draft_does_not_overwrite_the_published_report_manifest(complete_run):
+    """`report_path` branched on `draft` and the MANIFEST path did not.
+
+    So `research report --draft` on an already-published run replaced the published manifest with
+    one recording `draft: true` and pointing at `report-draft.md`. `report.md` stayed on disk, the
+    run stayed at phase `published`, and the only record binding that file to the verdict which
+    permitted it was gone — overwritten by one asserting the opposite.
+    """
+    ws, rid, _ = complete_run
+    validate_run(ws, rid)
+    published = render_report(ws, rid)
+    published_manifest = read_artifact(published.manifest_path, expect_schema="ReportManifest")
+    assert published_manifest["draft"] is False
+
+    render_report(ws, rid, draft=True)
+
+    still = read_artifact(published.manifest_path, expect_schema="ReportManifest")
+    assert still["draft"] is False, "the draft overwrote the published manifest"
+    assert still["report_path"].endswith("report.md")
+    assert still["validation_result_hash"] == published_manifest["validation_result_hash"]
+
+
+def test_nothing_is_written_when_the_manifest_cannot_be_built(complete_run, monkeypatch):
+    """The promotion.py bug's sibling: `report.md` was written first, then the manifest built.
+
+    HOW IT WAS FOUND, and why this test looks the way it does. The original route was a
+    RetrievalLog missing `retrieval_log_hash`: the manifest build raised a bare KeyError, which
+    `cmd_report` does not catch because it catches only ResearchError, leaving a published report
+    on disk with no provenance record and no PUBLISHED transition. Reproduced exactly that way —
+    and the run validated as publishable first, because `check_artifacts_conform` did not include
+    `ctx.retrieval`.
+
+    That hole is now closed, so the specific route no longer reaches `render_report`. The ORDERING
+    is still worth keeping and worth pinning: any future failure between "render the markdown" and
+    "write the manifest" must not leave a report behind. Since no input can currently produce one,
+    the failure is injected — testing the invariant rather than the one path that used to reach it.
+
+    A test written against the old route would now pass for the wrong reason: it would be caught by
+    a different gate and never exercise the ordering at all. That happened, and the assertion that
+    the run must still validate is what exposed it.
+    """
+    from research.reporting import renderer
+
+    ws, rid, meta = complete_run
+    validate_run(ws, rid)
+
+    def explode(**kwargs):
+        if kwargs.get("schema_name") == "ReportManifest":
+            raise RuntimeError("manifest construction failed")
+        return make_artifact(**kwargs)
+
+    monkeypatch.setattr(renderer, "make_artifact", explode)
+
+    report_md = meta["run_dir"] / "report" / "report.md"
+    assert not report_md.exists()
+    with pytest.raises(RuntimeError):
+        render_report(ws, rid)
+    assert not report_md.exists(), "a report was written by a call that then failed"
+
+
 # --------------------------------------------------------------- §32 language rule
 
 

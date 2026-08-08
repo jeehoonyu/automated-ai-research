@@ -93,9 +93,11 @@ Confidence factors (spec §23 — categorical, never an aggregate score):
 {% for factor, rating in claim.confidence_factor_rows -%}
 | {{ factor }} | `{{ rating }}` |
 {% endfor %}
-{%- else %}
+{%- elif claim.asserts_support %}
 _None recorded._ A classification asserting support with no factor ratings behind it is not
-publishable; `confidence_factors_recorded` blocks it. It appears here because this is a draft.
+publishable; `confidence_factors_recorded` blocks it.
+{%- else %}
+_Not applicable._ This claim asserts no level of support, so there is nothing to rate.
 {%- endif %}
 
 Supporting evidence:

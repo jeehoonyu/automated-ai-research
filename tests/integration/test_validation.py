@@ -831,6 +831,120 @@ def test_the_report_renders_the_factors_and_the_evidence_type(complete_run):
     assert "`direct_statement`" in text, "the citation does not say what kind of evidence it is"
 
 
+def test_a_retrieval_log_that_is_not_one_cannot_clear_the_provenance_gate(complete_run):
+    """`ctx.retrieval` was missing from `check_artifacts_conform`.
+
+    `check_retrieval_provenance` selects on `schema_name` alone, so a file whose only real content
+    was `{"schema_name": "RetrievalLog", "index_hash": ...}` cleared the gate and the run reported
+    `retrieval_provenance_recorded: passed` — a provenance record for searches nobody can see.
+
+    The downstream cost was visible: `render_report` reads `retrieval_log_hash` off these, so a run
+    validation had just called publishable died with a bare KeyError mid-render.
+    """
+    ws, rid, meta = complete_run
+    log_path = next((meta["run_dir"] / "retrieval").glob("*.json"))
+    log = json.loads(log_path.read_text(encoding="utf-8"))
+    log.pop("retrieval_log_hash", None)
+    log_path.write_text(json.dumps(stamp_artifact_hash(log)), encoding="utf-8")
+
+    result = validate_run(ws, rid)
+    assert _status(result, "artifacts_conform_to_schema") == "failed"
+    assert result["report_eligible"] is False
+
+
+# ------------------------------------------------ the two checks, driven directly
+#
+# Both of these were fixed after an adversarial audit, and both fixes were initially untested:
+# building the required corpus state through `complete_run` takes an OCR-flagged page plus a
+# clearing amendment, and by then two other gates are also firing, so a fixture-driven test cannot
+# say which one blocked. A RunContext holding exactly the artifacts under test can.
+
+
+def _ctx(**fields):
+    """A real RunContext with only the fields these two checks read. Not a stub — using the real
+    dataclass means `evidence_by_id()` and the rest behave exactly as in production."""
+    from research.validation.validator import RunContext
+
+    return RunContext(ws=None, run_id="RUN-x", manifest={"profile": "default"}, **fields)
+
+
+@pytest.mark.parametrize("status,must_block", [
+    ("ocr_required", True),
+    ("human_review_required", True),
+    # THE TWO THAT WERE MISSED. `ExtractionStatus.needs_human_review` names four members and the
+    # check hand-copied two of them, so a claim resting on a partially-extracted or ambiguous page
+    # could rate ocr_dependency `not_applicable` and publish — with the report printing that
+    # rating as though it had been checked.
+    ("partially_extracted", True),
+    ("ambiguous", True),
+    ("extracted", False),
+])
+def test_not_applicable_ocr_dependency_is_refuted_for_every_unreadable_status(status, must_block):
+    from research.validation.validator import check_confidence_factors
+
+    ctx = _ctx(
+        evidence=[{"evidence_id": "EVD-a", "extraction_status": status,
+                   "locator": {"type": "text_span"}}],
+        claims=[{"claim_id": "CLM-1", "support_classification": "moderately_supported",
+                 "supporting_evidence_ids": ["EVD-a"],
+                 "confidence_factors": {"evidence_directness": "high",
+                                        "ocr_dependency": "not_applicable"}}])
+    result = check_confidence_factors(ctx)
+
+    assert result.blocks is must_block, f"{status}: status={result.status} — {result.detail}"
+    if must_block:
+        assert "ocr_dependency" in result.detail
+
+
+def test_an_unrecognised_extraction_status_is_treated_as_unreadable():
+    """A word this build does not know is not a clean bill of health — the same stance
+    `_extraction_needs_disclosure` already takes in the renderer."""
+    from research.validation.validator import check_confidence_factors
+
+    ctx = _ctx(
+        evidence=[{"evidence_id": "EVD-a", "extraction_status": "invented_by_a_future_version",
+                   "locator": {"type": "text_span"}}],
+        claims=[{"claim_id": "CLM-1", "support_classification": "moderately_supported",
+                 "supporting_evidence_ids": ["EVD-a"],
+                 "confidence_factors": {"ocr_dependency": "not_applicable"}}])
+    assert check_confidence_factors(ctx).blocks is True
+
+
+def test_a_review_is_bound_to_every_claim_it_judged_not_only_those_it_listed():
+    """A gate that only inspects what the thing under inspection volunteered is not a gate.
+
+    `check_reviews_bind_to_bytes` iterated `reviewed_artifact_ids`, which the reviewer writes. A
+    citation review records its actual verdicts in `per_claim`, and nothing requires those claims
+    to appear in `reviewed_artifact_ids` — so a review could list the EVIDENCE, deliver `passed` on
+    the claim in `per_claim`, and the check reported that everything it read still matched while
+    the claim had been rewritten underneath it.
+    """
+    from research.validation.validator import check_reviews_bind_to_bytes
+
+    claim = {"claim_id": "CLM-1", "artifact_id": "CLM-1", "artifact_hash": "sha256:" + "a" * 64}
+    evidence = {"evidence_id": "EVD-a", "artifact_id": "EVD-a",
+                "artifact_hash": "sha256:" + "b" * 64}
+    review = {
+        "review_id": "REV-1", "review_type": "citation_review",
+        # names the EVIDENCE, correctly bound...
+        "reviewed_artifact_ids": ["EVD-a"],
+        "reviewed_artifact_hashes": {"EVD-a": evidence["artifact_hash"]},
+        # ...while delivering its verdict on a claim it never bound
+        "per_claim": [{"claim_id": "CLM-1", "assessment": "supports",
+                       "citation_support": "passed"}],
+    }
+    result = check_reviews_bind_to_bytes(
+        _ctx(claims=[claim], evidence=[evidence], reviews=[review]))
+
+    assert result.blocks is True, f"status={result.status} — {result.detail}"
+    assert "CLM-1" in result.detail
+
+    # Binding it is what clears the check — the gate has to be passable.
+    review["reviewed_artifact_hashes"]["CLM-1"] = claim["artifact_hash"]
+    assert check_reviews_bind_to_bytes(
+        _ctx(claims=[claim], evidence=[evidence], reviews=[review])).status == "passed"
+
+
 # ------------------------------------------------ a review binds to the bytes it read
 #
 # `Review` named `reviewed_artifact_ids` and no hash, while `Amendment` has required

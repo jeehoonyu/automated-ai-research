@@ -271,7 +271,16 @@ def export_run(ws: Workspace, run_id: str, *, fmt: str, draft: bool = False) -> 
     ctx, _validation, _blocking, eligible = open_for_output(ws, run_id, draft=draft,
                                                             command="export")
     columns, build = _BUILDERS[fmt]
-    rows = build(ctx, eligible)
+    # A DRAFT ROW SAYS FALSE, ALWAYS. This used to pass `eligible` straight through, so exporting
+    # `--draft` from a run that HAD passed validation wrote `report_eligible=true` into every row —
+    # while the module docstring, the CLI's runtime warning, the README and the CHANGELOG all said
+    # it wrote false. Six statements, none of them true, and the test passed because it only ever
+    # drafted an unvalidated run, where `eligible` is false for a different reason.
+    #
+    # The column answers "did this export clear the gate?", and `--draft` is precisely the flag
+    # that says the gate was not required. A draft that inherits an earlier verdict is the same
+    # error as a report inheriting one: the artifacts may have moved since.
+    rows = build(ctx, eligible and not draft)
     text, neutralized = render_csv(columns, rows)
 
     name = f"{fmt}-draft.csv" if draft else f"{fmt}.csv"

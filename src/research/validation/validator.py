@@ -226,9 +226,20 @@ def build_context(ws: Workspace, run_id: str) -> RunContext:
 
 
 def check_artifacts_conform(ctx: RunContext) -> CheckResult:
+    """Every canonical artifact of the run validates against its schema.
+
+    `ctx.retrieval` WAS MISSING FROM THIS LIST, and `check_retrieval_provenance` selects on
+    `schema_name` alone — so a two-key file claiming to be a RetrievalLog cleared the provenance
+    gate, and `retrieval_provenance_recorded` reported `passed` for a record that is not one. The
+    downstream cost was visible: `render_report` reads `retrieval_log_hash` off these and died with
+    a bare KeyError on a run validation had just called publishable.
+
+    Everything the run holds is checked here, so an artifact type added to `build_context` later is
+    covered by being loaded rather than by being remembered.
+    """
     bad: list[str] = []
     for artifact in [*ctx.evidence, *ctx.claims, *ctx.reviews, *ctx.review_contexts,
-                     *ctx.relationships, *ctx.amendments,
+                     *ctx.relationships, *ctx.amendments, *ctx.retrieval,
                      *([ctx.plan] if ctx.plan else [])]:
         try:
             validate_artifact(artifact)
@@ -558,7 +569,21 @@ def check_reviews_bind_to_bytes(ctx: RunContext) -> CheckResult:
     for review in ctx.reviews:
         rid = review["review_id"]
         recorded = review.get("reviewed_artifact_hashes") or {}
-        for target in review.get("reviewed_artifact_ids") or []:
+        # EVERY CLAIM THE REVIEW JUDGED, not only the ones it chose to list.
+        #
+        # This iterated `reviewed_artifact_ids` alone, which the reviewer writes. A citation review
+        # records its actual verdicts in `per_claim`, and nothing requires the claims named there
+        # to appear in `reviewed_artifact_ids` — so a review could list the EVIDENCE, deliver a
+        # `passed` verdict on the claim in `per_claim`, and the binding check would report "4
+        # reviewed artifact(s) still match" while the claim was rewritten underneath it. Verified:
+        # the identical rewrite blocked when the review named the claim and published when it
+        # named the evidence.
+        #
+        # A gate that only inspects what the thing under inspection volunteered is not a gate.
+        targets = list(review.get("reviewed_artifact_ids") or [])
+        targets += [str(entry.get("claim_id")) for entry in (review.get("per_claim") or [])
+                    if entry.get("claim_id")]
+        for target in dict.fromkeys(targets):
             found = known.get(target)
             if found is None:
                 unknown.append(f"{rid}: reviewed {target}, which is not a canonical artifact of "
@@ -970,6 +995,20 @@ SUPPORT_ASSERTING = frozenset({
     "verified", "strongly_supported", "moderately_supported", "weakly_supported"})
 
 
+def _needs_human_reading(status: Any) -> bool:
+    """Did this evidence come off a page that could not be read cleanly?
+
+    Delegates to `ExtractionStatus.needs_human_review`, which is the one place that decides. An
+    unrecognised status counts as needing review: a word this build does not know is not a clean
+    bill of health, and that is how `_extraction_needs_disclosure` in the renderer already treats
+    the same question.
+    """
+    try:
+        return ExtractionStatus(str(status)).needs_human_review
+    except ValueError:
+        return True
+
+
 def check_confidence_factors(ctx: RunContext) -> CheckResult:
     """Spec §23: confidence must be categorical AND supported by explicit factor ratings.
 
@@ -1020,10 +1059,16 @@ def check_confidence_factors(ctx: RunContext) -> CheckResult:
             ("contradictory_evidence",
              bool(claim.get("contradicting_evidence_ids")),
              "the claim carries contradicting evidence"),
+            # ASKED OF THE ENUM, not restated. This was a hand-copied
+            # `("ocr_required", "human_review_required")` — two of the FOUR statuses
+            # `ExtractionStatus.needs_human_review` covers, silently omitting `ambiguous` and
+            # `partially_extracted`. So a claim resting on a partially-extracted page could rate
+            # `ocr_dependency: not_applicable` and publish, with the report printing that rating
+            # as though it had been checked. Goal 6 of this project is entirely about vocabularies
+            # having one home; this check restated one three weeks after that was written.
             ("ocr_dependency",
-             any(e.get("extraction_status") in ("ocr_required", "human_review_required")
-                 for e in supporting),
-             "its evidence rests on a page that needed OCR or human reading"),
+             any(_needs_human_reading(e.get("extraction_status")) for e in supporting),
+             "its evidence rests on a page that could not be read cleanly"),
             ("visual_certainty",
              any((e.get("locator") or {}).get("type") == "visual_region" for e in supporting),
              "its evidence includes a reading of a figure or table"),

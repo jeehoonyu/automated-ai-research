@@ -75,7 +75,7 @@ wrong even if it makes something else better.
 | `src/research/importers/` | content-addressed import, dedup, page rendering | changing what import accepts |
 | `src/research/indexing/`, `search/` | SQLite FTS5 build and query, reproducible `index_hash` | changing retrieval |
 | `src/research/runs/` | lifecycle (phase + disposition), work packets, stage promotion, amendments, `inspect` | changing the workflow's state machine |
-| `src/research/validation/` | **the 25 checks and the publication gate** | changing what blocks a report |
+| `src/research/validation/` | **the 27 checks and the publication gate** | changing what blocks a report |
 | `src/research/reporting/` | Markdown renderer, overstatement detection, template | changing report output |
 | `src/research/profiles/` | `default.yaml`, `medicine.yaml` — per-domain strictness | **the first thing most forks customize** |
 | `src/research/projects.py` | projects: discovery of studies, and the record across them | changing how many topics live in one folder |
@@ -102,7 +102,7 @@ wrong even if it makes something else better.
 | `CHANGELOG.md` | every change, written to name the defect rather than the feature | keep the format; it is why this repo is auditable |
 | `docs/architecture.md` | trust boundaries, authority model, determinism, module map | keep |
 | `docs/security-model.md` | threat model, and an explicit list of what is **not** protected | keep |
-| `docs/validation-rules.md` | the 25 checks, the profile rules, and why `not_evaluated` blocks | keep |
+| `docs/validation-rules.md` | the 27 checks, the profile rules, and why `not_evaluated` blocks | keep |
 | `docs/release-checklist.md` | gate status, **including the gates that are not met** | keep the honesty; the status is about the original build |
 | `docs/lessons-carried-forward.md` | failures from a predecessor project, and where each is now enforced | read before changing any gate |
 | `workflow/canonical-workflow.md` | the research loop, shipped into every generated workspace | keep |
