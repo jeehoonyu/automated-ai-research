@@ -20,14 +20,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from ..artifacts.io import make_artifact, read_artifact, write_artifact
+from ..artifacts.io import make_artifact, write_artifact
 from ..artifacts.locators import resolve_text_locator
 from ..config import SCHEMA_VERSION, WORKFLOW_VERSION, Workspace
-from ..errors import ReportGatingError, ResearchError
+from ..errors import ResearchError
 from ..extraction.status import ExtractionStatus
 from ..hashing import sha256_text
 from ..security.paths import safe_join
-from ..validation.validator import build_context, compare_inputs, validated_inputs
+from .gate import open_for_output
 from .language import QUALIFIER, scan_claims
 
 TEMPLATE_DIR = Path(__file__).resolve().parent / "templates"
@@ -105,65 +105,14 @@ def _source_label(ctx: Any, document_id: str) -> str:
 
 
 def render_report(ws: Workspace, run_id: str, *, draft: bool = False) -> ReportResult:
-    """Render the report, refusing publication when the gates are not clear."""
-    ctx = build_context(ws, run_id)
+    """Render the report, refusing publication when the gates are not clear.
+
+    The gate itself lives in `gate.py` because `research export` must apply exactly the same one —
+    a CSV that a report would have refused to publish is still a published claim.
+    """
+    ctx, validation, blocking, eligible = open_for_output(ws, run_id, draft=draft,
+                                                          command="report")
     run_dir = safe_join(ws.root, "runs", run_id)
-
-    validation_path = run_dir / "validation" / "validation-result.json"
-    validation: dict[str, Any] | None = None
-    if validation_path.is_file():
-        validation = read_artifact(validation_path, expect_schema="ValidationResult")
-
-    if validation is None:
-        if not draft:
-            raise ReportGatingError(
-                "this run has not been validated; publication requires a validation result",
-                detail={"hint": f"run `research validate {run_id}` first, "
-                                f"or `research report {run_id} --draft`"})
-        blocking = [{"check": "validation", "status": "not_evaluated",
-                     "detail": "the run has never been validated"}]
-        eligible = False
-    else:
-        blocking = list(validation.get("blocking_errors", []))
-        eligible = bool(validation.get("report_eligible"))
-
-    if not eligible and not draft:
-        raise ReportGatingError(
-            f"publication is blocked by {len(blocking)} gate(s); refusing to generate a report",
-            detail={
-                "run_id": run_id,
-                "blocking": [{"check": b["check"], "status": b["status"],
-                              "detail": b.get("detail", "")} for b in blocking],
-                "hint": "fix the blocking artifacts, or use --draft for a clearly-marked draft",
-            })
-
-    # THE VERDICT MUST BE ABOUT THESE ARTIFACTS.
-    #
-    # `eligible` above is a boolean read out of a file. Everything below re-reads `claims/` and
-    # `evidence/` from disk through `ctx`. Nothing connected the two, so a claim written after
-    # `research validate` was published having never been validated, and one deleted afterwards
-    # disappeared from a report that still asserted it rested on that evidence.
-    #
-    # A draft is exempt: a draft is explicitly a picture of the run as it stands now, and it is
-    # marked as one.
-    if not draft:
-        differences = compare_inputs((validation or {}).get("validated_inputs"),
-                                     validated_inputs(ctx))
-        if differences:
-            raise ReportGatingError(
-                "the artifacts on disk are not the artifacts that were validated; refusing to "
-                "publish a verdict that was computed over something else",
-                detail={
-                    "run_id": run_id,
-                    "differences": differences[:20],
-                    "hint": f"re-run `research validate {run_id}`, or use --draft",
-                })
-        if ctx.load_errors:
-            raise ReportGatingError(
-                f"{len(ctx.load_errors)} artifact(s) could not be loaded now, so the report would "
-                f"silently omit them",
-                detail={"run_id": run_id, "load_errors": ctx.load_errors[:10],
-                        "hint": f"re-run `research validate {run_id}`, or use --draft"})
 
     # ---- assemble the view -------------------------------------------------------
     evidence_by_id = ctx.evidence_by_id()

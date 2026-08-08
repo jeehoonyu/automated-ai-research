@@ -6,6 +6,41 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added — `research export`, so a finished run can leave the tool
+`GOAL.md` has carried this since Goal 7: *"A finished run produces Markdown. Research that cannot be
+cited elsewhere stays in the tool."* Three CSVs, written to `runs/<id>/export/`:
+
+- `claims.csv` — every claim with its classification, evidence ids, confidence factors and hash
+- `evidence.csv` — every locator, quote, and **the claims resting on it**; that reverse index has to
+  be built here or not at all, since claims point at evidence and never the other way
+- `citations.csv` — every document the run actually **cited**, not every document imported. The
+  corpus holds what you gave it; the run rests on what it used, and exporting the former would
+  overstate what the conclusions stand on — the same error as counting a related source as support.
+
+**Export passes the same gate as publication**, which meant first lifting that gate out of
+`render_report` into `reporting/gate.py`. Copying it would have created a second answer to one
+question — the mistake this repository names as two hosts with two sets of rules. A CSV circulates
+more easily than a report and is easier to paste into something else, so `--format claims` must not
+become a route for conclusions `research report` refused to print. `--draft` writes
+`report_eligible=false` into every **row**, not just the filename: a filename is lost the moment
+someone opens the file in a spreadsheet.
+
+**There is no BibTeX or CSL output, and that is a decision rather than a gap.** Probing settled it
+before any code was written: the fixture PDFs carry `metadata={}`, and what a real one carries is
+`/Title`, `/Author` and `/CreationDate` — attacker-controlled strings naming whoever made the *file*
+(often a typesetter or a scanner) and when the file was made. Using `/CreationDate` as a publication
+year is wrong for anything scanned after publication. Journal, volume and DOI are not extracted at
+all, and `@article` asserts a journal publication nothing here has checked. A generated `.bib` would
+look like a citation and be a guess. `citations.csv` carries what is actually known, with a
+`title_source` column recording whether each title came from PDF metadata or from the filename.
+
+Mutation caught two tests passing for the wrong reason. `complete_run` holds one claim and one
+evidence record, so row ordering and the title-source branches were unobservable through it: a
+mutant that stopped sorting and one that labelled every title `pdf_metadata_title_unverified` both
+survived. Both now have direct tests over several out-of-order items, including the case where a
+cited document is missing from the workspace — it must still be listed, because a citation table
+that silently drops what it cannot describe understates what the run rested on.
+
 ### Fixed — the event log is now replayed as a chain, not a bag of legal edges
 `lifecycle_transitions_valid` judged each event alone. Deleting the one line recording that
 `retrieval` was ever accepted left:

@@ -86,6 +86,29 @@ and ten cases that must refuse — found no other crash and no refusal that wron
 `inspect` was isolated rather than systemic. That sweep is now
 `tests/integration/test_cli_surface.py`.
 
+### Tier 1c — nothing left the tool — **done 2026-08-07**
+
+Goal 7 item 9 has said since it was written: *"A finished run produces Markdown. No BibTeX, no
+CSL-JSON, no CSV of claims and their evidence. Research that cannot be cited elsewhere stays in the
+tool."* `research export` closes it, in the shape the corpus actually supports:
+
+- Three CSVs — claims, evidence, citations — through **the same gate as publication**, which meant
+  first extracting that gate out of `render_report` into `reporting/gate.py`. Copying it would have
+  created a second answer to one question, and a CSV circulates more easily than a report.
+- `--draft` writes `report_eligible=false` into every **row**, not just the filename, because a
+  filename is lost the moment someone opens the file in a spreadsheet.
+
+**And no BibTeX or CSL, decided rather than deferred.** Probing first is what settled it: the
+fixture PDFs carry `metadata={}`, and what a real one carries is `/Title`, `/Author` and
+`/CreationDate` — attacker-controlled strings naming whoever made the *file*, and when the file was
+made. Journal, volume and DOI are not extracted at all. A generated `.bib` would look like a
+citation and be a guess, which is the one thing this package exists to refuse. `citations.csv`
+carries what is known plus a `title_source` column naming its own provenance.
+
+Mutation found two tests passing for the wrong reason: `complete_run` holds one claim and one
+evidence record, so row ordering and the title-source branches were unobservable through it. Both
+now have direct tests over several out-of-order items.
+
 ### Tier 2 — decided against, and why it is recorded rather than deferred
 
 A `Measurement` artifact with its own locator kind would make this a different tool: it would need

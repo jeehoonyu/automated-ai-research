@@ -21,6 +21,7 @@ import click
 from . import __version__
 from .config import load_workspace
 from .errors import Envelope, ResearchError
+from .reporting.export import FORMATS as EXPORT_FORMATS
 from .workspace import init_workspace
 
 _JSON_OPT = click.option("--json", "as_json", is_flag=True,
@@ -541,6 +542,48 @@ def cmd_report(run_id: str, draft: bool, workspace_path: str | None, as_json: bo
           f"validated classification"] if result.overstatements else [])))
 
 
+@main.command("export")
+@click.argument("run_id")
+@click.option("--format", "fmt", type=click.Choice(list(EXPORT_FORMATS)), default="claims",
+              show_default=True, help="Which table to write.")
+@click.option("--draft", is_flag=True,
+              help="Export before validation passes. Every row carries report_eligible=false.")
+@_WS_OPT
+@_JSON_OPT
+def cmd_export(run_id: str, fmt: str, draft: bool, workspace_path: str | None,
+               as_json: bool) -> None:
+    """Write a validated run as CSV, for tools that are not this one.
+
+    There is no BibTeX or CSL output, deliberately: this package holds a filename, a PDF's
+    unverified `/Title` and `/Author` strings, and a hash — not a bibliography. See the module
+    docstring in `research/reporting/export.py`.
+    """
+    from .reporting.export import export_run
+
+    env = Envelope(command="export")
+    try:
+        ws = load_workspace(workspace_path)
+        result = export_run(ws, run_id, fmt=fmt, draft=draft)
+    except ResearchError as exc:
+        env.status = "blocked" if exc.category == "report_gating_failure" else "failed"
+        env.errors.append(exc.to_dict())
+        _emit(env, as_json, human=f"research export: {exc.message}")
+
+    env.data = {
+        "run_id": result.run_id, "format": result.fmt, "draft": result.draft,
+        "path": result.path, "row_count": result.row_count,
+    }
+    if result.draft:
+        env.status = "partial"
+        env.warn("draft_export",
+                 "this run has not passed validation; every row records report_eligible=false")
+    _emit(env, as_json, human="\n".join([
+        f"{'DRAFT ' if result.draft else ''}{result.fmt} exported",
+        f"  path        {result.path}",
+        f"  rows        {result.row_count}",
+    ]))
+
+
 @main.command("next")
 @click.argument("run_id")
 @_WS_OPT
@@ -872,7 +915,7 @@ def cmd_doctor(workspace_path: str | None, as_json: bool) -> None:
     """Report what this build can actually do. Used by the honesty test."""
     env = Envelope(command="doctor")
     implemented = ["init", "import", "index", "search", "run", "status", "inspect",
-                   "validate", "report", "ui", "project", "amend", "next"]
+                   "validate", "report", "ui", "project", "amend", "next", "export"]
     pending: list[str] = []
     ws: dict[str, Any] | None = None
     try:

@@ -126,6 +126,32 @@ research ui       --workspace ~/my-research --open
 
 `research report` exits 5 and refuses if any gate blocks. **That refusal is the product working.**
 
+### Getting it out again
+
+```bash
+research export <run-id> --format claims     --workspace ~/my-research
+research export <run-id> --format evidence   --workspace ~/my-research
+research export <run-id> --format citations  --workspace ~/my-research
+```
+
+Three CSVs: every claim with its classification, evidence ids and confidence factors; every piece of
+evidence with its locator, quote and the claims resting on it; every document the run actually cited
+— not every document you imported, which would overstate what the conclusions stand on.
+
+Export passes the **same gate as publication**. A CSV circulates more easily than a report and is
+easier to paste into something else, so `--format claims` must not become a way to distribute
+conclusions `research report` refused to print. `--draft` works and writes `report_eligible=false`
+into every row, because a filename is lost the moment someone opens the file in a spreadsheet.
+
+**There is no BibTeX or CSL output, and that is a decision rather than a gap.** This package holds
+the filename you imported, a PDF's `/Title` and `/Author` strings when the file carries them, and a
+sha256. That is not a bibliography. `/Author` is attacker-controlled metadata naming whoever made
+the *file* — often a typesetter or a scanner; `/CreationDate` is when the file was made, so using it
+as a publication year is wrong for anything scanned after publication; journal, volume and DOI are
+not extracted at all. A generated `.bib` would look like a citation and be a guess. `citations.csv`
+carries what is actually known, and a `title_source` column saying whether each title came from the
+PDF's metadata or from the filename.
+
 ### When a gate needs a person
 
 Two gates cannot be cleared by any agent, deliberately — `ocr_evidence_human_verified` and
