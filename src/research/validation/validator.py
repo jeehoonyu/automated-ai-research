@@ -234,12 +234,23 @@ def check_artifacts_conform(ctx: RunContext) -> CheckResult:
     downstream cost was visible: `render_report` reads `retrieval_log_hash` off these and died with
     a bare KeyError on a run validation had just called publishable.
 
-    Everything the run holds is checked here, so an artifact type added to `build_context` later is
-    covered by being loaded rather than by being remembered.
+    AND `ctx.documents`, which the commit that added `ctx.retrieval` left out while its docstring
+    claimed "everything the run holds is checked here". It was not: nothing else schema-checks a
+    Document manifest — `read_artifact` verifies `schema_name`, `schema_version` and
+    `artifact_hash`, all of which survive a re-stamp — so a manifest carrying an undeclared field
+    and `extraction_status: "definitely_not_a_status"` reported `artifacts_conform_to_schema:
+    passed` and published. An unrecognised extraction status is exactly what the schemas were
+    closed to stop.
+
+    The list is enumerated rather than derived because `RunContext` also holds non-artifact fields
+    (`ws`, `manifest`, `profile_rules`, `load_errors`). Enumeration is why the last two additions
+    were forgotten, so `test_every_loaded_artifact_collection_is_schema_checked` now compares this
+    list against what `build_context` populates.
     """
     bad: list[str] = []
     for artifact in [*ctx.evidence, *ctx.claims, *ctx.reviews, *ctx.review_contexts,
                      *ctx.relationships, *ctx.amendments, *ctx.retrieval,
+                     *ctx.documents.values(),
                      *([ctx.plan] if ctx.plan else [])]:
         try:
             validate_artifact(artifact)
@@ -561,6 +572,7 @@ def check_reviews_bind_to_bytes(ctx: RunContext) -> CheckResult:
     known: dict[str, dict[str, Any]] = {}
     for artifact in [*ctx.claims, *ctx.evidence, *ctx.relationships, *ctx.amendments]:
         known[str(artifact.get("artifact_id"))] = artifact
+    claims_by_id = {str(c.get("artifact_id")): c for c in ctx.claims}
 
     unbound: list[str] = []
     stale: list[str] = []
@@ -583,6 +595,34 @@ def check_reviews_bind_to_bytes(ctx: RunContext) -> CheckResult:
         targets = list(review.get("reviewed_artifact_ids") or [])
         targets += [str(entry.get("claim_id")) for entry in (review.get("per_claim") or [])
                     if entry.get("claim_id")]
+
+        # AND THE EVIDENCE UNDER EVERY CLAIM IT JUDGED.
+        #
+        # Binding the claims was half the job. Both lists above name CLAIMS, so the Evidence was
+        # bound only when a reviewer happened to volunteer its id — and the canonical run in
+        # `tests/integration/conftest.py` does not. That left the quote swappable underneath an
+        # approved claim, and unlike every other hole found today it needed no stale verdict:
+        #
+        #     repoint evidence/<e>.json at a DIFFERENT genuine passage of the same document
+        #     (locator, span_sha256 and exact_text all consistent), keep the evidence_id, re-stamp
+        #     -> fresh `research validate`: report_eligible True, every check passed
+        #     -> published report: claim "The paper reports reduced data movement."
+        #                          quote "The sample consisted of twelve workloads…"
+        #
+        # Every locator still resolved, because they resolved to the new passage. The claim was
+        # untouched, so its hash still matched. The report's own table said
+        # `reviews_bind_to_reviewed_bytes | passed`.
+        #
+        # A claim's text means nothing without the passage under it, so reviewing a claim is
+        # reviewing the pair. Derived from the claim rather than asked of the reviewer, for the
+        # same reason as `per_claim` above: a gate that inspects only what its subject volunteered
+        # is not a gate.
+        for target in list(targets):
+            claim = claims_by_id.get(target)
+            if claim is not None:
+                targets += [str(e) for e in (claim.get("supporting_evidence_ids") or [])]
+                targets += [str(e) for e in (claim.get("contradicting_evidence_ids") or [])]
+
         for target in dict.fromkeys(targets):
             found = known.get(target)
             if found is None:

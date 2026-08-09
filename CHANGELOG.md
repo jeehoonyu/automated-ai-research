@@ -37,6 +37,47 @@ Worth noting how this one hid: `test_cli_surface.py`, written earlier today to s
 class, tested `index` against a *missing workspace* and not against a *present but wrong
 configuration*. A sweep is only as wide as the failures it imagines.
 
+### Fixed — the quote under an approved claim could be swapped, and a fresh validate stayed clean
+The sharpest hole found all day. It survived two earlier attempts to close it, both of which bound
+the **claim** and stopped there.
+
+`reviews_bind_to_reviewed_bytes` collected ids from `reviewed_artifact_ids` and, after the last
+fix, from `per_claim`. Both name claims. The Evidence was bound only when a reviewer volunteered
+its id — and the canonical run in `tests/integration/conftest.py` does not. So:
+
+```
+repoint evidence/<e>.json at a DIFFERENT genuine passage of the same document
+(locator, span_sha256 and exact_text all mutually consistent), keep the id, re-stamp
+
+fresh `research validate` : report_eligible True, every check passed
+published report          : claim  "The paper reports reduced data movement."
+                            quote  "The sample consisted of twelve workloads…"
+```
+
+Every locator resolved, because it resolved to the new passage. The claim was untouched, so its
+hash matched. **No stale-verdict window** — unlike every other gating hole here, this survived a
+full re-validation, and the published report's own table read
+`| reviews_bind_to_reviewed_bytes | passed |`.
+
+A claim's text means nothing without the passage beneath it, so reviewing a claim is reviewing the
+pair. The check now derives the evidence of every claim a review judged, rather than asking the
+reviewer to list it — the same reasoning as `per_claim`, applied one level further down.
+
+### Fixed — `check_artifacts_conform` never schema-checked a Document
+And the docstring added in the commit that fixed the `ctx.retrieval` omission claimed it did:
+*"Everything the run holds is checked here."* It did not hold for `ctx.documents`, which
+`build_context` loads and nothing else validates — `read_artifact` verifies `schema_name`,
+`schema_version` and `artifact_hash`, all of which survive a re-stamp.
+
+A manifest carrying an undeclared field and `extraction_status: "definitely_not_a_status"`
+therefore reported `artifacts_conform_to_schema: passed` and published: an unrecognised extraction
+status reaching a report, which is precisely what closing the schemas was meant to stop.
+
+Enumeration is why this was forgotten twice in one day, so
+`test_every_artifact_collection_build_context_loads_is_schema_checked` now compares the list
+against what `build_context` populates. A new collection has to be consciously included or
+consciously excluded.
+
 ### Fixed — the sources roster un-published runs over documents they never cited
 A false positive introduced by the fix immediately below, found by attacking it within the hour.
 

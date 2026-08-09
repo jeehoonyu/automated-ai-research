@@ -60,10 +60,17 @@ def re_review(meta: dict) -> None:
     whatever is on disk" is exactly the operation that must never be available outside a test.
     """
     claim = json.loads(meta["claim_path"].read_text(encoding="utf-8"))
+    evidence = json.loads(meta["evidence_path"].read_text(encoding="utf-8"))
+    # Keyed by id rather than assuming every entry is the claim: the check requires the evidence
+    # under a reviewed claim too, and a helper that quietly stamped the claim's hash onto the
+    # evidence's id would make every test using it pass against a broken gate.
+    current = {claim["artifact_id"]: claim["artifact_hash"],
+               evidence["artifact_id"]: evidence["artifact_hash"]}
     for path in meta["review_paths"].values():
         review = json.loads(path.read_text(encoding="utf-8"))
         review["reviewed_artifact_hashes"] = {
-            k: claim["artifact_hash"] for k in review["reviewed_artifact_ids"]}
+            k: v for k, v in current.items()
+            if k in review["reviewed_artifact_hashes"] or k in review["reviewed_artifact_ids"]}
         path.write_text(json.dumps(stamp_artifact_hash(review)), encoding="utf-8")
 
 
@@ -141,6 +148,12 @@ def complete_run(tmp_path: Path):
     # promotion stamped something else, which is the one disagreement the check exists to catch.
     claim_hash = json.loads(
         (ws.root / claim_paths[0]).read_text(encoding="utf-8"))["artifact_hash"]
+    # AND THE EVIDENCE UNDER IT. Reviewing a claim is reviewing the pair — a claim's text means
+    # nothing without the passage beneath it — so `reviews_bind_to_reviewed_bytes` requires the
+    # evidence of every claim a review judged. Until it did, the quote could be repointed at a
+    # different genuine passage of the same document and a fresh validate came back clean.
+    evidence_hash = json.loads(
+        (ws.root / evidence_paths[0]).read_text(encoding="utf-8"))["artifact_hash"]
 
     review_paths: dict[str, Path] = {}
     for stage, rtype, filename, extra in (
@@ -160,7 +173,7 @@ def complete_run(tmp_path: Path):
             schema_name="Review", artifact_id=rev, actor_type="host_agent",
             body=dict(review_id=rev, review_type=rtype, run_id=rid,
                       reviewed_artifact_ids=[cid],
-                      reviewed_artifact_hashes={cid: claim_hash},
+                      reviewed_artifact_hashes={cid: claim_hash, eid: evidence_hash},
                       reviewer={"actor_type": "host_agent"},
                       decision="passed", **extra)))
         review_paths[rtype] = ws.root / promoted[0]

@@ -8,6 +8,7 @@ reason.
 
 from __future__ import annotations
 
+import inspect
 import json
 import sys
 from pathlib import Path
@@ -829,6 +830,88 @@ def test_the_report_renders_the_factors_and_the_evidence_type(complete_run):
     assert "Confidence factors" in text
     assert "| evidence_directness | `high` |" in text
     assert "`direct_statement`" in text, "the citation does not say what kind of evidence it is"
+
+
+def test_the_quote_under_an_approved_claim_cannot_be_swapped(complete_run):
+    """The sharpest hole found all day, and it survived the first two attempts to close it.
+
+    Reviews were bound to the CLAIM. Both id sources — `reviewed_artifact_ids` and `per_claim` —
+    name claims, so the Evidence was bound only if a reviewer volunteered its id, and the canonical
+    run does not. Repointing the evidence at a DIFFERENT genuine passage of the same document, with
+    locator, `span_sha256` and `exact_text` all mutually consistent, then re-stamping:
+
+      - every locator resolves, because it resolves to the new passage
+      - the claim is untouched, so its hash still matches
+      - a FRESH validate returns report_eligible True with every check passed
+      - the report publishes: claim "The paper reports reduced data movement.",
+        quote "The sample consisted of twelve workloads…"
+
+    No stale-verdict window, unlike every other gating hole here — this survived a full
+    re-validation. A claim's text means nothing without the passage beneath it, so reviewing a
+    claim is reviewing the pair.
+    """
+    ws, rid, meta = complete_run
+    assert validate_run(ws, rid)["report_eligible"] is True
+
+    text = (ws.root / meta["doc"]["normalized_text_path"]).read_text(encoding="utf-8")
+    ev = json.loads(meta["evidence_path"].read_text(encoding="utf-8"))
+    start = text.index("The sample consisted of twelve workloads")
+    end = min(start + 140, len(text))
+    passage = text[start:end]
+    ev["locator"] = {**ev["locator"], "start_offset": start, "end_offset": end,
+                     "span_sha256": sha256_text(passage)}
+    ev["exact_text"] = passage
+    meta["evidence_path"].write_text(json.dumps(stamp_artifact_hash(ev)), encoding="utf-8")
+
+    result = validate_run(ws, rid)
+    assert _status(result, "text_locators_resolve") == "passed", (
+        "the swap must be internally consistent, or this tests the wrong thing")
+    assert _status(result, "reviews_bind_to_reviewed_bytes") == "failed"
+    assert result["report_eligible"] is False
+
+
+def test_a_document_manifest_that_does_not_conform_cannot_publish(complete_run):
+    """`ctx.documents` was missing from `check_artifacts_conform`, and the docstring added in the
+    same commit that fixed the `ctx.retrieval` omission claimed "everything the run holds is
+    checked here".
+
+    Nothing else schema-checks a Document: `read_artifact` verifies `schema_name`,
+    `schema_version` and `artifact_hash`, all of which survive a re-stamp. So an undeclared field
+    and an unrecognised `extraction_status` published green — the exact thing closing the schemas
+    was supposed to stop.
+    """
+    ws, rid, meta = complete_run
+    assert validate_run(ws, rid)["report_eligible"] is True
+
+    path = next(p for p in (ws.root / "documents" / "manifests").glob("*.json")
+                if json.loads(p.read_text(encoding="utf-8"))["document_id"]
+                == meta["doc"]["document_id"])
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    manifest["smuggled_field"] = "nothing declares this"
+    manifest["extraction_status"] = "definitely_not_a_status"
+    path.write_text(json.dumps(stamp_artifact_hash(manifest)), encoding="utf-8")
+
+    result = validate_run(ws, rid)
+    assert _status(result, "artifacts_conform_to_schema") == "failed"
+    assert result["report_eligible"] is False
+
+
+def test_every_artifact_collection_build_context_loads_is_schema_checked():
+    """Enumeration is why `ctx.retrieval` and then `ctx.documents` were both forgotten.
+
+    `check_artifacts_conform` lists its inputs by hand, which is necessary — `RunContext` also
+    holds `ws`, `manifest`, `profile_rules` and `load_errors`, none of them artifacts. So the list
+    is compared against what `build_context` actually populates, and a new collection has to be
+    consciously included or consciously excluded here.
+    """
+    from research.validation import validator as v
+
+    populated = {"evidence", "claims", "reviews", "review_contexts", "relationships",
+                 "amendments", "retrieval", "documents", "plan"}
+    source = inspect.getsource(v.check_artifacts_conform)
+    missing = [name for name in populated if f"ctx.{name}" not in source]
+    assert not missing, (
+        f"build_context loads {missing} and check_artifacts_conform never validates them")
 
 
 def test_a_retrieval_log_that_is_not_one_cannot_clear_the_provenance_gate(complete_run):

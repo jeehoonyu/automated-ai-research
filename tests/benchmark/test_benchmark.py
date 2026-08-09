@@ -147,8 +147,17 @@ def _reviews(ws, run_dir, rid, cid, *, citation_support="passed",
     # Bound to the claim AS WRITTEN, read back off disk. `_claim` always runs first; a review that
     # names an id without the bytes behind it is not counted (`reviews_bind_to_reviewed_bytes`),
     # which is the whole point of the field.
-    claim_hash = json.loads(
-        (run_dir / "claims" / "c1.json").read_text(encoding="utf-8"))["artifact_hash"]
+    claim = json.loads((run_dir / "claims" / "c1.json").read_text(encoding="utf-8"))
+    claim_hash = claim["artifact_hash"]
+    # Plus the evidence under that claim: reviewing a claim is reviewing the pair, and
+    # `reviews_bind_to_reviewed_bytes` requires both. Read off disk rather than recomputed, so a
+    # fixture that disagreed with what promotion stamped would fail rather than agree with itself.
+    bound = {claim_hash and claim["claim_id"]: claim_hash}
+    for eid in (claim.get("supporting_evidence_ids") or []) + (
+            claim.get("contradicting_evidence_ids") or []):
+        path = run_dir / "evidence" / f"{eid[-12:]}.json"
+        if path.is_file():
+            bound[eid] = json.loads(path.read_text(encoding="utf-8"))["artifact_hash"]
     for rtype, extra in (
         ("contradiction_review", {}),
         ("citation_review", {"per_claim": [{"claim_id": cid, "assessment": "assessed",
@@ -164,7 +173,7 @@ def _reviews(ws, run_dir, rid, cid, *, citation_support="passed",
                        make_artifact(schema_name="Review", artifact_id=r, actor_type="host_agent",
                                      body=dict(review_id=r, review_type=rtype, run_id=rid,
                                                reviewed_artifact_ids=[cid],
-                                               reviewed_artifact_hashes={cid: claim_hash},
+                                               reviewed_artifact_hashes=bound,
                                                reviewer={"actor_type": "host_agent"},
                                                decision="passed", **extra)),
                        root=ws.root)
