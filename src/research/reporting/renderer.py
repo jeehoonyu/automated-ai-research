@@ -189,6 +189,17 @@ def render_report(ws: Workspace, run_id: str, *, draft: bool = False) -> ReportR
         else:
             claims_view.append(view)
 
+    # THE DOCUMENTS THIS RUN CITED, matching the roster the verdict was computed over.
+    #
+    # This listed every manifest in the workspace, so a plain `research import` after the verdict
+    # changed the published report without changing the verdict: "2 document(s) were in scope"
+    # became 3, an OCR disclosure appeared for a document nothing cited, the report bytes changed,
+    # and `validation_result_hash` stayed the same. The Sources section is what a reader takes as
+    # the answer to "what does this rest on", so it has to mean the same thing the gate means.
+    #
+    # The same rule as `citations.csv` and `validated_inputs.sources`: the corpus holds what you
+    # gave it, the run rests on what it used.
+    cited = {str(e.get("document_id")) for e in ctx.evidence}
     documents = [
         {
             "document_id": doc["document_id"],
@@ -197,7 +208,8 @@ def render_report(ws: Workspace, run_id: str, *, draft: bool = False) -> ReportR
             "extraction_status": doc.get("extraction_status", ""),
             "page_count": doc.get("page_count"),
         }
-        for doc in sorted(ctx.documents.values(), key=lambda d: d["document_id"])
+        for doc in sorted((d for d in ctx.documents.values() if d["document_id"] in cited),
+                          key=lambda d: d["document_id"])
     ]
     independence = next(
         ((r.get("review_independence") or {}).get("status", "not_confirmed")

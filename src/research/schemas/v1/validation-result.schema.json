@@ -166,7 +166,9 @@
             "required": [
               "document_id",
               "artifact_hash",
-              "normalized_text_sha256"
+              "normalized_text_sha256",
+              "stored_original_sha256",
+              "renders_sha256"
             ],
             "properties": {
               "document_id": {
@@ -187,6 +189,21 @@
                     "const": ""
                   }
                 ]
+              },
+              "stored_original_sha256": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                  },
+                  {
+                    "const": ""
+                  }
+                ]
+              },
+              "renders_sha256": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
               }
             }
           }

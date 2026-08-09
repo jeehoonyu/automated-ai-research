@@ -37,6 +37,59 @@ Worth noting how this one hid: `test_cli_surface.py`, written earlier today to s
 class, tested `index` against a *missing workspace* and not against a *present but wrong
 configuration*. A sweep is only as wide as the failures it imagines.
 
+### Fixed — evidence from a page that never parsed published with no human gate at all
+The same line, wrong for the second time in one day. It began as a hand-copied
+`("ocr_required", "human_review_required")`; asking `ExtractionStatus.needs_human_review` fixed two
+of the four it missed — and that property names four of the six non-extracted statuses.
+`processing_failed` and `unsupported_format` live under `is_failure`, so evidence declaring either
+fell through **both** branches of `check_ocr_evidence` and cleared `check_confidence_factors`:
+
+```
+extraction_status      confidence_factors  ocr_human_verified  eligible
+partially_extracted    failed              failed              False
+ambiguous              failed              failed              False
+processing_failed      passed              not_applicable      True   <- published
+unsupported_format     passed              not_applicable      True   <- published
+```
+
+The two statuses meaning *the page was never read* were the two that published, with the report
+printing `ocr_dependency | not_applicable` beside the sentence "its evidence rests on a page that
+could not be read cleanly". Reachable without adversarial intent: `worst()` rolls a twenty-page
+document up to `processing_failed` when one page fails to parse, and an agent mirroring the
+document's status onto its evidence gets a green run.
+
+Both gates now ask `is_usable_as_evidence` — `extracted`, and nothing else. Two fixes to one line
+from restating a vocabulary instead of asking the right question of it; the test is parametrised
+over the schema enum so a status added later is covered by existing rather than by being
+remembered.
+
+### Fixed — the roster covered the normalized text and not the bytes beneath it
+`validated_inputs.sources` carried the manifest hash and the normalized text, leaving two streams
+the validator re-hashes outside it. `check_source_hashes` re-hashes `originals/` and its docstring
+says *"Evidence rests on those bytes"* — overwriting the stored PDF after validation changed
+nothing `compare_inputs` could see, so the report published, printing
+`| source_hashes_match | passed |` and the words "to immutable source bytes", while a fresh
+validate over the same bytes failed that check. Page renders, which `check_visual_locators`
+re-hashes for figure evidence, had the identical shape.
+
+**Any stream a check re-hashes and the roster does not is a stale-verdict window by construction.**
+Both are now in, renders folded into one digest per document so a third stream is one line here
+rather than a third field to forget.
+
+### Fixed — the Sources section listed documents the run never cited
+Fallout from scoping the roster to cited documents an hour earlier: the roster meant one thing and
+the rendered report meant another. A plain `research import` after the verdict left the run
+publishable — correctly — while changing the published report: "2 document(s) were in scope"
+became 3, an OCR disclosure appeared for a document nothing cited, the bytes changed, and
+`validation_result_hash` stayed identical. A reader takes the Sources section as the answer to
+"what does this rest on", so it has to mean what the gate means.
+
+### Fixed — half of the confidence-factors branch was guarded by nothing
+Pinning `asserts_support = False` permanently left the suite green. The earlier test covers the
+`False` side; a report telling a `moderately_supported` claim's reader "this claim asserts no level
+of support" is the same untrue sentence mirrored, and only a draft can render it — an eligible run
+has factors, and one without them cannot publish. Both sides are now pinned, and both mutants fail.
+
 ### Fixed — the quote under an approved claim could be swapped, and a fresh validate stayed clean
 The sharpest hole found all day. It survived two earlier attempts to close it, both of which bound
 the **claim** and stopped there.

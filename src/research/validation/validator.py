@@ -956,7 +956,17 @@ def check_ocr_evidence(ctx: RunContext) -> CheckResult:
         declared = _declared_extraction_status(ev)
         if declared is ExtractionStatus.OCR_REQUIRED or from_manifest:
             ocr.append(ev)
-        elif declared is None or declared.needs_human_review or ev.get("human_review_required"):
+        # `needs_human_review` NAMES FOUR OF THE SIX NON-EXTRACTED STATUSES. `processing_failed`
+        # and `unsupported_format` live under `is_failure` instead, so evidence declaring either
+        # fell through both branches and no human gate fired at all — for the two statuses that
+        # mean the page was never successfully read. Reachable without adversarial intent:
+        # `worst()` rolls a twenty-page document up to `processing_failed` when one page fails to
+        # parse, and an agent mirroring the document's status onto its evidence published green.
+        #
+        # The question this gate is actually asking is "may this back a citation without a human
+        # looking?", and the enum already answers it in one place.
+        elif declared is None or not declared.is_usable_as_evidence \
+                or ev.get("human_review_required"):
             unreliable.append(ev)
 
     if not ocr and not unreliable:
@@ -1038,13 +1048,22 @@ SUPPORT_ASSERTING = frozenset({
 def _needs_human_reading(status: Any) -> bool:
     """Did this evidence come off a page that could not be read cleanly?
 
-    Delegates to `ExtractionStatus.needs_human_review`, which is the one place that decides. An
-    unrecognised status counts as needing review: a word this build does not know is not a clean
-    bill of health, and that is how `_extraction_needs_disclosure` in the renderer already treats
-    the same question.
+    Asks `is_usable_as_evidence`, not `needs_human_review`. The first version asked the latter —
+    which was already an improvement on the hand-copied pair it replaced, and still wrong, because
+    `needs_human_review` names four of the six non-extracted statuses. `processing_failed` and
+    `unsupported_format` sit under `is_failure`, so a claim resting on a page that FAILED TO PARSE
+    could rate `ocr_dependency: not_applicable` and publish, with the report printing that rating
+    beside the words "its evidence rests on a page that could not be read cleanly".
+
+    Two fixes to the same line in one day, both from restating a vocabulary instead of asking the
+    right question of it. The right question is `is_usable_as_evidence`: exactly `extracted`, and
+    everything else needs a person.
+
+    An unrecognised status counts as unusable — a word this build does not know is not a clean bill
+    of health, which is how `_extraction_needs_disclosure` in the renderer already treats it.
     """
     try:
-        return ExtractionStatus(str(status)).needs_human_review
+        return not ExtractionStatus(str(status)).is_usable_as_evidence
     except ValueError:
         return True
 
@@ -1478,6 +1497,48 @@ CHECKS = [
 ]
 
 
+def _source_entry(ctx: RunContext, doc_id: str) -> dict[str, Any]:
+    """Every byte-stream a check re-hashes for this document, digested as it stands now.
+
+    THE ROSTER MUST COVER WHAT THE CHECKS COVER. The first version carried the manifest hash and
+    the normalized text, which left two streams the validator re-hashes outside it:
+
+      originals     `check_source_hashes` re-hashes `originals/` and its docstring says "Evidence
+                    rests on those bytes". Overwriting the stored PDF after validation changed
+                    nothing the roster could see, so the report published — printing
+                    `| source_hashes_match | passed |` and the sentence "to immutable source
+                    bytes" — while a fresh validate over the same bytes failed that very check.
+      page renders  `check_visual_locators` re-hashes the PNG a `visual_region` locator cites.
+                    Same shape, for figure evidence.
+
+    A stream a check re-hashes and the roster does not is a stale-verdict window, by construction.
+    Rather than list two more fields and wait for a third to be forgotten, every render is folded
+    into one digest alongside the original, so adding a stream means adding it here once.
+    """
+    doc = ctx.documents[doc_id]
+    stored = ctx.ws.root / str(doc.get("stored_original", ""))
+    text = ctx.normalized_text(doc_id)
+
+    # Sorted by path so the digest does not depend on manifest ordering. A render whose file is
+    # gone contributes its absence rather than being skipped, which is the difference between
+    # "nothing to see" and "something was removed".
+    renders = []
+    for page in doc.get("pages", []):
+        render = page.get("render")
+        if not render:
+            continue
+        path = ctx.ws.root / str(render.get("path", ""))
+        renders.append((str(render.get("path")),
+                        sha256_file(path) if path.is_file() else ""))
+    return {
+        "document_id": doc_id,
+        "artifact_hash": str(doc.get("artifact_hash")),
+        "normalized_text_sha256": sha256_text(text) if text is not None else "",
+        "stored_original_sha256": sha256_file(stored) if stored.is_file() else "",
+        "renders_sha256": sha256_text(canonical_json(sorted(renders))),
+    }
+
+
 def validated_inputs(ctx: RunContext) -> dict[str, Any]:
     """Name every artifact this verdict was computed over.
 
@@ -1533,16 +1594,9 @@ def validated_inputs(ctx: RunContext) -> dict[str, Any]:
         # left alone: it fails CLOSED, which is the safe direction, whereas rostering everything
         # failed open in the sense that mattered — it made a real refusal indistinguishable from
         # noise.
-        "sources": [
-            {
-                "document_id": doc_id,
-                "artifact_hash": str(ctx.documents[doc_id].get("artifact_hash")),
-                "normalized_text_sha256": (
-                    sha256_text(text) if (text := ctx.normalized_text(doc_id)) is not None else ""),
-            }
-            for doc_id in sorted({str(e.get("document_id")) for e in ctx.evidence}
-                                 & set(ctx.documents))
-        ],
+        "sources": [_source_entry(ctx, doc_id)
+                    for doc_id in sorted({str(e.get("document_id")) for e in ctx.evidence}
+                                         & set(ctx.documents))],
         "load_error_count": len(ctx.load_errors),
     }
     body["inputs_hash"] = sha256_text(canonical_json(body))
@@ -1577,15 +1631,22 @@ def compare_inputs(recorded: dict[str, Any] | None,
         diffs += [f"a cited source document is gone since validation: {d}"
                   for d in sorted(set(was_src) - set(now_src))]
         for doc_id in sorted(set(was_src) & set(now_src)):
-            if was_src[doc_id]["artifact_hash"] != now_src[doc_id]["artifact_hash"]:
-                diffs.append(f"a source document's manifest changed since validation: {doc_id}")
-            elif (was_src[doc_id]["normalized_text_sha256"]
-                  != now_src[doc_id]["normalized_text_sha256"]):
-                # The manifest is untouched and the text underneath it is not. This is the case
-                # nothing caught: every locator into this document now resolves against different
-                # bytes than the ones that were judged.
-                diffs.append(f"the text citations resolve against changed since validation: "
-                             f"{doc_id}")
+            # Each stream reported separately, because "which bytes moved" is the whole question a
+            # reader has when a publication is refused. `.get` on the newer fields so a verdict
+            # written between the two versions of this roster degrades to the older comparison
+            # rather than raising.
+            for field, what in (
+                ("artifact_hash", "a source document's manifest changed since validation"),
+                ("normalized_text_sha256",
+                 "the text citations resolve against changed since validation"),
+                ("stored_original_sha256",
+                 "a stored original no longer hashes to what it did at validation"),
+                ("renders_sha256",
+                 "a page render a citation points at changed since validation"),
+            ):
+                if was_src[doc_id].get(field) != now_src[doc_id].get(field):
+                    diffs.append(f"{what}: {doc_id}")
+                    break
 
     if recorded.get("load_error_count") != current["load_error_count"]:
         diffs.append(f"load errors changed: {recorded.get('load_error_count')} -> "

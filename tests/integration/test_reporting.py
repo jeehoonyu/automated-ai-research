@@ -114,6 +114,31 @@ def test_a_published_report_never_tells_the_reader_it_is_a_draft(complete_run):
         "it must say why there are no ratings, not merely omit them")
 
 
+def test_a_draft_of_a_SUPPORTED_claim_with_no_factors_says_it_is_blocked(complete_run):
+    """The other half of the branch, which nothing guarded.
+
+    `test_a_published_report_never_tells_the_reader_it_is_a_draft` pins the `asserts_support ==
+    False` side. Setting the flag permanently False left the suite green — and a report telling a
+    `moderately_supported` claim's reader "this claim asserts no level of support" is the same
+    untrue sentence, mirrored. Only a draft can render it: an eligible run has factors, and one
+    without them cannot publish.
+    """
+    ws, rid, meta = complete_run
+    claim = json.loads(meta["claim_path"].read_text(encoding="utf-8"))
+    assert claim["support_classification"] == "moderately_supported"
+    claim["confidence_factors"] = {}
+    meta["claim_path"].write_text(json.dumps(stamp_artifact_hash(claim)), encoding="utf-8")
+    re_review(meta)
+
+    result = validate_run(ws, rid)
+    assert result["report_eligible"] is False, "no factors on a supported claim must block"
+    body = _read(render_report(ws, rid, draft=True).report_path)
+
+    assert "is not\npublishable" in body or "not publishable" in body.replace("\n", " ")
+    assert "asserts no level of support" not in body, (
+        "a claim classified moderately_supported was told it asserts none")
+
+
 def test_a_draft_does_not_overwrite_the_published_report_manifest(complete_run):
     """`report_path` branched on `draft` and the MANIFEST path did not.
 
@@ -439,6 +464,45 @@ def test_a_report_cannot_publish_when_the_cited_TEXT_changed(complete_run):
                for d in exc.value.detail["differences"]), exc.value.detail
 
 
+def test_a_report_cannot_publish_when_the_stored_ORIGINAL_changed(complete_run):
+    """`check_source_hashes` re-hashes `originals/` and its docstring says "Evidence rests on those
+    bytes" — and the roster did not carry them.
+
+    So overwriting the stored PDF after validation changed nothing `compare_inputs` could see. The
+    report published, printing `| source_hashes_match | passed |` and the sentence "to immutable
+    source bytes", while a fresh validate over the same bytes failed that very check. Any stream a
+    check re-hashes and the roster does not is a stale-verdict window by construction.
+    """
+    ws, rid, meta = complete_run
+    _publishable(ws, rid)
+
+    original = ws.root / meta["doc"]["stored_original"]
+    original.write_bytes(original.read_bytes() + b"\n% appended after validation\n")
+
+    with pytest.raises(ReportGatingError) as exc:
+        render_report(ws, rid)
+    assert any("stored original" in d for d in exc.value.detail["differences"]), (
+        exc.value.detail["differences"])
+
+
+def test_a_report_cannot_publish_when_a_cited_PAGE_RENDER_changed(complete_run):
+    """The same hole for figure evidence: `check_visual_locators` re-hashes the PNG a
+    `visual_region` locator cites, and the roster did not carry it either. Folded into one digest
+    per document so a third stream means one more line here, not a third field to forget."""
+    ws, rid, meta = complete_run
+    _publishable(ws, rid)
+
+    render = next((p for p in (ws.root / "documents" / "renders").rglob("*.png")), None)
+    if render is None:
+        pytest.skip("this fixture's documents produced no page renders")
+    render.write_bytes(render.read_bytes() + b"appended")
+
+    with pytest.raises(ReportGatingError) as exc:
+        render_report(ws, rid)
+    assert any("page render" in d for d in exc.value.detail["differences"]), (
+        exc.value.detail["differences"])
+
+
 def test_a_report_cannot_publish_when_a_cited_document_is_gone(complete_run):
     """The other half: deleting a manifest produced no load error either, because nothing loaded
     it as a run artifact. The citation table then exported blank identifying data under a
@@ -478,8 +542,19 @@ def test_importing_an_unrelated_document_does_not_unpublish_a_finished_run(
 
     import_paths(ws, [build(tmp_path / "unrelated-src")["low_text_pdf"]])
 
+    before = _read(render_report(ws, rid).report_path)
     assert render_report(ws, rid).draft is False, (
         "an import the run does not cite un-published it")
+
+    # AND THE REPORT MUST NOT HAVE CHANGED EITHER. Scoping the roster to cited documents while the
+    # Sources section still listed every manifest turned this into a quieter version of the same
+    # defect: the run stayed publishable, and the published report gained a document, a scope
+    # count and an OCR disclosure — under an unchanged validation_result_hash. A reader takes the
+    # Sources section as the answer to "what does this rest on", so it has to mean what the gate
+    # means.
+    assert "1 document(s) were in scope" in before, before[:400]
+    assert "unreadable" not in before, (
+        "a document the run never cited put a disclosure in its report")
 
 
 def test_a_verdict_from_before_source_tracking_says_so(complete_run):
@@ -583,14 +658,27 @@ def test_a_validation_result_naming_no_artifacts_cannot_publish(complete_run):
 # appeared, so the OCR disclosure could have been deleted and every test would still have passed.
 
 
-def test_the_ocr_disclosure_appears_when_a_document_has_unreadable_pages(complete_run, tmp_path):
-    from research.importers.importer import import_paths
+def test_the_ocr_disclosure_appears_when_a_document_has_unreadable_pages(complete_run):
+    """The disclosure is about a document the run CITES.
 
+    This used to import a scan-heavy PDF into the workspace and expect the disclosure to appear —
+    which it did, because the Sources section listed every manifest present rather than the ones
+    the run rested on. That was the defect, not the fixture: an unrelated import changed a
+    published report while its verdict stayed identical. The document under test is now the one
+    the evidence actually cites.
+
+    `ocr_required_pages` names page 2 deliberately; the evidence is on page 1, so this exercises
+    the disclosure without also tripping `ocr_evidence_human_verified`.
+    """
     ws, rid, meta = complete_run
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from fixtures.make_fixtures import build
+    path = next(p for p in (ws.root / "documents" / "manifests").glob("*.json")
+                if json.loads(p.read_text(encoding="utf-8"))["document_id"]
+                == meta["doc"]["document_id"])
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    manifest["extraction_status"] = "partially_extracted"
+    manifest["ocr_required_pages"] = [2]
+    path.write_text(json.dumps(stamp_artifact_hash(manifest)), encoding="utf-8")
 
-    import_paths(ws, [build(tmp_path / "ocr-src")["low_text_pdf"]])
     validate_run(ws, rid)
     result = render_report(ws, rid, draft=True)
 

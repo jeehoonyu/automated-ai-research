@@ -39,6 +39,17 @@ def _status(result, check: str) -> str:
     return next(c["status"] for c in result["checks"] if c["check"] == check)
 
 
+
+def enum_of(schema: str, *path: str) -> set[str]:
+    """The enum at `path` in a shipped schema, read at runtime rather than copied here."""
+    import research
+    node = json.loads(
+        (Path(research.__file__).resolve().parent / "schemas" / "v1" / schema)
+        .read_text(encoding="utf-8"))
+    for part in path:
+        node = node["properties"][part]
+    return set(node["enum"])
+
 def _detail(result, check: str) -> str:
     return next(c.get("detail", "") for c in result["checks"] if c["check"] == check)
 
@@ -977,6 +988,48 @@ def test_not_applicable_ocr_dependency_is_refuted_for_every_unreadable_status(st
     assert result.blocks is must_block, f"{status}: status={result.status} — {result.detail}"
     if must_block:
         assert "ocr_dependency" in result.detail
+
+
+@pytest.mark.parametrize("status", sorted(
+    s for s in enum_of("evidence.schema.json", "extraction_status") if s != "extracted"))
+def test_no_unextracted_status_may_rate_ocr_dependency_not_applicable(status):
+    """EVERY non-extracted status, derived from the schema rather than listed here.
+
+    This line has now been wrong twice in one day. It began as a hand-copied
+    `("ocr_required", "human_review_required")`; asking `needs_human_review` fixed two of the four
+    it was missing and still missed `processing_failed` and `unsupported_format`, which live under
+    `is_failure`. Those are the two that mean the page was never read at all — and no human gate
+    fired for them either, so a claim resting on an unparseable page published with
+    `ocr_dependency | not_applicable` printed in the report.
+
+    Parametrising over the enum is the point: a status added later is covered by existing, not by
+    someone remembering. The question both gates actually ask is `is_usable_as_evidence`, which is
+    `extracted` and nothing else.
+    """
+    from research.validation.validator import check_confidence_factors
+
+    ctx = _ctx(
+        evidence=[{"evidence_id": "EVD-a", "extraction_status": status,
+                   "locator": {"type": "text_span"}}],
+        claims=[{"claim_id": "CLM-1", "support_classification": "moderately_supported",
+                 "supporting_evidence_ids": ["EVD-a"],
+                 "confidence_factors": {"evidence_directness": "high",
+                                        "ocr_dependency": "not_applicable"}}])
+    result = check_confidence_factors(ctx)
+    assert result.blocks is True, f"{status}: {result.status} — {result.detail}"
+
+
+@pytest.mark.parametrize("status", ["processing_failed", "unsupported_format"])
+def test_evidence_from_a_page_that_never_parsed_needs_a_human(status):
+    """The other gate that missed the same pair. `check_ocr_evidence` bucketed on
+    `needs_human_review`, so evidence declaring a parse failure fell through both branches and no
+    human gate fired at all — unlike `ambiguous` or `partially_extracted`, which were caught."""
+    from research.validation.validator import check_ocr_evidence
+
+    ctx = _ctx(evidence=[{"evidence_id": "EVD-a", "document_id": "DOC-1",
+                          "extraction_status": status, "locator": {"type": "text_span"}}])
+    result = check_ocr_evidence(ctx)
+    assert result.blocks is True, f"{status}: {result.status} — {result.detail}"
 
 
 def test_an_unrecognised_extraction_status_is_treated_as_unreadable():

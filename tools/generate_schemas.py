@@ -470,12 +470,22 @@ SCHEMAS["validation-result"] = schema(
                     "type": "array",
                     "items": {
                         "type": "object",
-                        "required": ["document_id", "artifact_hash", "normalized_text_sha256"],
+                        "required": ["document_id", "artifact_hash", "normalized_text_sha256",
+                                     "stored_original_sha256", "renders_sha256"],
                         "properties": {
                             "document_id": DOC_ID,
                             "artifact_hash": SHA,
-                            "normalized_text_sha256": {
-                                "anyOf": [SHA, {"const": ""}]},
+                            # Every byte-stream a check re-hashes. A stream a check re-hashes and
+                            # the roster does not is a stale-verdict window by construction: the
+                            # originals were missing here first, so `check_source_hashes` could
+                            # fail on a fresh validate while the report published regardless.
+                            # An empty string means the file was absent, which is reported rather
+                            # than skipped.
+                            "normalized_text_sha256": {"anyOf": [SHA, {"const": ""}]},
+                            "stored_original_sha256": {"anyOf": [SHA, {"const": ""}]},
+                            # One digest over every page render of this document, so adding a
+                            # stream later means adding it in one place rather than three.
+                            "renders_sha256": SHA,
                         },
                     },
                 },
