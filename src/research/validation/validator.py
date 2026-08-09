@@ -617,11 +617,17 @@ def check_reviews_bind_to_bytes(ctx: RunContext) -> CheckResult:
         # reviewing the pair. Derived from the claim rather than asked of the reviewer, for the
         # same reason as `per_claim` above: a gate that inspects only what its subject volunteered
         # is not a gate.
+        # WHY each id is here, kept alongside it. A reviewer that named a claim did not "review"
+        # the evidence id this loop derived from it, and telling them they did is how a refusal
+        # becomes unactionable — see the message below.
+        derived_from: dict[str, str] = {}
         for target in list(targets):
             claim = claims_by_id.get(target)
             if claim is not None:
-                targets += [str(e) for e in (claim.get("supporting_evidence_ids") or [])]
-                targets += [str(e) for e in (claim.get("contradicting_evidence_ids") or [])]
+                for e in ((claim.get("supporting_evidence_ids") or [])
+                          + (claim.get("contradicting_evidence_ids") or [])):
+                    targets.append(str(e))
+                    derived_from.setdefault(str(e), target)
 
         for target in dict.fromkeys(targets):
             found = known.get(target)
@@ -630,7 +636,20 @@ def check_reviews_bind_to_bytes(ctx: RunContext) -> CheckResult:
                                f"this run")
                 continue
             if target not in recorded:
-                unbound.append(f"{rid}: reviewed {target} without recording the hash it read")
+                # SAY WHERE THE REQUIREMENT CAME FROM. "reviewed X without recording the hash it
+                # read" is true of an id the reviewer listed and false of one derived here — and
+                # for a whole afternoon this printed the second case in the first case's words,
+                # about evidence ids no review had ever mentioned, while the work packet still
+                # told agents to bind `reviewed_artifact_ids` alone. A refusal that describes an
+                # act the operator did not perform, for a requirement no instruction states, is
+                # not a refusal anyone can act on.
+                origin = derived_from.get(target)
+                unbound.append(
+                    f"{rid}: reviewed {origin} but did not record the hash of {target}, the "
+                    f"evidence that claim rests on — reviewing a claim is reviewing the passage "
+                    f"under it, so both belong in reviewed_artifact_hashes"
+                    if origin else
+                    f"{rid}: reviewed {target} without recording the hash it read")
                 continue
             checked += 1
             if recorded[target] != found.get("artifact_hash"):

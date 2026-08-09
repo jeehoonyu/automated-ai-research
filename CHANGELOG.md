@@ -37,6 +37,38 @@ Worth noting how this one hid: `test_cli_surface.py`, written earlier today to s
 class, tested `index` against a *missing workspace* and not against a *present but wrong
 configuration*. A sweep is only as wide as the failures it imagines.
 
+### Fixed — the binding gate was unpassable by the documented workflow
+Found while auditing the previous fix, and the worst kind of false positive there is: the
+documentation says do X, X fails, and nothing says what else to do.
+
+`check_reviews_bind_to_bytes` was widened to require the evidence under every claim a review
+judged. The work packet — the contract a host agent actually reads — was not. It still said
+*"records the artifact_hash of every artifact in `reviewed_artifact_ids`"*. So a review built
+exactly as instructed blocked the run:
+
+```
+packet-compliant review binds : ['CLM-019fe88f-…']
+report_eligible               : False
+detail : REV-…: reviewed EVD-sha256-6ab4d857… without recording the hash it read
+```
+
+The reviewer had never named that evidence id — the check derived it — so the refusal described an
+act the operator did not perform, for a requirement no instruction stated. Nothing in
+`workflow/canonical-workflow.md` or `prompts/` mentioned `reviewed_artifact_hashes` at all.
+
+Three changes, because one would not have been enough:
+
+- the packet now asks for `reviewed_artifact_ids`, `per_claim` claims, **and** the supporting and
+  contradicting evidence of each of those claims;
+- the refusal distinguishes an id the reviewer listed from one derived from a claim, and names
+  both: *"reviewed CLM-… but did not record the hash of EVD-…, the evidence that claim rests on"*;
+- `workflow/canonical-workflow.md` documents the field, with the JSON, and says to copy each hash
+  from the canonical file rather than recompute it — a hash you compute yourself agrees with you
+  rather than with what promotion stamped.
+
+`test_a_review_built_exactly_as_the_packet_says_passes_the_binding_gate` drives the contract rather
+than restating the rule, so widening the gate again without widening the packet fails there.
+
 ### Fixed — evidence from a page that never parsed published with no human gate at all
 The same line, wrong for the second time in one day. It began as a hand-copied
 `("ocr_required", "human_review_required")`; asking `ExtractionStatus.needs_human_review` fixed two

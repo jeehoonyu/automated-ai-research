@@ -925,6 +925,61 @@ def test_every_artifact_collection_build_context_loads_is_schema_checked():
         f"build_context loads {missing} and check_artifacts_conform never validates them")
 
 
+def test_a_review_built_exactly_as_the_packet_says_passes_the_binding_gate(complete_run):
+    """A gate no documented workflow can pass is the worst false positive available.
+
+    `check_reviews_bind_to_bytes` was widened to require the evidence under every claim a review
+    judged, and the work packet was not — it still said "every artifact in
+    reviewed_artifact_ids". A host following that criterion exactly produced a Review the gate
+    refused, and the refusal named an evidence id the packet never mentions:
+
+        REV-…: reviewed EVD-sha256-… without recording the hash it read
+
+    The reviewer had not reviewed that id; the check derived it. The documentation said do X, X
+    failed, and nothing said what else to do.
+
+    This drives the CONTRACT rather than restating the rule: it builds a review from what the
+    packet asks for, and requires that to satisfy the gate. Widening the gate again without
+    widening the packet fails here.
+    """
+    from research.runs.lifecycle import Stage
+    from research.runs.packets import build_packet
+
+    ws, rid, meta = complete_run
+    criterion = next(
+        c for c in build_packet(run_id=rid, stage=Stage.CITATION_REVIEW, question="q",
+                                profile="default", workspace_root=str(ws.root))
+        ["completion_criteria"] if "reviewed_artifact_hashes" in c)
+
+    # What the packet names, verbatim, is what the fixture binds. If either moves, this breaks.
+    for phrase in ("reviewed_artifact_ids", "per_claim", "supporting and contradicting evidence"):
+        assert phrase in criterion, f"the packet no longer asks for {phrase}: {criterion}"
+
+    result = validate_run(ws, rid)
+    assert _status(result, "reviews_bind_to_reviewed_bytes") == "passed", (
+        _detail(result, "reviews_bind_to_reviewed_bytes"))
+
+
+def test_an_unbound_evidence_refusal_says_which_claim_required_it(complete_run):
+    """The refusal has to name the act the operator can take.
+
+    "reviewed EVD-… without recording the hash it read" is true of an id a reviewer listed and
+    false of one derived from a claim — and it printed the second in the first's words.
+    """
+    ws, rid, meta = complete_run
+    for path in meta["review_paths"].values():
+        review = json.loads(path.read_text(encoding="utf-8"))
+        review["reviewed_artifact_hashes"] = {
+            k: v for k, v in review["reviewed_artifact_hashes"].items()
+            if not k.startswith("EVD-")}
+        path.write_text(json.dumps(stamp_artifact_hash(review)), encoding="utf-8")
+
+    detail = _detail(validate_run(ws, rid), "reviews_bind_to_reviewed_bytes")
+    assert meta["claim_id"] in detail, "it must name the claim that required the binding"
+    assert meta["evidence_id"] in detail, "and the evidence it wants bound"
+    assert "reviewing a claim is reviewing the passage under it" in detail
+
+
 def test_a_retrieval_log_that_is_not_one_cannot_clear_the_provenance_gate(complete_run):
     """`ctx.retrieval` was missing from `check_artifacts_conform`.
 

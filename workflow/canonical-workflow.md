@@ -91,6 +91,27 @@ nothing checked the artifact before it landed.
 | **final_validation** | `ValidationResult` | *(performed by the CLI)* |
 | **report** | Markdown + manifest | *(performed by the CLI)* |
 
+### Every `Review` must record the hashes it read
+
+A review names what it judged in `reviewed_artifact_ids` (and, for citation review, `per_claim`).
+Those are **ids**, and ids survive a rewrite — so a review that records only ids keeps saying
+`passed` after the artifact underneath it changes. `reviewed_artifact_hashes` binds the review to
+the bytes:
+
+```json
+"reviewed_artifact_ids":    ["CLM-…"],
+"reviewed_artifact_hashes": {"CLM-…": "sha256:…", "EVD-sha256-…": "sha256:…"}
+```
+
+**Both the claim and the evidence under it.** A claim's text means nothing without the passage
+beneath it, so reviewing a claim is reviewing the pair — bind every claim you judged *and* the
+supporting and contradicting evidence of each. Copy each hash from the canonical file as you read
+it; do not recompute it, because a hash you computed yourself agrees with you rather than with what
+promotion stamped.
+
+Without this, `reviews_bind_to_reviewed_bytes` returns `not_evaluated`, which blocks exactly as a
+failure does — not because the review is wrong, but because nothing can establish what it read.
+
 `synthesis` also accepts `SourceRelationship` artifacts **in the same file, alongside the claims**.
 A `strongly_supported` claim needs its sources assessed for independence, and two documents that turn
 out to be one study republished are not corroboration — unassessed independence blocks rather than

@@ -252,11 +252,19 @@ def build_packet(*, run_id: str, stage: Stage, question: str, profile: str,
     # it per-stage is how a requirement quietly stops applying to the newest case.
     completion_criteria = list(spec["completion_criteria"])
     if "Review" in spec["schemas"]:
+        # THE CONTRACT HAS TO MOVE WHEN THE GATE DOES. This said "every artifact in
+        # reviewed_artifact_ids" while `check_reviews_bind_to_bytes` had already been widened to
+        # require the evidence under every claim judged — so a host following this criterion
+        # exactly produced a Review the gate refused, and the refusal named an id the packet never
+        # mentioned. An unpassable gate is the worst false positive available: the documentation
+        # says do X, X fails, and nothing says what else to do.
         completion_criteria.append(
-            "reviewed_artifact_hashes records the artifact_hash of every artifact in "
-            "reviewed_artifact_ids, copied from the canonical file as read. A review bound only "
-            "to an id keeps saying 'passed' after the artifact is rewritten, so validation cannot "
-            "count it")
+            "reviewed_artifact_hashes records the artifact_hash of everything this review rests "
+            "on, copied from the canonical file as read: every artifact in reviewed_artifact_ids, "
+            "every claim named in per_claim, AND the supporting and contradicting evidence of "
+            "each of those claims. A claim's text means nothing without the passage under it, so "
+            "reviewing a claim is reviewing the pair — bind both, or validation cannot count the "
+            "review at all")
 
     packet: dict[str, Any] = {
         "packet_id": packet_id(),
