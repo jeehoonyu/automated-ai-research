@@ -146,7 +146,19 @@ def is_valid_transition(
         if not has_human_amendment:
             return False, ("human review is required; advancing needs a recorded human amendment "
                            "or review artifact, not a state change")
-    elif not disposition.can_advance:
+    # `validation_failed` DOES NOT BLOCK THE WORK THAT FIXES IT.
+    #
+    # It blocked stage promotion, which made a single exploratory `research validate` mid-run
+    # terminal: validate at phase `planned`, get `validation_failed` for the obvious reason that
+    # the run has not been done yet, and the next `research validate --stage retrieval` is refused
+    # with "run disposition is validation_failed; resolve it before advancing" — with no route to
+    # resolve it, since the run cannot reach the eligible path that writes `active` back.
+    #
+    # The disposition records that the LAST verdict did not clear. Fixing the artifacts and
+    # re-running a stage is exactly the documented response to that, so it cannot be the thing the
+    # response is refused for. `human_review_required` above is the deliberate exception: a person
+    # has to look, and no amount of re-running is a person looking.
+    elif disposition is not Disposition.VALIDATION_FAILED and not disposition.can_advance:
         return False, f"run disposition is {disposition}; resolve it before advancing"
 
     return True, "ok"

@@ -1392,7 +1392,7 @@ def check_run_progressed(ctx: RunContext) -> CheckResult:
         return CheckResult(name, "not_evaluated",
                            f"the manifest records an unknown disposition "
                            f"{ctx.manifest.get('disposition')!r}")
-    if not disposition.can_advance:
+    if _blocks_this_validation(disposition):
         return CheckResult(
             name, "failed",
             f"run reached {current}, but its disposition is {disposition}: "
@@ -1401,6 +1401,32 @@ def check_run_progressed(ctx: RunContext) -> CheckResult:
                else "resolve it before publishing"),
             human_review=disposition is Disposition.HUMAN_REVIEW_REQUIRED)
     return CheckResult(name, "passed", f"run reached {current}")
+
+
+def _blocks_this_validation(disposition: Disposition) -> bool:
+    """Which dispositions a NEW validation must still respect.
+
+    `validation_failed` is not one of them, and treating it as one made the tool's central loop
+    impossible. `_record_verdict` stamps it on any non-eligible run; this check then refused the
+    run for carrying it; and the only write back to `active` lives on the eligible path — which
+    that refusal prevents reaching. So:
+
+        1st validate  reviews_bind_to_reviewed_bytes  not_evaluated   (a real, fixable problem)
+        ...the host fixes exactly what the refusal named...
+        2nd validate  run_reached_a_publishable_phase failed
+                      "its disposition is validation_failed: resolve it before publishing"
+        3rd validate  the same, forever
+
+    Nothing clears it: `--stage final_validation` is CLI-performed, and no amendment type applies.
+    A verdict is a statement about the artifacts as they were; re-reading them is precisely how you
+    find out whether it still holds, so a validation must not refuse on the grounds of its own
+    previous result. `_record_verdict` writes `active` again the moment the gates clear.
+
+    `human_review_required` IS sticky, deliberately and documented: a person has to look, and
+    another validation is not a person looking. `superseded`, `cancelled` and `blocked` are
+    externally imposed and stay.
+    """
+    return disposition is not Disposition.VALIDATION_FAILED and not disposition.can_advance
 
 
 def check_lifecycle(ctx: RunContext) -> CheckResult:

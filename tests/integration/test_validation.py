@@ -30,6 +30,7 @@ from research.identifiers import (  # noqa: E402
 )
 from research.importers.importer import import_paths  # noqa: E402
 from research.indexing.builder import build_index  # noqa: E402
+from research.reporting.renderer import render_report  # noqa: E402
 from research.runs.manager import create_run  # noqa: E402
 from research.validation.validator import validate_run  # noqa: E402
 from research.workspace import init_workspace  # noqa: E402
@@ -923,6 +924,65 @@ def test_every_artifact_collection_build_context_loads_is_schema_checked():
     missing = [name for name in populated if f"ctx.{name}" not in source]
     assert not missing, (
         f"build_context loads {missing} and check_artifacts_conform never validates them")
+
+
+def test_fixing_what_a_refusal_named_and_revalidating_actually_works(complete_run):
+    """The tool's central loop, which no test covered and which did not work.
+
+    `_record_verdict` stamps `validation_failed` on any non-eligible validate;
+    `check_run_progressed` refused a run for carrying it; and the only write back to `active` is on
+    the eligible path that refusal prevents reaching. So:
+
+        1st validate  a real, fixable problem
+        ...fix exactly what the refusal named...
+        2nd validate  "its disposition is validation_failed: resolve it before publishing"
+        3rd validate  the same, forever
+
+    Every earlier test either validated once, or used a fixture that passed first time. Nothing
+    asserted that a run which fails and is then repaired can publish — the single most common
+    thing anyone will do with this tool.
+
+    A verdict is a statement about the artifacts as they were. Re-reading them is how you learn
+    whether it still holds, so a validation must not refuse on the grounds of its own last result.
+    """
+    ws, rid, meta = complete_run
+
+    # Break something real, in the way a host actually gets it wrong: bind the claim, forget the
+    # evidence beneath it.
+    for path in meta["review_paths"].values():
+        review = json.loads(path.read_text(encoding="utf-8"))
+        review["reviewed_artifact_hashes"] = {
+            k: v for k, v in review["reviewed_artifact_hashes"].items() if k.startswith("CLM-")}
+        path.write_text(json.dumps(stamp_artifact_hash(review)), encoding="utf-8")
+
+    first = validate_run(ws, rid)
+    assert first["report_eligible"] is False
+    assert _status(first, "reviews_bind_to_reviewed_bytes") == "not_evaluated"
+
+    re_review(meta)                       # do exactly what the refusal asked
+
+    second = validate_run(ws, rid)
+    assert second["report_eligible"] is True, second["blocking_errors"]
+    assert render_report(ws, rid).draft is False
+
+
+def test_a_curious_validate_midway_does_not_kill_the_run(complete_run):
+    """Running `research validate` before the stages are done is a reasonable thing to do — it is
+    how you find out what is left. It used to be terminal: the run earned `validation_failed` for
+    the obvious reason that it was unfinished, and the lifecycle then refused the very stage
+    promotions that would finish it."""
+    from research.runs.lifecycle import Disposition, Phase, is_valid_transition
+    from research.runs.manager import load_run, transition
+
+    ws, rid, _ = complete_run
+    transition(ws, rid, to_disposition=Disposition.VALIDATION_FAILED,
+               triggered_by="test", reason="an exploratory validate mid-flow")
+    assert load_run(ws, rid)["disposition"] == "validation_failed"
+
+    ok, reason = is_valid_transition(Phase.PLANNED, Phase.RETRIEVED,
+                                     Disposition.VALIDATION_FAILED)
+    assert ok, reason
+    assert validate_run(ws, rid)["report_eligible"] is True
 
 
 def test_a_review_built_exactly_as_the_packet_says_passes_the_binding_gate(complete_run):

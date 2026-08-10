@@ -64,13 +64,15 @@ def re_review(meta: dict) -> None:
     # Keyed by id rather than assuming every entry is the claim: the check requires the evidence
     # under a reviewed claim too, and a helper that quietly stamped the claim's hash onto the
     # evidence's id would make every test using it pass against a broken gate.
+    # BOTH, ALWAYS. An earlier version only refreshed keys already present, which could not
+    # represent "the reviewer read this version" once the gate began DERIVING the evidence
+    # requirement from the claim: a review that had lost its evidence binding could never regain
+    # one, so a test doing the exact repair the refusal asks for still failed.
     current = {claim["artifact_id"]: claim["artifact_hash"],
                evidence["artifact_id"]: evidence["artifact_hash"]}
     for path in meta["review_paths"].values():
         review = json.loads(path.read_text(encoding="utf-8"))
-        review["reviewed_artifact_hashes"] = {
-            k: v for k, v in current.items()
-            if k in review["reviewed_artifact_hashes"] or k in review["reviewed_artifact_ids"]}
+        review["reviewed_artifact_hashes"] = dict(current)
         path.write_text(json.dumps(stamp_artifact_hash(review)), encoding="utf-8")
 
 

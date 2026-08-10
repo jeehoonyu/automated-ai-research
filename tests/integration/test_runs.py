@@ -78,10 +78,24 @@ def test_phases_cannot_move_backwards():
     assert not ok and "backwards" in reason
 
 
-def test_validation_failed_blocks_advancement():
-    ok, reason = is_valid_transition(Phase.VALIDATION_PASSED, Phase.REPORT_ELIGIBLE,
-                                     Disposition.VALIDATION_FAILED)
-    assert not ok and "validation_failed" in reason
+def test_validation_failed_does_not_block_the_work_that_fixes_it():
+    """It used to, and that made the tool's central loop impossible.
+
+    `_record_verdict` stamps `validation_failed` on any non-eligible validate. When the lifecycle
+    also refused to advance such a run, a single exploratory `research validate` mid-flow was
+    terminal — the next `--stage` promotion was refused "resolve it before advancing", with no
+    route to resolve it, because the only write back to `active` is on the eligible path the
+    refusal prevents reaching. Fixing the artifacts and re-running is the documented response to a
+    failed validation, so it cannot be the thing that response is refused for.
+
+    `human_review_required` remains the deliberate exception, asserted below: a person has to look,
+    and re-running is not a person looking.
+    """
+    ok, _ = is_valid_transition(Phase.VALIDATION_PASSED, Phase.REPORT_ELIGIBLE,
+                                Disposition.VALIDATION_FAILED)
+    assert ok
+    ok, _ = is_valid_transition(Phase.PLANNED, Phase.RETRIEVED, Disposition.VALIDATION_FAILED)
+    assert ok, "a stage promotion is how a failed run gets fixed"
 
 
 def test_human_review_required_needs_an_amendment_not_a_state_change():

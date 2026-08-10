@@ -37,6 +37,39 @@ Worth noting how this one hid: `test_cli_surface.py`, written earlier today to s
 class, tested `index` against a *missing workspace* and not against a *present but wrong
 configuration*. A sweep is only as wide as the failures it imagines.
 
+### Fixed — a failed validation was a one-way door, so the tool's central loop did not work
+The most serious defect found in three rounds of auditing, and no test covered the behaviour at
+all.
+
+`_record_verdict` stamps `validation_failed` on any non-eligible validate. `check_run_progressed`
+then refused the run for carrying it. The only write back to `active` lives on the eligible path —
+which that refusal prevents reaching. So the ordinary loop, the single most common thing anyone
+will do with this tool, could not complete:
+
+```
+1st validate  reviews_bind_to_reviewed_bytes  not_evaluated   (a real, fixable problem)
+   manifest: independently_reviewed / validation_failed
+...fix exactly what the refusal named...
+2nd validate  run_reached_a_publishable_phase failed
+              "its disposition is validation_failed: resolve it before publishing"
+3rd validate  the same, forever
+```
+
+Nothing cleared it. `--stage final_validation` is CLI-performed; no amendment type applies;
+`research next` said "resolve what is recorded above", where the only thing recorded was the
+disposition. The same trap caught a run mid-flow: one exploratory `research validate` at phase
+`planned` earned `validation_failed` for the obvious reason that the run was unfinished, and the
+lifecycle then refused the stage promotions that would finish it.
+
+A verdict is a statement about the artifacts as they were, and re-reading them is precisely how you
+learn whether it still holds — so a validation must not refuse on the grounds of its own previous
+result, and a stage promotion must not be refused for the state it exists to repair.
+`human_review_required` remains sticky, deliberately: a person has to look, and re-running is not a
+person looking. `superseded`, `cancelled` and `blocked` are unchanged.
+
+Every earlier test either validated once or used a fixture that passed first time. Two tests now
+drive the loop end to end — break something real, fix what the refusal named, publish.
+
 ### Fixed — the binding gate was unpassable by the documented workflow
 Found while auditing the previous fix, and the worst kind of false positive there is: the
 documentation says do X, X fails, and nothing says what else to do.
