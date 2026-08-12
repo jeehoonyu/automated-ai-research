@@ -37,6 +37,41 @@ Worth noting how this one hid: `test_cli_surface.py`, written earlier today to s
 class, tested `index` against a *missing workspace* and not against a *present but wrong
 configuration*. A sweep is only as wide as the failures it imagines.
 
+### Fixed — one bad byte in a Markdown file published a fabricated number
+The sharpest possible version of what this package exists to prevent. A `.md` saved as latin-1
+imports as `partially_extracted` with a warning, and the undecodable byte becomes U+FFFD. Then:
+
+```
+manifest      partially_extracted, ocr_required_pages []
+cited span    "The trial reported a mortality reduction of 4<FFFD> percent in the treated arm."
+validate      report_eligible True,  ocr_evidence_human_verified not_applicable
+published     "### 1. The trial reported a 41 percent mortality reduction."
+              "> Content that could not be read did not back any claim below unless a human
+                 verification amendment is recorded"
+```
+
+A number that appears nowhere in the source, in a finding, under a sentence asserting the opposite,
+with zero amendments on disk.
+
+The deterministic cross-check in `check_ocr_evidence` is page-based — `ocr_required_pages` matched
+against `evidence_page` — and **Markdown has no pages**. So `evidence_page` correctly returned
+None, the manifest could contribute nothing, and the gate turned entirely on the agent's own
+`extraction_status`, which said `extracted` because the span it copied looked fine. The gate's
+docstring says "the manifest can only ever add"; for Markdown it added nothing at all.
+
+Two signals now, and mutation proved both are needed:
+
+- **U+FFFD in the cited text.** Content-derived rather than declared, which is what makes it
+  usable — an agent cannot label its way out of the bytes it quoted.
+- **The document's own status when nothing can localise it.** A PDF records which pages need OCR,
+  so evidence on a clean page of a partly-bad document stays citable. A document with no page
+  structure offers no such localisation, so its status applies to everything drawn from it.
+
+The natural reproduction trips both at once, so deleting either alone left the suite green. They
+are separated in `test_the_two_new_ocr_signals_are_independently_load_bearing`, alongside a test
+that a clean page of a partly-unreadable PDF is still citable — the false positive the second
+signal must not create.
+
 ### Fixed — a failed validation was a one-way door, so the tool's central loop did not work
 The most serious defect found in three rounds of auditing, and no test covered the behaviour at
 all.

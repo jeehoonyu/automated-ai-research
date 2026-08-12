@@ -973,8 +973,36 @@ def check_ocr_evidence(ctx: RunContext) -> CheckResult:
         from_manifest = (doc is not None and page is not None
                          and page in set(doc.get("ocr_required_pages") or []))
         declared = _declared_extraction_status(ev)
+        # THE BYTES THAT WERE NEVER DECODED, IN THE CITED SPAN ITSELF.
+        #
+        # U+FFFD is what `extraction/markdown.py` substitutes for an undecodable byte, and it is
+        # the one signal here that is content-derived rather than declared. Without it a single
+        # bad byte in a `.md` published a fabricated number:
+        #
+        #     manifest       partially_extracted, ocr_required_pages []
+        #     cited span     "The trial reported a mortality reduction of 4� percent"
+        #     published      "### 1. The trial reported a 41 percent mortality reduction."
+        #                    "> Content that could not be read did not back any claim below"
+        #
+        # The deterministic cross-check below is page-based, and Markdown has no pages — so
+        # `evidence_page` correctly returns None, `ocr_required_pages` is empty, and the manifest
+        # could add nothing. The gate's own docstring says "the manifest can only ever add"; for
+        # Markdown it added nothing at all, and the run turned on the agent's self-report.
+        undecoded = "�" in str(ev.get("exact_text") or "")
+
+        # AND THE DOCUMENT'S OWN STATUS, WHEN NOTHING CAN LOCALISE IT. A PDF records which pages
+        # need OCR, so evidence on a clean page of a partly-bad document is fine and stays fine.
+        # A document with no page structure offers no such localisation, so its status is the only
+        # deterministic record there is, and it applies to everything drawn from it.
+        doc_status = _declared_extraction_status({"extraction_status": (doc or {}).get(
+            "extraction_status", "")}) if doc else None
+        unlocalisable = (doc is not None and not doc.get("page_map")
+                         and doc_status is not None and not doc_status.is_usable_as_evidence)
+
         if declared is ExtractionStatus.OCR_REQUIRED or from_manifest:
             ocr.append(ev)
+        elif undecoded or unlocalisable:
+            unreliable.append(ev)
         # `needs_human_review` NAMES FOUR OF THE SIX NON-EXTRACTED STATUSES. `processing_failed`
         # and `unsupported_format` live under `is_failure` instead, so evidence declaring either
         # fell through both branches and no human gate fired at all — for the two statuses that

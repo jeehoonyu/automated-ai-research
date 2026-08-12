@@ -1134,6 +1134,132 @@ def test_no_unextracted_status_may_rate_ocr_dependency_not_applicable(status):
     assert result.blocks is True, f"{status}: {result.status} — {result.detail}"
 
 
+def test_a_span_containing_an_undecoded_byte_cannot_back_a_claim(tmp_path):
+    """One bad byte in a .md file published a fabricated number.
+
+    A Markdown file saved as latin-1 imports as `partially_extracted` with a warning, and the
+    undecodable byte becomes U+FFFD. But the deterministic cross-check in `check_ocr_evidence` is
+    page-based, and Markdown has no pages — so `evidence_page` returned None, `ocr_required_pages`
+    was empty, and the manifest could add nothing. The gate turned entirely on the agent's own
+    `extraction_status`, which said `extracted`, because the span it copied looked fine.
+
+    What published:
+
+        cited span   "The trial reported a mortality reduction of 4<FFFD> percent"
+        finding      "The trial reported a 41 percent mortality reduction."
+        banner       "Content that could not be read did not back any claim below"
+
+    A number that exists nowhere in the source, under a sentence asserting the opposite, with zero
+    amendments on disk. U+FFFD in the cited text is content-derived rather than declared, which is
+    what makes it usable here — the agent cannot label its way out of it.
+    """
+    from research.artifacts.io import make_artifact
+    from research.config import load_workspace
+    from research.hashing import sha256_text
+    from research.identifiers import evidence_id
+    from research.importers.importer import import_paths
+    from research.validation.validator import RunContext, check_ocr_evidence
+    from research.workspace import init_workspace
+
+    source = tmp_path / "src"
+    source.mkdir()
+    (source / "trial.md").write_bytes(
+        b"# Trial\n\n## Results\n\nA mortality reduction of 4\xff percent was reported.\n")
+    init_workspace(tmp_path / "ws")
+    ws = load_workspace(tmp_path / "ws")
+    out = import_paths(ws, [source / "trial.md"])
+    doc = json.loads(Path(out["manifest_paths"][0]).read_text(encoding="utf-8"))
+    assert doc["extraction_status"] == "partially_extracted"
+    assert doc.get("ocr_required_pages") == [], "Markdown has no pages to flag"
+
+    text = (ws.root / doc["normalized_text_path"]).read_text(encoding="utf-8")
+    start = text.index("A mortality")
+    end = text.index("reported.") + len("reported.")
+    span = text[start:end]
+    assert "�" in span, "the fixture must actually carry an undecoded byte"
+
+    loc = {"type": "text_span", "start_offset": start, "end_offset": end,
+           "span_sha256": sha256_text(span), "page": None}
+    eid = evidence_id(document_version_id_=doc["document_version_id"], locator=loc,
+                      exact_text=span, evidence_type="statistical_result")
+    ev = make_artifact(
+        schema_name="Evidence", artifact_id=eid, actor_type="host_agent",
+        body=dict(evidence_id=eid, document_id=doc["document_id"],
+                  document_version_id=doc["document_version_id"],
+                  evidence_type="statistical_result", locator=loc, exact_text=span,
+                  # The agent declares it clean. That is the whole point: the gate must not
+                  # depend on the subject's self-report.
+                  extraction_status="extracted", human_review_required=False))
+
+    ctx = RunContext(ws=ws, run_id="RUN-x", manifest={"profile": "default"},
+                     evidence=[ev], documents={doc["document_id"]: doc})
+    result = check_ocr_evidence(ctx)
+    assert result.blocks is True, f"{result.status} — {result.detail}"
+
+
+def _doc(**over):
+    base = {"document_id": "DOC-1", "extraction_status": "extracted",
+            "page_map": [{"page_number": 1, "start_offset": 0, "end_offset": 999}],
+            "ocr_required_pages": [], "pages": []}
+    base.update(over)
+    return base
+
+
+def _ev(**over):
+    base = {"evidence_id": "EVD-a", "document_id": "DOC-1", "extraction_status": "extracted",
+            "exact_text": "a clean sentence", "locator": {"type": "text_span"}}
+    base.update(over)
+    return base
+
+
+def test_the_two_new_ocr_signals_are_independently_load_bearing():
+    """Written after mutation showed the first test proved only "at least one of them fires".
+
+    The natural reproduction — a latin-1 Markdown file — trips BOTH signals at once: the span
+    carries U+FFFD *and* the document has no page_map to localise its `partially_extracted` status
+    with. So deleting either one alone left the suite green. Each is separated here.
+    """
+    from research.validation.validator import RunContext, check_ocr_evidence
+
+    def run(doc, ev):
+        return check_ocr_evidence(RunContext(
+            ws=None, run_id="RUN-x", manifest={"profile": "default"},
+            evidence=[ev], documents={"DOC-1": doc}))
+
+    # 1. Undecoded bytes in the span, on a document that IS localisable and reports clean. Only
+    #    the content signal can catch this — the manifest says nothing is wrong.
+    assert run(_doc(), _ev(exact_text="a reduction of 4� percent")).blocks is True
+
+    # 2. A clean span from a document whose status is bad and which has no page structure. Only
+    #    the document signal can catch this. Blocking is the conservative reading and the
+    #    defensible one: without pages there is no way to establish that the undecoded bytes fell
+    #    outside this quotation.
+    assert run(_doc(extraction_status="partially_extracted", page_map=[]), _ev()).blocks is True
+
+    # 3. And neither fires on the ordinary case, or the gate would block every run.
+    assert run(_doc(), _ev()).blocks is False
+
+
+def test_a_clean_page_of_a_partly_unreadable_PDF_is_still_citable():
+    """The false positive the document-level signal must not create.
+
+    A PDF records which pages need OCR, so `worst()` rolling the document up to
+    `partially_extracted` says nothing about page 1. Evidence there stays citable — the
+    localisation exists, so it is used. Only documents with no page structure fall back to the
+    document's own status.
+    """
+    from research.validation.validator import RunContext, check_ocr_evidence
+
+    doc = _doc(extraction_status="partially_extracted", ocr_required_pages=[2],
+               page_map=[{"page_number": 1, "start_offset": 0, "end_offset": 500},
+                         {"page_number": 2, "start_offset": 500, "end_offset": 999}])
+    ev = _ev(locator={"type": "text_span", "start_offset": 10, "end_offset": 40})
+    result = check_ocr_evidence(RunContext(
+        ws=None, run_id="RUN-x", manifest={"profile": "default"},
+        evidence=[ev], documents={"DOC-1": doc}))
+    assert result.blocks is False, f"{result.status} — {result.detail}"
+
+
 @pytest.mark.parametrize("status", ["processing_failed", "unsupported_format"])
 def test_evidence_from_a_page_that_never_parsed_needs_a_human(status):
     """The other gate that missed the same pair. `check_ocr_evidence` bucketed on
